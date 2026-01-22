@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  backend:
+    build: 
+      context: .
+      dockerfile: Dockerfile.backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app/backend
+      - ./worker:/app/worker
+      - ./x_scheduler.db:/app/x_scheduler.db
+    command: uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # worker service might not be distinct in MVP if we invoke it via subprocess/scheduler from backend container,
+  # but keeping it in mind for separation. For MVP, we run everything in 'backend' or locally.

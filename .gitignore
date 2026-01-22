@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+build/
+dist/
+*.egg-info/
+.pytest_cache/
+
+# Databases
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+
+# Project Specific
+backend.log
+worker/cookies.json
+worker/user_info.json
+worker/screenshots/
+uploads/
+
+# Node / Frontend
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.local
+
+# OS
+.DS_Store
+Thumbs.db

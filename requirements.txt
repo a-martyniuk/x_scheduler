@@ -1,0 +1,7 @@
+fastapi==0.109.0
+uvicorn==0.27.0
+sqlalchemy==2.0.25
+apscheduler==3.10.4
+playwright==1.41.1
+python-multipart
+# For better SQLite support if needed, though standard lib is usually fine
