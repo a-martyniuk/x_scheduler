@@ -33,10 +33,9 @@ export function getTimezoneOffset(timezone: string): string {
  * Convert local datetime string to UTC ISO string
  * SIMPLIFIED VERSION - Uses browser's native timezone handling
  * @param localDateTimeString Format: "2026-01-22T09:00" (from datetime-local input)
- * @param timezone IANA timezone string (not used, relies on browser timezone)
  * @returns UTC ISO string: "2026-01-22T12:00:00.000Z"
  */
-export function localToUTC(localDateTimeString: string, timezone: string): string {
+export function localToUTC(localDateTimeString: string): string {
     if (!localDateTimeString) return '';
 
     // The datetime-local input gives us "2026-01-22T09:00"
@@ -52,10 +51,9 @@ export function localToUTC(localDateTimeString: string, timezone: string): strin
  * Convert UTC ISO string to local datetime string for datetime-local input
  * SIMPLIFIED VERSION - Uses browser's native timezone handling
  * @param utcISOString Format: "2026-01-22T12:00:00" or "2026-01-22T12:00:00.000Z"
- * @param timezone IANA timezone string (not used, relies on browser timezone)
  * @returns Local datetime string: "2026-01-22T09:00"
  */
-export function utcToLocal(utcISOString: string, timezone: string): string {
+export function utcToLocal(utcISOString: string): string {
     if (!utcISOString) return '';
 
     // Ensure the string is parsed as UTC

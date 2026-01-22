@@ -54,7 +54,7 @@ export const PostModal: React.FC<PostModalProps> = ({ isOpen, onClose, onSave, p
 
             // Convert UTC from backend to local time for display
             if (post.scheduled_at) {
-                const localTime = utcToLocal(post.scheduled_at, userTimezone);
+                const localTime = utcToLocal(post.scheduled_at);
                 setScheduledAt(localTime);
             } else {
                 setScheduledAt('');
@@ -68,7 +68,7 @@ export const PostModal: React.FC<PostModalProps> = ({ isOpen, onClose, onSave, p
             // For new posts, default to 1 hour from now in local time
             const date = initialDate || new Date();
             date.setMinutes(date.getMinutes() + 60);
-            const localTime = utcToLocal(date.toISOString(), userTimezone);
+            const localTime = utcToLocal(date.toISOString());
             setScheduledAt(localTime);
         }
     }, [post, initialDate, isOpen, userTimezone, accounts]);
@@ -113,7 +113,7 @@ export const PostModal: React.FC<PostModalProps> = ({ isOpen, onClose, onSave, p
 
         if (scheduledAt) {
             // Convert from local time to UTC
-            utcDateString = localToUTC(scheduledAt, userTimezone);
+            utcDateString = localToUTC(scheduledAt);
             newStatus = 'scheduled';
         }
 
