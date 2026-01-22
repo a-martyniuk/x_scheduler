@@ -1,6 +1,7 @@
 import type { Post } from './types';
 
-const API_URL = 'http://127.0.0.1:8000/api/posts';
+const PRODUCTION_URL = 'https://xscheduler-production.up.railway.app';
+const API_URL = `${PRODUCTION_URL}/api/posts`;
 
 export const api = {
     getPosts: async (): Promise<Post[]> => {
@@ -46,7 +47,7 @@ export const api = {
         const formData = new FormData();
         formData.append('file', file);
 
-        const response = await fetch('http://127.0.0.1:8000/api/upload/', {
+        const response = await fetch(`${PRODUCTION_URL}/api/upload/`, {
             method: 'POST',
             body: formData,
         });
@@ -56,11 +57,10 @@ export const api = {
         }
 
         return response.json();
-        return response.json();
     },
 
     login: async (credentials: any): Promise<any> => {
-        const res = await fetch('http://127.0.0.1:8000/api/auth/login', {
+        const res = await fetch(`${PRODUCTION_URL}/api/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(credentials),
@@ -70,7 +70,7 @@ export const api = {
     },
 
     getAuthStatus: async (): Promise<{ accounts: { username: string; connected: boolean; last_connected?: string; is_legacy?: boolean }[] }> => {
-        const res = await fetch('http://127.0.0.1:8000/api/auth/status');
+        const res = await fetch(`${PRODUCTION_URL}/api/auth/status`);
         if (!res.ok) return { accounts: [] };
         return res.json();
     }
