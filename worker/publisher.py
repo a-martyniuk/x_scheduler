@@ -48,17 +48,36 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
         # Fallback to legacy path if no username provided
         cookies_path = os.path.join(WORKER_DIR, "cookies.json")
 
-    if not os.path.exists(cookies_path):
-        return {"success": False, "log": f"cookies.json not found for {username or 'default'}.", "screenshot_path": None, "tweet_id": None}
+    # Check if cookies file exists, if not try environment variable
+    storage_state = None
+    temp_cookies_path = None
+    
+    if os.path.exists(cookies_path) and os.path.getsize(cookies_path) > 2:
+        storage_state = cookies_path
+        log(f"Using cookies from file: {cookies_path}")
+    else:
+        # Try to load from environment variable (for Railway deployment)
+        cookies_json_str = os.environ.get('X_COOKIES_JSON')
+        if cookies_json_str:
+            try:
+                # Create a temporary file with the cookies
+                import tempfile
+                temp_fd, temp_cookies_path = tempfile.mkstemp(suffix='.json', text=True)
+                with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
+                    f.write(cookies_json_str)
+                storage_state = temp_cookies_path
+                log("Using cookies from X_COOKIES_JSON environment variable")
+            except Exception as e:
+                log(f"Failed to load cookies from environment: {e}")
+                return {"success": False, "log": f"Failed to load cookies from environment: {e}", "screenshot_path": None, "tweet_id": None}
+        else:
+            log(f"No cookies found for {username or 'default'}")
+            return {"success": False, "log": f"cookies.json not found and X_COOKIES_JSON not set for {username or 'default'}.", "screenshot_path": None, "tweet_id": None}
 
 
     async with async_playwright() as p:
         # Launch browser (headless=True for background operation)
         browser = await p.chromium.launch(headless=True) 
-        # Use storage_state if it's not a simple empty list
-        storage_state = None
-        if os.path.exists(cookies_path) and os.path.getsize(cookies_path) > 2:
-            storage_state = cookies_path
 
         try:
             context = await browser.new_context(
@@ -69,11 +88,17 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
             context.set_default_navigation_timeout(90000) # 90 seconds
 
             if storage_state:
-                log("Session state loaded from storage_state.")
+                log("Session state loaded successfully.")
             else:
                 log("No session state found. Proceeding as guest/fresh.")
         except Exception as e:
             await browser.close()
+            # Clean up temp file if it was created
+            if temp_cookies_path and os.path.exists(temp_cookies_path):
+                try:
+                    os.unlink(temp_cookies_path)
+                except:
+                    pass
             return {"success": False, "log": f"Failed to initialize context with session: {e}", "screenshot_path": None, "tweet_id": None}
 
 
