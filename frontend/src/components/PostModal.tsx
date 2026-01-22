@@ -71,7 +71,7 @@ export const PostModal: React.FC<PostModalProps> = ({ isOpen, onClose, onSave, p
             const localTime = utcToLocal(date.toISOString());
             setScheduledAt(localTime);
         }
-    }, [post, initialDate, isOpen, userTimezone, accounts]);
+    }, [post, initialDate, userTimezone, accounts]);
 
 
     if (!isOpen) return null;

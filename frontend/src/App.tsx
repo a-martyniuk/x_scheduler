@@ -3,7 +3,7 @@ import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
-import { Plus, RefreshCcw, Calendar as CalendarIcon, Server, Image as ImageIcon, Sun, Moon, BarChart3, Zap, Clock, CheckCircle2 } from 'lucide-react';
+import { Plus, RefreshCcw, Calendar as CalendarIcon, Server, Image as ImageIcon, Sun, Moon, BarChart3, Zap, Clock, CheckCircle2, Menu, X } from 'lucide-react';
 import { api } from './api';
 import type { Post } from './types';
 import { PostModal } from './components/PostModal';
@@ -23,6 +23,7 @@ function App() {
   const [serverStatus, setServerStatus] = useState<'online' | 'offline' | 'checking'>('checking');
   const [userTimezone] = useState<string>(getUserTimezone());
   const [currentView, setCurrentView] = useState<'calendar' | 'analytics'>('calendar');
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
   // Stats
   const queuedCount = posts.filter(p => p.status === 'scheduled').length;
@@ -162,6 +163,186 @@ function App() {
   return (
     <div className={`min-h-screen font-sans transition-colors duration-500 relative overflow-hidden ${darkMode ? 'dark bg-gray-950 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
 
+      {/* Mobile Header - Only visible on small screens */}
+      <header className="md:hidden fixed top-0 left-0 right-0 z-50 glass p-4 border-b border-border/50">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <div className="bg-primary text-primary-foreground p-2 rounded-xl shadow-lg shadow-primary/20 bg-gradient-to-br from-primary to-blue-600">
+              <Zap size={18} className="fill-current stroke-[1.5px]" />
+            </div>
+            <div>
+              <h1 className="text-sm font-extrabold tracking-tighter text-foreground leading-tight">X Command</h1>
+              <span className="text-[8px] font-black uppercase tracking-[0.3em] text-primary/80">Scheduler Pro</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setDarkMode(!darkMode)}
+              className="p-3 bg-white dark:bg-slate-900 rounded-xl shadow-md hover:shadow-lg hover:scale-105 active:scale-95 transition-all text-foreground border border-border/80 dark:border-white/10"
+            >
+              {darkMode ? <Sun size={16} className="text-yellow-500" /> : <Moon size={16} className="text-[#2563eb]" />}
+            </button>
+            <button
+              onClick={() => setMobileDrawerOpen(true)}
+              className="p-3 bg-primary text-primary-foreground rounded-xl shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all"
+            >
+              <Menu size={16} />
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile Navigation Tabs */}
+        <nav className="flex gap-2">
+          <button
+            onClick={() => setCurrentView('calendar')}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold text-xs transition-all duration-300 ${currentView === 'calendar'
+              ? 'bg-gradient-to-r from-primary to-blue-600 text-white shadow-lg shadow-primary/30'
+              : 'bg-white/40 dark:bg-white/5 text-muted-foreground hover:bg-white/60 dark:hover:bg-white/10'
+              }`}
+          >
+            <CalendarIcon size={14} />
+            <span>Cronograma</span>
+          </button>
+          <button
+            onClick={() => setCurrentView('analytics')}
+            className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl font-bold text-xs transition-all duration-300 ${currentView === 'analytics'
+              ? 'bg-gradient-to-r from-primary to-blue-600 text-white shadow-lg shadow-primary/30'
+              : 'bg-white/40 dark:bg-white/5 text-muted-foreground hover:bg-white/60 dark:hover:bg-white/10'
+              }`}
+          >
+            <BarChart3 size={14} />
+            <span>Analíticas</span>
+          </button>
+        </nav>
+      </header>
+
+      {/* Mobile Drawer */}
+      {mobileDrawerOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            className="md:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] animate-fade-in"
+            onClick={() => setMobileDrawerOpen(false)}
+          />
+
+          {/* Drawer Content */}
+          <aside className="md:hidden fixed left-0 top-0 bottom-0 w-[85vw] max-w-sm z-[70] glass bg-white/95 dark:bg-slate-900/95 border-r border-border/50 overflow-y-auto custom-scrollbar animate-slide-in-left">
+            {/* Drawer Header */}
+            <div className="p-6 border-b border-border/50 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="bg-primary text-primary-foreground p-2.5 rounded-xl shadow-lg shadow-primary/20 bg-gradient-to-br from-primary to-blue-600">
+                  <Zap size={20} className="fill-current stroke-[1.5px]" />
+                </div>
+                <div>
+                  <h2 className="text-base font-extrabold tracking-tighter text-foreground leading-tight">X Command</h2>
+                  <span className="text-[9px] font-black uppercase tracking-[0.3em] text-primary/80">Scheduler Pro</span>
+                </div>
+              </div>
+              <button
+                onClick={() => setMobileDrawerOpen(false)}
+                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
+              >
+                <X size={20} className="text-muted-foreground" />
+              </button>
+            </div>
+
+            {/* Drawer Content - Same as Desktop Sidebar */}
+            <div className="p-6">
+              {/* Metrics */}
+              <div className="mb-8">
+                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-4 flex justify-between">
+                  Métricas Live
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-ping" />
+                </p>
+                <div className="grid grid-cols-1 gap-3">
+                  <div className="flex items-center justify-between p-4 rounded-xl bg-white/60 dark:bg-white/5 border border-border/50">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-orange-500/10 text-orange-500">
+                        <Clock size={16} />
+                      </div>
+                      <span className="text-xs font-bold text-muted-foreground">En Cola</span>
+                    </div>
+                    <span className="font-black text-sm tabular-nums text-orange-500">{queuedCount}</span>
+                  </div>
+                  <div className="flex items-center justify-between p-4 rounded-xl bg-white/60 dark:bg-white/5 border border-border/50">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-green-500/10 text-green-500">
+                        <CheckCircle2 size={16} />
+                      </div>
+                      <span className="text-xs font-bold text-muted-foreground">Enviados</span>
+                    </div>
+                    <span className="font-black text-sm tabular-nums text-green-500">{sentCount}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Quick Drafts */}
+              <div className="mb-8">
+                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-4 flex justify-between">
+                  Borradores Rápidos
+                  <span className="text-primary font-bold">{posts.filter(p => !p.scheduled_at || p.status === 'draft').length}</span>
+                </p>
+                <div className="space-y-3">
+                  {posts.filter(p => (!p.scheduled_at || p.status === 'draft') && p.status !== 'deleted').slice(0, 5).map(draft => (
+                    <div
+                      key={draft.id}
+                      onClick={() => { setSelectedPost(draft); setIsModalOpen(true); setMobileDrawerOpen(false); }}
+                      className="p-4 bg-white/70 dark:bg-white/5 hover:bg-white/90 dark:hover:bg-white/10 border border-border/50 hover:border-primary/40 rounded-xl cursor-pointer transition-all duration-300 shadow-sm"
+                    >
+                      <p className="text-xs font-bold line-clamp-2 text-foreground/80 leading-relaxed mb-3">
+                        {draft.content || "(Sin contenido)"}
+                      </p>
+                      <div className="flex justify-between items-center opacity-60">
+                        <span className="text-[9px] font-bold uppercase tracking-tighter">
+                          {draft.updated_at ? new Date(draft.updated_at).toLocaleDateString() : 'Reciente'}
+                        </span>
+                        {draft.media_paths && <ImageIcon size={12} className="text-primary" />}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Active Accounts */}
+              <div className="mb-6">
+                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-4">Cuentas Activas</p>
+                <div className="space-y-3">
+                  {accounts.map(acc => (
+                    <div key={acc.username} className="flex items-center gap-3 p-3 rounded-xl bg-white/70 dark:bg-black/40 border border-border/50 shadow-sm">
+                      <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-primary to-indigo-600 flex items-center justify-center text-xs font-black text-white shadow-lg shadow-primary/20">
+                        {acc.username[0].toUpperCase()}
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-xs font-black text-foreground truncate">@{acc.username}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
+                          <span className="text-[9px] text-green-500/80 font-black uppercase tracking-widest">En Línea</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  <button
+                    onClick={() => { setIsLoginModalOpen(true); setMobileDrawerOpen(false); }}
+                    className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-border/50 rounded-xl text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 font-bold text-xs"
+                  >
+                    <Plus size={14} />
+                    <span>Agregar Cuenta</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Server Status */}
+              <div className="flex items-center justify-between px-2 pt-4 border-t border-border/50">
+                <div className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full ${serverStatus === 'online' ? 'bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]' : 'bg-red-500'}`} />
+                  <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Status: {serverStatus}</span>
+                </div>
+              </div>
+            </div>
+          </aside>
+        </>
+      )}
+
       {/* Ambient Background Blobs */}
       <div className="fixed inset-0 pointer-events-none -z-10 overflow-hidden select-none">
         <div className="absolute top-[-10%] right-[10%] h-[600px] w-[600px] rounded-full bg-primary/10 blur-[120px] animate-pulse" />
@@ -292,8 +473,9 @@ function App() {
       </aside>
 
       {/* Main Content Area */}
-      <main className="md:ml-[340px] p-8 md:p-12 min-h-screen relative z-40 max-w-[1600px] mx-auto overflow-visible">
-        <header className="flex flex-col md:flex-row justify-between items-start md:items-end gap-8 mb-16 animate-slide-up">
+      <main className="pt-[160px] md:pt-0 md:ml-[340px] p-8 md:p-12 min-h-screen relative z-40 max-w-[1600px] mx-auto overflow-visible">
+        {/* Desktop Header - Hidden on mobile */}
+        <header className="hidden md:flex flex-col md:flex-row justify-between items-start md:items-end gap-8 mb-16 animate-slide-up">
           <div className="stagger-1">
             <h2 className="text-5xl font-black tracking-tight mb-4 text-gradient">
               Centro de Mando
@@ -324,6 +506,15 @@ function App() {
             </button>
           </div>
         </header>
+
+        {/* Mobile FAB - Nueva Publicación */}
+        <button
+          onClick={() => { setSelectedPost(null); setIsModalOpen(true); }}
+          className="md:hidden fixed bottom-6 right-6 z-50 flex items-center gap-2 px-6 py-4 bg-gradient-to-r from-primary via-indigo-600 to-blue-600 text-white rounded-full font-black shadow-2xl shadow-primary/40 hover:scale-105 active:scale-95 transition-all uppercase text-xs tracking-wider"
+        >
+          <Plus size={20} className="stroke-[3px]" />
+          <span>Nueva</span>
+        </button>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
           {/* Main Display Area (Calendar or Analytics) */}
