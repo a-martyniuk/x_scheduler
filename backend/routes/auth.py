@@ -83,6 +83,27 @@ async def get_status():
                 "last_connected": last_connected,
                 "is_legacy": True
             })
+    
+    # Check for environment variable cookies (Railway deployment)
+    env_cookies = os.environ.get('X_COOKIES_JSON')
+    env_username = os.environ.get('X_USERNAME')
+    
+    if env_cookies and env_username:
+        # Verify the JSON is valid
+        try:
+            json.loads(env_cookies)
+            # Only add if not already in accounts
+            if not any(a["username"] == env_username for a in accounts):
+                accounts.append({
+                    "username": env_username,
+                    "connected": True,
+                    "last_connected": None,
+                    "is_legacy": False
+                })
+                print(f"[AUTH] Detected environment variable cookies for {env_username}")
+        except json.JSONDecodeError:
+            print(f"[AUTH-ERROR] X_COOKIES_JSON is not valid JSON")
 
     return {"accounts": accounts}
+
 
