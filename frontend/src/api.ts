@@ -15,6 +15,7 @@ const getBaseUrl = () => {
 };
 
 const BASE_URL = getBaseUrl();
+console.log('🔗 Conectando a API en:', BASE_URL);
 const API_URL = `${BASE_URL}/api/posts`;
 export { BASE_URL };
 
