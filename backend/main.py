@@ -62,6 +62,10 @@ async def startup_event():
     start_scheduler()
     logger.info("Scheduler started successfully.")
 
+@app.get("/api/health")
+async def health_check():
+    return {"status": "ok", "timestamp": datetime.now().isoformat()}
+
 @app.get("/")
 def read_root():
     return {"message": "X Scheduler API is running"}
