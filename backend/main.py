@@ -71,7 +71,20 @@ async def startup_event():
 
 @app.get("/api/health")
 async def health_check():
-    return {"status": "ok", "timestamp": datetime.now().isoformat()}
+    db_status = "ok"
+    try:
+        db = SessionLocal()
+        from sqlalchemy import text
+        db.execute(text("SELECT 1"))
+        db.close()
+    except Exception as e:
+        db_status = f"error: {str(e)}"
+    
+    return {
+        "status": "ok", 
+        "database": db_status,
+        "timestamp": datetime.now().isoformat()
+    }
 
 @app.get("/")
 def read_root():
