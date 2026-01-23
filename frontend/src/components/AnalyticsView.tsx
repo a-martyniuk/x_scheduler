@@ -288,6 +288,19 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats
                             <div className="w-2 h-8 bg-primary rounded-full shadow-[0_0_15px_rgba(99,102,241,0.5)]" />
                             <h3 className="text-2xl font-black tracking-tight">Top Performance</h3>
                         </div>
+                        {onSync && (
+                            <button
+                                onClick={handleSync}
+                                disabled={isSyncing}
+                                className={cn(
+                                    "px-4 py-2 bg-primary/10 text-primary rounded-xl text-[10px] font-black uppercase tracking-widest border border-primary/20 hover:bg-primary hover:text-white transition-all flex items-center gap-2",
+                                    isSyncing && "opacity-50 cursor-not-allowed"
+                                )}
+                            >
+                                <RefreshCcw size={12} className={isSyncing ? "animate-spin" : ""} />
+                                {isSyncing ? 'Sincronizando...' : 'Sincronizar Historial'}
+                            </button>
+                        )}
                     </div>
 
                     <div className="overflow-x-auto h-[400px] custom-scrollbar">
