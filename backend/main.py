@@ -7,9 +7,9 @@ from datetime import datetime
 if sys.platform == 'win32':
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Header, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
-from .db import engine, Base
+from .db import engine, Base, SessionLocal
 from fastapi.staticfiles import StaticFiles
 from .routes import posts, upload, auth, analytics
 from .config import settings
