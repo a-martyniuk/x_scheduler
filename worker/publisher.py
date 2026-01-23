@@ -487,9 +487,14 @@ async def sync_history_task(username: str):
             await page.wait_for_selector('article[data-testid="tweet"]', timeout=30000)
             await human_delay(2, 4)
 
+            # Scroll to get more history
+            for _ in range(3):
+                await page.evaluate("window.scrollBy(0, 1500)")
+                await human_delay(1, 2)
+
             # Extract recent tweets
             articles = await page.locator('article[data-testid="tweet"]').all()
-            log(f"Found {len(articles)} tweets on profile.")
+            log(f"Found {len(articles)} tweets on profile feed.")
 
             for article in articles:
                 try:
@@ -500,35 +505,24 @@ async def sync_history_task(username: str):
                     # Tweet ID from link
                     link_el = article.locator('time').locator('..')
                     href = await link_el.get_attribute('href')
+                    
+                    # Timestamp from 'time' tag
+                    time_tag = article.locator('time')
+                    datetime_str = await time_tag.get_attribute('datetime') if await time_tag.count() > 0 else None
+                    
                     tweet_id = None
                     if href:
                         match = re.search(r'status/(\d+)', href)
                         tweet_id = match.group(1) if match else None
 
                     if tweet_id:
-                        # Simple metric extraction
-                        stats = {"views": 0, "likes": 0, "reposts": 0}
-                        
-                        # Helper for numbers
-                        def parse_num(text):
-                            if not text: return 0
-                            text = text.replace(",", "").strip().upper()
-                            match = re.search(r'([\d\.]+)', text)
-                            if not match: return 0
-                            n = float(match.group(1))
-                            if 'K' in text: n *= 1000
-                            elif 'M' in text: n *= 1000000
-                            return int(n)
-
-                        # Likes/RTs labels
-                        label = await article.get_attribute("aria-label") or ""
-                        
                         posts_imported.append({
                             "tweet_id": tweet_id,
                             "content": content,
-                            "views": 0, # Hard to get from feed reliably for all
+                            "views": 0,
                             "likes": 0,
-                            "reposts": 0
+                            "reposts": 0,
+                            "published_at": datetime_str
                         })
                 except Exception as e:
                     log(f"Failed to parse a tweet: {e}")

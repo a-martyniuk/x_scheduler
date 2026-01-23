@@ -52,6 +52,17 @@ async def sync_history(username: str, db: Session = Depends(get_db)):
         # Check if already exists
         exists = db.query(Post).filter(Post.tweet_id == post_data["tweet_id"]).first()
         if not exists:
+            # Parse historical date if available
+            pub_date = None
+            if post_data.get("published_at"):
+                try:
+                    # ISO string to datetime
+                    pub_date = datetime.fromisoformat(post_data["published_at"].replace("Z", "+00:00")).replace(tzinfo=None)
+                except:
+                    pass
+            
+            final_date = pub_date or datetime.now(timezone.utc).replace(tzinfo=None)
+            
             new_post = Post(
                 content=post_data["content"],
                 tweet_id=post_data["tweet_id"],
@@ -60,18 +71,19 @@ async def sync_history(username: str, db: Session = Depends(get_db)):
                 views_count=post_data["views"],
                 likes_count=post_data["likes"],
                 reposts_count=post_data["reposts"],
-                updated_at=datetime.now(timezone.utc).replace(tzinfo=None)
+                updated_at=final_date
             )
             db.add(new_post)
             db.flush() # Get ID
             
             # Day 0 baseline (current stats as baseline)
+            # Use the historical date for the snapshot so it shows in the chart
             snapshot = PostMetricSnapshot(
                 post_id=new_post.id,
                 views=new_post.views_count,
                 likes=new_post.likes_count,
                 reposts=new_post.reposts_count,
-                timestamp=datetime.now(timezone.utc).replace(tzinfo=None)
+                timestamp=final_date
             )
             db.add(snapshot)
             count += 1
