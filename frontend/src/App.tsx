@@ -136,6 +136,19 @@ function App() {
             <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mb-1">URL Intentada:</p>
             <code className="text-[10px] block truncate font-mono text-rose-500/80">{BASE_URL}</code>
           </div>
+
+          {BASE_URL.includes('vercel.app') && (
+            <div className="mb-8 p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-left">
+              <p className="text-[11px] font-bold text-amber-500 uppercase tracking-widest mb-2 flex items-center">
+                <Zap size={12} className="mr-1" /> ¡Atención: Configuración faltante!
+              </p>
+              <p className="text-[10px] text-amber-500/80 leading-relaxed italic">
+                La app está intentando conectar con Vercel en lugar de Railway.
+                Debes añadir <code className="font-bold">VITE_API_URL</code> en los ajustes de Vercel y
+                <span className="font-black underline mx-1">hacer un nuevo despliegue</span>.
+              </p>
+            </div>
+          )}
           <div className="space-y-3">
             <button
               onClick={() => window.location.reload()}
