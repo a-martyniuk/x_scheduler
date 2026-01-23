@@ -2,10 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime, timezone
-from ..db import SessionLocal, get_db
-from ..models import Post
+from backend.db import SessionLocal, get_db
+from backend.models import Post
 from loguru import logger
-from ..schemas import PostCreate, PostUpdate, PostResponse, GlobalStats
+from backend.schemas import PostCreate, PostUpdate, PostResponse, GlobalStats
 from worker.publisher import publish_post_task
 
 router = APIRouter()
@@ -43,7 +43,7 @@ async def run_immediate_publish(post_id: int):
         if result.get("tweet_id"):
             post.tweet_id = result["tweet_id"]
             # Day 0 baseline snapshot
-            from ..models import PostMetricSnapshot
+            from backend.models import PostMetricSnapshot
             snapshot = PostMetricSnapshot(
                 post_id=post.id,
                 views=0,

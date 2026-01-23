@@ -1,8 +1,8 @@
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, timezone
-from .db import SessionLocal
-from .models import Post, PostMetricSnapshot
+from backend.db import SessionLocal
+from backend.models import Post, PostMetricSnapshot
 from worker.publisher import publish_post_task, scrape_stats_task
 import asyncio
 from loguru import logger

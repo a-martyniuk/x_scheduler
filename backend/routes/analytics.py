@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime, timedelta, timezone
-from ..db import get_db
-from ..models import Post, PostMetricSnapshot
+from backend.db import get_db
+from backend.models import Post, PostMetricSnapshot
 from typing import List, Dict
 
 router = APIRouter()
