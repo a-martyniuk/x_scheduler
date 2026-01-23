@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey
-from datetime import datetime
+from datetime import datetime, timezone
 from .db import Base
 
 class Post(Base):
@@ -10,8 +10,8 @@ class Post(Base):
     media_paths = Column(String, nullable=True) # Comma separated paths
     scheduled_at = Column(DateTime, nullable=True)
     status = Column(String, default="draft")  # draft, scheduled, sent, failed
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     logs = Column(Text, nullable=True) # Simple text log for now
     screenshot_path = Column(String, nullable=True)
     retry_count = Column(Integer, default=0)

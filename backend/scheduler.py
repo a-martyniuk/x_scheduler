@@ -1,11 +1,10 @@
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from .db import SessionLocal
 from .models import Post
 from worker.publisher import publish_post_task, scrape_stats_task
 import asyncio
-from datetime import datetime, timedelta
 from loguru import logger
 
 scheduler = AsyncIOScheduler()
@@ -18,13 +17,12 @@ async def check_scheduled_posts():
     logger.info(f"Checking for due posts at {datetime.now()}...")
     db: Session = SessionLocal()
     try:
-        now = datetime.utcnow()
-        # Fetch scheduled posts OR failed posts with retry_count < 3
-        # Note: In a real app we'd add a delay between retries. Here we just retry next cycle (1 min).
+        now = datetime.now(timezone.utc)
+        # Fetch scheduled posts OR failed posts with retry_count < 3 (with 10min delay between retries)
         due_posts = db.query(Post).filter(
-            (Post.status == "scheduled") & (Post.scheduled_at <= now) |
-            (Post.status == "failed") & (Post.retry_count < 3) |
-            (Post.status == "processing") & (Post.updated_at <= now - timedelta(minutes=10))
+            (Post.status == "scheduled") & (Post.scheduled_at <= now.replace(tzinfo=None)) |
+            (Post.status == "failed") & (Post.retry_count < 3) & (Post.updated_at <= now.replace(tzinfo=None) - timedelta(minutes=10)) |
+            (Post.status == "processing") & (Post.updated_at <= now.replace(tzinfo=None) - timedelta(minutes=10))
         ).all()
 
         for post in due_posts:
@@ -75,7 +73,7 @@ async def check_scheduled_posts():
             if result.get("tweet_id"):
                 post.tweet_id = result["tweet_id"]
                 
-            post.updated_at = datetime.utcnow()
+            post.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
             db.commit()
             logger.info(f"Post {post.id} processed. Status: {post.status}. ID: {post.tweet_id}")
 
@@ -93,7 +91,8 @@ async def update_analytics():
     db: Session = SessionLocal()
     try:
         # Check posts sent recently (e.g. last 48 hours) that have a tweet_id
-        cutoff = datetime.utcnow() - timedelta(hours=48)
+        now_naive = datetime.now(timezone.utc).replace(tzinfo=None)
+        cutoff = now_naive - timedelta(hours=48)
         recent_posts = db.query(Post).filter(
             (Post.status == "sent") & 
             (Post.tweet_id.isnot(None)) & 
@@ -108,7 +107,7 @@ async def update_analytics():
                 post.views_count = stats.get("views", 0)
                 post.likes_count = stats.get("likes", 0)
                 post.reposts_count = stats.get("reposts", 0)
-                post.updated_at = datetime.utcnow()
+                post.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
                 db.commit()
                 logger.info(f"Updated Post {post.id}: {stats}")
             else:
