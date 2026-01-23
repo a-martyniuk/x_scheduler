@@ -72,6 +72,15 @@ async def check_scheduled_posts():
             post.screenshot_path = result.get("screenshot_path")
             if result.get("tweet_id"):
                 post.tweet_id = result["tweet_id"]
+                # Day 0 baseline snapshot
+                snapshot = PostMetricSnapshot(
+                    post_id=post.id,
+                    views=0,
+                    likes=0,
+                    reposts=0,
+                    timestamp=datetime.now(timezone.utc).replace(tzinfo=None)
+                )
+                db.add(snapshot)
                 
             post.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
             db.commit()
@@ -133,6 +142,6 @@ async def update_analytics():
 
 def start_scheduler():
     scheduler.add_job(check_scheduled_posts, "interval", minutes=1)
-    # Run analytics every hour
-    scheduler.add_job(update_analytics, "interval", minutes=60)
+    # Run analytics every 15 minutes for higher resolution tracking
+    scheduler.add_job(update_analytics, "interval", minutes=15)
     scheduler.start()

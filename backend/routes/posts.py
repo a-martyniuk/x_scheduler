@@ -42,6 +42,16 @@ async def run_immediate_publish(post_id: int):
         post.screenshot_path = result.get("screenshot_path")
         if result.get("tweet_id"):
             post.tweet_id = result["tweet_id"]
+            # Day 0 baseline snapshot
+            from ..models import PostMetricSnapshot
+            snapshot = PostMetricSnapshot(
+                post_id=post.id,
+                views=0,
+                likes=0,
+                reposts=0,
+                timestamp=datetime.now(timezone.utc).replace(tzinfo=None)
+            )
+            db.add(snapshot)
         
         post.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
         db.commit()
