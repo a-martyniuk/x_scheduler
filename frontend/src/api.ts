@@ -1,7 +1,10 @@
 import type { Post } from './types';
 
+const IS_PROD = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
 const PRODUCTION_URL = 'https://xscheduler-production.up.railway.app';
-const API_URL = `${PRODUCTION_URL}/api/posts`;
+const BASE_URL = IS_PROD ? PRODUCTION_URL : 'http://127.0.0.1:8000';
+const API_URL = `${BASE_URL}/api/posts`;
+export { BASE_URL };
 
 export const api = {
     getPosts: async (): Promise<Post[]> => {
@@ -47,7 +50,7 @@ export const api = {
         const formData = new FormData();
         formData.append('file', file);
 
-        const response = await fetch(`${PRODUCTION_URL}/api/upload/`, {
+        const response = await fetch(`${BASE_URL}/api/upload/`, {
             method: 'POST',
             body: formData,
         });
@@ -60,7 +63,7 @@ export const api = {
     },
 
     login: async (credentials: any): Promise<any> => {
-        const res = await fetch(`${PRODUCTION_URL}/api/auth/login`, {
+        const res = await fetch(`${BASE_URL}/api/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(credentials),
@@ -70,8 +73,14 @@ export const api = {
     },
 
     getAuthStatus: async (): Promise<{ accounts: { username: string; connected: boolean; last_connected?: string; is_legacy?: boolean }[] }> => {
-        const res = await fetch(`${PRODUCTION_URL}/api/auth/status`);
+        const res = await fetch(`${BASE_URL}/api/auth/status`);
         if (!res.ok) return { accounts: [] };
+        return res.json();
+    },
+
+    getGlobalStats: async (): Promise<{ sent: number; failed: number; scheduled: number; drafts: number; views: number; likes: number; reposts: number }> => {
+        const res = await fetch(`${API_URL}/stats`);
+        if (!res.ok) throw new Error('Failed to fetch global stats');
         return res.json();
     }
 

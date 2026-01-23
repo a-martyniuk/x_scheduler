@@ -4,6 +4,7 @@ import json
 import re
 from playwright.async_api import async_playwright
 import random
+from loguru import logger
 
 # CONFIG
 # CONFIG
@@ -37,7 +38,7 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
     tweet_id = None
 
     def log(msg):
-        print(f"[Worker] {msg}")
+        logger.info(f"[Worker] {msg}")
         log_messages.append(msg)
 
     # Resolve cookies path
@@ -212,9 +213,10 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
             # Verification Screenshot
             screenshot_file = os.path.join(SCREENSHOTS_DIR, f"result_{random.randint(1000,9999)}.png")
             await page.screenshot(path=screenshot_file)
+            logger.debug(f"Screenshot saved: {screenshot_file}")
 
         except Exception as e:
-            log(f"Error: {e}")
+            logger.exception(f"Worker Error: {e}")
             screenshot_file = os.path.join(SCREENSHOTS_DIR, f"error_{random.randint(1000,9999)}.png")
             await page.screenshot(path=screenshot_file)
         finally:
@@ -236,7 +238,7 @@ async def scrape_stats_task(tweet_id: str, username: str = None):
     log_messages = []
 
     def log(msg):
-        print(f"[Worker-Scraper] {msg}")
+        logger.info(f"[Worker-Scraper] {msg}")
         log_messages.append(msg)
 
     if username:
@@ -258,57 +260,68 @@ async def scrape_stats_task(tweet_id: str, username: str = None):
                 await context.add_cookies(json.load(f))
             
             page = await context.new_page()
+            
+            # Optimization: Block unnecessary resources
+            await page.route("**/*", lambda route: route.abort() 
+                if route.request.resource_type in ["image", "stylesheet", "font", "media"] 
+                else route.continue_()
+            )
+
             url = f"https://x.com/i/status/{tweet_id}"
-            log(f"Navigating to {url}...")
+            logger.info(f"Navigating to {url}...")
             await page.goto(url, timeout=30000)
-            await page.wait_for_selector('article[data-testid="tweet"]', timeout=15000)
-            await human_delay(2, 4)
+            # Wait for content instead of just selector if CSS is blocked
+            await page.wait_for_selector('article[data-testid="tweet"]', timeout=20000)
+            await human_delay(1, 2)
 
             # Extract Stats
             # Views (often textual like "145 Views" or inside an execution-detail)
             # Strategy: Look for the a tag that links to /analytics
             try:
-                # This selector changes often. Generic approach:
-                # Use the metrics group at the bottom of the tweet
-                # Likes: [data-testid="like"] or [data-testid="unlike"]
-                like_el = page.locator('[data-testid="like"], [data-testid="unlike"]').first
-                like_text = await like_el.get_attribute("aria-label") 
-                # aria-label is usually "15 Likes. Like" or "Like"
-                if like_text:
-                    match = re.search(r'(\d+) Likes', like_text.replace(",", "")) # "1,234 Likes"
-                    if match:
-                        stats["likes"] = int(match.group(1))
-                
-                # Reposts: [data-testid="retweet"] or [data-testid="unretweet"]
-                rt_el = page.locator('[data-testid="retweet"], [data-testid="unretweet"]').first
-                rt_text = await rt_el.get_attribute("aria-label")
-                if rt_text:
-                     match = re.search(r'(\d+) Reposts', rt_text.replace(",", ""))
-                     if match:
-                         stats["reposts"] = int(match.group(1))
+                # View parsing helper
+                def parse_x_number(text):
+                    if not text: return 0
+                    # Remove commas and whitespace
+                    text = text.replace(",", "").strip().upper()
+                    match = re.search(r'([\d\.]+)', text)
+                    if not match: return 0
+                    
+                    num = float(match.group(1))
+                    if 'K' in text: num *= 1000
+                    elif 'M' in text: num *= 1000000
+                    return int(num)
 
-                # Views: Usually a span with text "Views"
-                # Or href=".../analytics"
+                # Likes
+                like_els = page.locator('[data-testid="like"], [data-testid="unlike"]').all()
+                for el in await like_els:
+                    label = await el.get_attribute("aria-label")
+                    if label and "Likes" in label:
+                        stats["likes"] = parse_x_number(label.split("Likes")[0])
+                        break
+                
+                # Reposts
+                rt_els = page.locator('[data-testid="retweet"], [data-testid="unretweet"]').all()
+                for el in await rt_els:
+                    label = await el.get_attribute("aria-label")
+                    if label and "Reposts" in label:
+                        stats["reposts"] = parse_x_number(label.split("Reposts")[0])
+                        break
+
+                # Views (often in a link to /analytics)
                 analytics_link = page.locator('a[href*="/analytics"]').first
                 if await analytics_link.is_visible():
-                     # The text might be inside a parent or sibling
-                     # Often it's simple text "150 Views" in a span
-                     # Let's try finding the text content of the link
                      view_text = await analytics_link.text_content()
-                     # "150 Views"
-                     match = re.search(r'([\d,KkMm\.]+) Views', view_text)
-                     if match:
-                         # Need to parse K/M
-                         num_str = match.group(1).replace(",", "")
-                         multiplier = 1
-                         if 'K' in num_str.upper():
-                             multiplier = 1000
-                             num_str = num_str.upper().replace("K", "")
-                         elif 'M' in num_str.upper():
-                             multiplier = 1000000
-                             num_str = num_str.upper().replace("M", "")
-                         
-                         stats["views"] = int(float(num_str) * multiplier)
+                     if view_text and "Views" in view_text:
+                         stats["views"] = parse_x_number(view_text.split("Views")[0])
+               
+                # Fallback for Views if no link found (sometimes it's just a span)
+                if stats["views"] == 0:
+                    view_spans = page.locator('span:has-text("Views")').all()
+                    for span in await view_spans:
+                        text = await span.text_content()
+                        if text and "Views" in text:
+                            stats["views"] = parse_x_number(text.split("Views")[0])
+                            break
 
                 log(f"Scraped: {stats}")
 
@@ -334,7 +347,7 @@ async def login_to_x(username, password):
     login_log_path = paths["login_log"]
     
     def log(msg):
-        print(f"[Worker-Login] {msg}")
+        logger.info(f"[Worker-Login] {msg}")
         log_messages.append(msg)
         try:
             with open(login_log_path, "a") as f:

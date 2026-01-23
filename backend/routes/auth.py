@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 from worker.publisher import login_to_x
+from loguru import logger
 
 router = APIRouter()
 
@@ -10,15 +11,15 @@ class LoginRequest(BaseModel):
 
 async def background_login(username, password):
     # This runs in background to avoid blocking API
-    print(f"Starting background login for {username}...")
+    logger.info(f"Starting background login for {username}...")
     result = await login_to_x(username, password)
-    print(f"Background login result: {result}")
+    logger.info(f"Background login result: {result}")
 
 @router.post("/login")
 async def login(request: LoginRequest, background_tasks: BackgroundTasks):
-    print(f"[AUTH] Login request received for {request.username}", flush=True)
+    logger.info(f"Login request received for {request.username}")
     background_tasks.add_task(background_login, request.username, request.password)
-    print(f"[AUTH] Background task queued", flush=True)
+    logger.debug("Background task queued")
     
     return {
         "status": "processing", 
@@ -58,7 +59,7 @@ async def get_status():
                             "last_connected": data.get("connected_at")
                         })
                 except Exception as e:
-                    print(f"[AUTH-ACC-ERROR] Failed to load {username} info: {e}")
+                    logger.error(f"Failed to load {username} info: {e}")
     
     # Also check legacy cookies.json at root for backward compatibility
     legacy_cookies = os.path.join(worker_dir, "cookies.json")
@@ -100,9 +101,9 @@ async def get_status():
                     "last_connected": None,
                     "is_legacy": False
                 })
-                print(f"[AUTH] Detected environment variable cookies for {env_username}")
+                logger.info(f"Detected environment variable cookies for {env_username}")
         except json.JSONDecodeError:
-            print(f"[AUTH-ERROR] X_COOKIES_JSON is not valid JSON")
+            logger.error("X_COOKIES_JSON is not valid JSON")
 
     return {"accounts": accounts}
 

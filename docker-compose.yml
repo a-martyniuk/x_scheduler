@@ -1,17 +1,29 @@
-version: '3.8'
-
 services:
   backend:
-    build: 
+    build:
       context: .
-      dockerfile: Dockerfile.backend
+      dockerfile: backend/Dockerfile
     ports:
       - "8000:8000"
     volumes:
       - ./backend:/app/backend
-      - ./worker:/app/worker
+      - ./logs:/app/logs
+      - ./uploads:/app/uploads
       - ./x_scheduler.db:/app/x_scheduler.db
-    command: uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+    environment:
+      - DATABASE_URL=sqlite:///x_scheduler.db
+    restart: always
 
-  # worker service might not be distinct in MVP if we invoke it via subprocess/scheduler from backend container,
-  # but keeping it in mind for separation. For MVP, we run everything in 'backend' or locally.
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    restart: always
+
+networks:
+  default:
+    name: x-scheduler-network

@@ -6,6 +6,7 @@ from .models import Post
 from worker.publisher import publish_post_task, scrape_stats_task
 import asyncio
 from datetime import datetime, timedelta
+from loguru import logger
 
 scheduler = AsyncIOScheduler()
 
@@ -14,7 +15,7 @@ async def check_scheduled_posts():
     Checks DB for posts that are 'scheduled' and past their scheduled_at time.
     Triggers publication.
     """
-    print(f"[Scheduler] Checking for due posts at {datetime.now()}...", flush=True)
+    logger.info(f"Checking for due posts at {datetime.now()}...")
     db: Session = SessionLocal()
     try:
         now = datetime.utcnow()
@@ -27,7 +28,7 @@ async def check_scheduled_posts():
         ).all()
 
         for post in due_posts:
-            print(f"[Scheduler] Triggering post {post.id} (Retry: {post.retry_count})...")
+            logger.info(f"Triggering post {post.id} (Retry: {post.retry_count})...")
             
             # Increment retry count if it was a failure
             if post.status == "failed":
@@ -45,26 +46,26 @@ async def check_scheduled_posts():
                         reply_to_id = parent_post.tweet_id
                     elif parent_post.status == 'sent':
                          # Parent sent but no ID? Can't reply properly.
-                         print(f"[Scheduler] Warning: Parent {parent_post.id} sent but has no tweet_id. Posting as standalone.")
+                         logger.warning(f"Parent {parent_post.id} sent but has no tweet_id. Posting as standalone.")
                     else:
-                        print(f"[Scheduler] Parent {parent_post.id} not yet ready (Status: {parent_post.status}). Skipping child {post.id} for now.")
+                        logger.info(f"Parent {parent_post.id} not yet ready (Status: {parent_post.status}). Skipping child {post.id} for now.")
                         continue # Skip this cycle, wait for parent
                 else:
-                    print(f"[Scheduler] Parent {post.parent_id} not found. Posting as standalone.")
+                    logger.info(f"Parent {post.parent_id} not found. Posting as standalone.")
 
             # Trigger worker with a total task timeout
             try:
-                print(f"[Scheduler] Running publish_post_task for {post.id}...", flush=True)
+                logger.debug(f"Running publish_post_task for {post.id}...")
                 # We wrap the await in a wait_for to be 100% sure it doesn't hang the scheduler thread
                 result = await asyncio.wait_for(
                     publish_post_task(post.content, post.media_paths, reply_to_id=reply_to_id, username=post.username),
                     timeout=120.0 # 2 minute max
                 )
             except asyncio.TimeoutError:
-                print(f"[Scheduler] Task for post {post.id} TIMED OUT after 2 mins.", flush=True)
+                logger.error(f"Task for post {post.id} TIMED OUT after 2 mins.")
                 result = {"success": False, "log": "Scheduler Timeout: Task took too long (>2 mins)"}
             except Exception as e:
-                print(f"[Scheduler] Task for post {post.id} CRASHED: {e}", flush=True)
+                logger.exception(f"Task for post {post.id} CRASHED: {e}")
                 result = {"success": False, "log": f"Scheduler Error: {e}"}
             
             # Update result
@@ -76,10 +77,10 @@ async def check_scheduled_posts():
                 
             post.updated_at = datetime.utcnow()
             db.commit()
-            print(f"[Scheduler] Post {post.id} processed. Status: {post.status}. ID: {post.tweet_id}")
+            logger.info(f"Post {post.id} processed. Status: {post.status}. ID: {post.tweet_id}")
 
     except Exception as e:
-        print(f"[Scheduler] Error: {e}")
+        logger.exception(f"Scheduler Loop Error: {e}")
     finally:
         db.close()
 
@@ -88,7 +89,7 @@ async def update_analytics():
     """
     Updates stats for posts sent in the last 48 hours.
     """
-    print("[Scheduler] Running Analytics Update...")
+    logger.info("Running Analytics Update...")
     db: Session = SessionLocal()
     try:
         # Check posts sent recently (e.g. last 48 hours) that have a tweet_id
@@ -100,7 +101,7 @@ async def update_analytics():
         ).all()
 
         for post in recent_posts:
-            print(f"[Scheduler] Scraping stats for Post {post.id} ({post.tweet_id})...")
+            logger.debug(f"Scraping stats for Post {post.id} ({post.tweet_id})...")
             result = await scrape_stats_task(post.tweet_id, username=post.username)
             if result["success"]:
                 stats = result["stats"]
@@ -109,15 +110,15 @@ async def update_analytics():
                 post.reposts_count = stats.get("reposts", 0)
                 post.updated_at = datetime.utcnow()
                 db.commit()
-                print(f"[Scheduler] Updated Post {post.id}: {stats}")
+                logger.info(f"Updated Post {post.id}: {stats}")
             else:
-                print(f"[Scheduler] Failed to scrape Post {post.id}: {result['log']}")
+                logger.warning(f"Failed to scrape Post {post.id}: {result['log']}")
             
             # Gentle delay between scrapes
             await asyncio.sleep(10) 
 
     except Exception as e:
-        print(f"[Scheduler] Analytics Error: {e}")
+        logger.exception(f"Analytics Update Loop Error: {e}")
     finally:
         db.close()
 

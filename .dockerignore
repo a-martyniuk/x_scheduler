@@ -1,0 +1,14 @@
+__pycache__/
+*.pyc
+venv/
+.env
+.git/
+.gitignore
+frontend/node_modules/
+frontend/dist/
+x_scheduler.db
+logs/
+uploads/
+.gemini/
+.agent/
+brain/

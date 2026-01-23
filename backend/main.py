@@ -11,14 +11,22 @@ from fastapi.middleware.cors import CORSMiddleware
 from .db import engine, Base
 from fastapi.staticfiles import StaticFiles
 from .routes import posts, upload, auth
+from loguru import logger
+import sys
+
+# Configure Loguru
+logger.remove()
+logger.add(sys.stderr, format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>")
+logger.add("logs/backend.log", rotation="10 MB", retention="10 days", level="INFO")
 
 # Create tables
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="X Scheduler")
 
-# Ensure uploads directory exists
+# Ensure uploads and logs directory exists
 os.makedirs("uploads", exist_ok=True)
+os.makedirs("logs", exist_ok=True)
 
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
@@ -36,11 +44,11 @@ app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
 
 @app.on_event("startup")
 async def startup_event():
-    print("[MAIN] Application starting up...", flush=True)
+    logger.info("Application starting up...")
     from .scheduler import start_scheduler
-    print("[MAIN] Starting scheduler...", flush=True)
+    logger.info("Starting scheduler...")
     start_scheduler()
-    print("[MAIN] Scheduler started successfully.", flush=True)
+    logger.info("Scheduler started successfully.")
 
 @app.get("/")
 def read_root():
