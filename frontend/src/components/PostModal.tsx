@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Post } from '../types';
-import { X, Upload, Calendar as CalendarIcon, Trash2, Zap, Terminal } from 'lucide-react';
+import { X, Upload, Calendar as CalendarIcon, Trash2, Zap, Terminal, Camera } from 'lucide-react';
 import { api, BASE_URL } from '../api';
 import { utcToLocal, localToUTC } from '../utils/timezone';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -68,25 +68,30 @@ export const PostModal: React.FC<PostModalProps> = ({ isOpen, onClose, onSave, p
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
             const file = e.target.files[0];
+            const currentPaths = mediaPaths ? mediaPaths.split(',') : [];
+
+            // Validation BEFORE upload
+            if (currentPaths.length >= 4 && (file.type.startsWith('image/'))) {
+                alert("Máximo 4 imágenes permitidas.");
+                return;
+            }
+            if (file.type.startsWith('video/') && currentPaths.length > 0) {
+                alert("Los videos deben publicarse solos.");
+                return;
+            }
+
             setUploading(true);
             try {
                 const result = await api.uploadImage(file);
-                const currentPaths = mediaPaths ? mediaPaths.split(',') : [];
-
-                if (currentPaths.length >= 4 && (file.type.startsWith('image/'))) {
-                    alert("Maximum 4 images allowed.");
-                    return;
-                }
-                if (file.type.startsWith('video/') && currentPaths.length > 0) {
-                    alert("Videos must be posted alone.");
-                    return;
-                }
-
+                // Ensure we use the filepath returned by the backend
                 setMediaPaths([...currentPaths, result.filepath].join(','));
-            } catch (error) {
+            } catch (error: any) {
                 console.error("Upload failed", error);
+                alert(`Error de subida: ${error.message}`);
             } finally {
                 setUploading(false);
+                // Reset input value to allow re-uploading the same file if needed
+                e.target.value = '';
             }
         }
     };
@@ -224,19 +229,36 @@ export const PostModal: React.FC<PostModalProps> = ({ isOpen, onClose, onSave, p
                                 <div className="flex flex-wrap gap-4">
                                     <label className="w-24 h-24 flex flex-col items-center justify-center rounded-[1.5rem] border-2 border-dashed border-border/60 hover:border-primary hover:bg-primary/5 transition-all cursor-pointer group">
                                         <Upload size={20} className="text-muted-foreground group-hover:text-primary transition-colors" />
-                                        <span className="text-[8px] font-black uppercase mt-1 text-muted-foreground group-hover:text-primary transition-colors">Subir</span>
+                                        <span className="text-[8px] font-black uppercase mt-1 text-muted-foreground group-hover:text-primary transition-colors">Galería</span>
                                         <input type="file" className="hidden" accept="image/*,video/*" onChange={handleFileChange} />
                                     </label>
 
+                                    <label className="w-24 h-24 flex flex-col items-center justify-center rounded-[1.5rem] border-2 border-dashed border-border/60 hover:border-primary hover:bg-primary/5 transition-all cursor-pointer group md:hidden">
+                                        <Camera size={20} className="text-muted-foreground group-hover:text-primary transition-colors" />
+                                        <span className="text-[8px] font-black uppercase mt-1 text-muted-foreground group-hover:text-primary transition-colors">Cámara</span>
+                                        <input type="file" className="hidden" accept="image/*" capture="environment" onChange={handleFileChange} />
+                                    </label>
+
                                     {mediaPaths.split(',').filter(Boolean).map((path, idx) => {
+                                        // Handle both Windows and Linux paths from backend
                                         const filename = path.split(/[\\/]/).pop();
+                                        const displayUrl = `${BASE_URL}/uploads/${filename}`;
+
                                         return (
                                             <div key={idx} className="relative group w-24 h-24">
-                                                <img src={`${BASE_URL}/uploads/${filename}`} className="w-full h-full object-cover rounded-[1.5rem] border-2 border-border/50" alt="" />
+                                                <img
+                                                    src={displayUrl}
+                                                    className="w-full h-full object-cover rounded-[1.5rem] border-2 border-border/50 bg-slate-100 dark:bg-slate-800"
+                                                    alt=""
+                                                    onError={(e) => {
+                                                        const target = e.target as HTMLImageElement;
+                                                        target.src = 'https://via.placeholder.com/150?text=Error';
+                                                    }}
+                                                />
                                                 <button
                                                     type="button"
                                                     onClick={() => setMediaPaths(mediaPaths.split(',').filter((_, i) => i !== idx).join(','))}
-                                                    className="absolute -top-2 -right-2 bg-red-500 text-white p-1.5 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    className="absolute -top-2 -right-2 bg-red-500 text-white p-1.5 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10"
                                                 >
                                                     <X size={10} />
                                                 </button>

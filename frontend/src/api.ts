@@ -1,4 +1,4 @@
-import type { Post } from './types';
+import type { Post, GrowthData, BestTimesData, PerformanceData } from './types';
 
 const getBaseUrl = () => {
     // 1. Prioridad: Variable de entorno definida en el build (Vercel/Local)
@@ -98,7 +98,8 @@ export const api = {
         });
 
         if (!response.ok) {
-            throw new Error('Upload failed');
+            const errorData = await response.json().catch(() => ({ detail: 'Unknown upload error' }));
+            throw new Error(errorData.detail || 'Upload failed');
         }
 
         return response.json();
@@ -126,13 +127,19 @@ export const api = {
         return res.json();
     },
 
-    getGrowthData: async (): Promise<any[]> => {
+    getGrowthData: async (): Promise<GrowthData[]> => {
         const res = await fetchWithToken(`${BASE_URL}/api/analytics/growth`);
         if (!res.ok) throw new Error('Failed to fetch growth data');
         return res.json();
     },
 
-    getBestTimes: async (): Promise<any> => {
+    getPerformanceData: async (): Promise<PerformanceData> => {
+        const res = await fetchWithToken(`${BASE_URL}/api/analytics/performance`);
+        if (!res.ok) throw new Error('Failed to fetch performance data');
+        return res.json();
+    },
+
+    getBestTimes: async (): Promise<BestTimesData> => {
         const res = await fetchWithToken(`${BASE_URL}/api/analytics/best-times`);
         if (!res.ok) throw new Error('Failed to fetch best times');
         return res.json();

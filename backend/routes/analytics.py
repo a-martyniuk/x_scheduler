@@ -12,6 +12,7 @@ router = APIRouter()
 def get_growth_data(db: Session = Depends(get_db)):
     """
     Returns aggregated engagement data over the last 7 days for the wave chart.
+    Now includes post_count (distinct posts that had snapshots on that day).
     """
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     cutoff = now - timedelta(days=7)
@@ -21,7 +22,8 @@ def get_growth_data(db: Session = Depends(get_db)):
         func.date(PostMetricSnapshot.timestamp).label('date'),
         func.sum(PostMetricSnapshot.views).label('views'),
         func.sum(PostMetricSnapshot.likes).label('likes'),
-        func.sum(PostMetricSnapshot.reposts).label('reposts')
+        func.sum(PostMetricSnapshot.reposts).label('reposts'),
+        func.count(func.distinct(PostMetricSnapshot.post_id)).label('post_count')
     ).filter(PostMetricSnapshot.timestamp >= cutoff)\
      .group_by(func.date(PostMetricSnapshot.timestamp))\
      .order_by(func.date(PostMetricSnapshot.timestamp)).all()
@@ -32,9 +34,39 @@ def get_growth_data(db: Session = Depends(get_db)):
             "views": s.views,
             "likes": s.likes,
             "reposts": s.reposts,
-            "engagement": s.likes + s.reposts
+            "engagement": s.likes + s.reposts,
+            "posts": s.post_count
         } for s in snapshots
     ]
+
+@router.get("/performance")
+def get_performance_data(db: Session = Depends(get_db)):
+    """
+    Compares performance between Text-only and Media posts.
+    """
+    sent_posts = db.query(Post).filter(Post.status == "sent").all()
+    
+    performance = {
+        "text": {"count": 0, "views": 0, "engagement": 0},
+        "media": {"count": 0, "views": 0, "engagement": 0}
+    }
+    
+    for post in sent_posts:
+        type_key = "media" if post.media_paths else "text"
+        performance[type_key]["count"] += 1
+        performance[type_key]["views"] += (post.views_count or 0)
+        performance[type_key]["engagement"] += ((post.likes_count or 0) + (post.reposts_count or 0))
+    
+    # Calculate averages
+    for key in performance:
+        if performance[key]["count"] > 0:
+            performance[key]["avg_engagement"] = performance[key]["engagement"] / performance[key]["count"]
+            performance[key]["engagement_rate"] = (performance[key]["engagement"] / performance[key]["views"] * 100) if performance[key]["views"] > 0 else 0
+        else:
+            performance[key]["avg_engagement"] = 0
+            performance[key]["engagement_rate"] = 0
+            
+    return performance
 
 @router.get("/best-times")
 def get_best_times(db: Session = Depends(get_db)):

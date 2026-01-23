@@ -18,14 +18,24 @@ export const useAnalytics = () => {
         enabled: isAuth,
     });
 
+    const performanceQuery = useQuery({
+        queryKey: ['analytics', 'performance'],
+        queryFn: api.getPerformanceData,
+        refetchInterval: 300000,
+        enabled: isAuth,
+    });
+
     return {
         growthData: growthQuery.data || [],
         isLoadingGrowth: growthQuery.isLoading,
-        bestTimes: bestTimesQuery.data || { best_hours: [9, 12, 18, 21] },
+        bestTimes: bestTimesQuery.data || { best_hours: [9, 12, 18, 21], total_posts_analyzed: 0 },
         isLoadingBestTimes: bestTimesQuery.isLoading,
+        performanceData: performanceQuery.data,
+        isLoadingPerformance: performanceQuery.isLoading,
         refetch: () => {
             growthQuery.refetch();
             bestTimesQuery.refetch();
+            performanceQuery.refetch();
         }
     };
 };
