@@ -66,33 +66,36 @@ export const PostModal: React.FC<PostModalProps> = ({ isOpen, onClose, onSave, p
     if (!isOpen) return null;
 
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.files && e.target.files[0]) {
-            const file = e.target.files[0];
-            const currentPaths = mediaPaths ? mediaPaths.split(',') : [];
+        const files = Array.from(e.target.files || []);
+        if (files.length === 0) return;
 
-            // Validation BEFORE upload
-            if (currentPaths.length >= 4 && (file.type.startsWith('image/'))) {
-                alert("Máximo 4 imágenes permitidas.");
-                return;
-            }
-            if (file.type.startsWith('video/') && currentPaths.length > 0) {
-                alert("Los videos deben publicarse solos.");
-                return;
-            }
+        const currentPaths = mediaPaths ? mediaPaths.split(',') : [];
+        let newPaths = [...currentPaths];
 
-            setUploading(true);
-            try {
+        setUploading(true);
+        try {
+            for (const file of files) {
+                // Validation BEFORE upload
+                if (newPaths.length >= 4 && (file.type.startsWith('image/'))) {
+                    alert(`Máximo 4 imágenes permitidas. Saltando ${file.name}`);
+                    continue;
+                }
+                if (file.type.startsWith('video/') && newPaths.length > 0) {
+                    alert(`Los videos deben publicarse solos. Saltando ${file.name}`);
+                    continue;
+                }
+
                 const result = await api.uploadImage(file);
-                // Ensure we use the filepath returned by the backend
-                setMediaPaths([...currentPaths, result.filepath].join(','));
-            } catch (error: any) {
-                console.error("Upload failed", error);
-                alert(`Error de subida: ${error.message}`);
-            } finally {
-                setUploading(false);
-                // Reset input value to allow re-uploading the same file if needed
-                e.target.value = '';
+                newPaths.push(result.filepath);
             }
+            setMediaPaths(newPaths.join(','));
+        } catch (error: any) {
+            console.error("Upload failed", error);
+            alert(`Error de subida: ${error.message}`);
+        } finally {
+            setUploading(false);
+            // Reset input value to allow re-uploading the same file
+            e.target.value = '';
         }
     };
 
@@ -230,7 +233,7 @@ export const PostModal: React.FC<PostModalProps> = ({ isOpen, onClose, onSave, p
                                     <label className="w-24 h-24 flex flex-col items-center justify-center rounded-[1.5rem] border-2 border-dashed border-border/60 hover:border-primary hover:bg-primary/5 transition-all cursor-pointer group">
                                         <Upload size={20} className="text-muted-foreground group-hover:text-primary transition-colors" />
                                         <span className="text-[8px] font-black uppercase mt-1 text-muted-foreground group-hover:text-primary transition-colors">Galería</span>
-                                        <input type="file" className="hidden" accept="image/*,video/*" onChange={handleFileChange} />
+                                        <input type="file" className="hidden" accept="image/*,video/*" multiple onChange={handleFileChange} />
                                     </label>
 
                                     <label className="w-24 h-24 flex flex-col items-center justify-center rounded-[1.5rem] border-2 border-dashed border-border/60 hover:border-primary hover:bg-primary/5 transition-all cursor-pointer group md:hidden">
