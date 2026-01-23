@@ -38,6 +38,7 @@ export function usePosts() {
         posts,
         isLoading,
         error,
+        refetch: () => queryClient.invalidateQueries({ queryKey: ['posts'] }),
         createPost: createMutation.mutateAsync,
         updatePost: updateMutation.mutateAsync,
         deletePost: deleteMutation.mutateAsync,

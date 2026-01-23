@@ -33,9 +33,18 @@ import { cn } from './lib/utils';
 import { BASE_URL } from './api';
 
 function App() {
-  const { posts, isLoading: isLoadingPosts, createPost, updatePost, error: postsError } = usePosts();
+  const { posts, isLoading: isLoadingPosts, createPost, updatePost, error: postsError, refetch: refetchPosts } = usePosts();
   const { accounts } = useAuth();
   const { data: globalStats, isLoading: isLoadingStats, refetch: refetchStats } = useStats();
+  const { refetch: refetchAnalytics } = useAnalytics();
+
+  const handleGlobalRefresh = async () => {
+    await Promise.all([
+      refetchPosts(),
+      refetchStats(),
+      refetchAnalytics()
+    ]);
+  };
 
   const [currentView, setCurrentView] = useState<'calendar' | 'analytics'>('calendar');
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
@@ -475,8 +484,8 @@ function App() {
                   <div className="w-2 h-8 bg-primary rounded-full shadow-[0_0_15px_rgba(99,102,241,0.5)]" />
                   <h3 className="text-2xl font-black tracking-tight">Calendario Editorial</h3>
                 </div>
-                <button onClick={() => refetchStats()} className="p-3 rounded-2xl hover:bg-primary/10 hover:text-primary transition-all duration-500 text-muted-foreground">
-                  <RefreshCcw size={20} className={isLoadingStats ? "animate-spin" : ""} />
+                <button onClick={handleGlobalRefresh} className="p-3 rounded-2xl hover:bg-primary/10 hover:text-primary transition-all duration-500 text-muted-foreground group">
+                  <RefreshCcw size={20} className={isLoadingStats || isLoadingPosts ? "animate-spin" : "group-hover:rotate-180 transition-transform duration-700"} />
                 </button>
               </div>
 
