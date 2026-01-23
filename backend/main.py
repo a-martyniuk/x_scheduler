@@ -28,6 +28,15 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="X Scheduler")
 
+# Ensure data, uploads and logs directory exists
+os.makedirs(settings.DATA_DIR, exist_ok=True)
+UPLOAD_PATH = os.path.join(settings.DATA_DIR, "uploads")
+LOG_PATH = os.path.join(settings.DATA_DIR, "logs")
+os.makedirs(UPLOAD_PATH, exist_ok=True)
+os.makedirs(LOG_PATH, exist_ok=True)
+
+app.mount("/uploads", StaticFiles(directory=UPLOAD_PATH), name="uploads")
+
 # 1. CORS Middleware - MUST BE FIRST
 app.add_middleware(
     CORSMiddleware,

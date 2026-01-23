@@ -41,7 +41,12 @@ const fetchWithToken = async (url: string, options: RequestInit = {}) => {
         ...options.headers,
         ...(token ? { 'X-Admin-Token': token } : {})
     };
-    const response = await fetch(url, { ...options, headers });
+    const response = await fetch(url, {
+        ...options,
+        headers,
+        mode: 'cors',
+        credentials: 'omit'
+    });
 
     // Si el servidor responde 401, el token es inválido o expiró
     if (response.status === 401) {
