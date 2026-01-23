@@ -13,6 +13,7 @@ SCREENSHOTS_DIR = os.path.join(WORKER_DIR, "screenshots")
 ACCOUNTS_DIR = os.path.join(WORKER_DIR, "accounts")
 
 def get_user_paths(username: str):
+    username = username.lstrip('@')
     user_dir = os.path.join(ACCOUNTS_DIR, username)
     os.makedirs(user_dir, exist_ok=True)
     return {
