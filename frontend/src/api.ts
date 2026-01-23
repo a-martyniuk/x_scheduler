@@ -159,6 +159,17 @@ export const api = {
         const res = await fetchWithToken(`${BASE_URL}/api/analytics/best-times`);
         if (!res.ok) throw new Error('Failed to fetch best times');
         return res.json();
+    },
+
+    syncHistory: async (username: string): Promise<{ imported: number; log: string }> => {
+        const res = await fetchWithToken(`${BASE_URL}/api/auth/sync/${username}`, {
+            method: 'POST'
+        });
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => ({ detail: 'Sync failed' }));
+            throw new Error(errorData.detail || 'Sync failed');
+        }
+        return res.json();
     }
 
 };

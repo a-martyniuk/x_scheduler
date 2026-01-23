@@ -540,7 +540,17 @@ function App() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
             >
-              <AnalyticsView posts={posts} globalStats={globalStats} />
+              <AnalyticsView
+                posts={posts}
+                globalStats={globalStats}
+                onSync={async () => {
+                  const username = accounts[0]?.username;
+                  if (username) {
+                    await api.syncHistory(username);
+                    await handleGlobalRefresh();
+                  }
+                }}
+              />
             </motion.div>
           )}
         </AnimatePresence>

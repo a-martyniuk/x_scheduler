@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, Heart, TrendingUp, ArrowUpRight, Clock, Zap, Info, BarChart2, Layers } from 'lucide-react';
+import { Eye, Heart, TrendingUp, ArrowUpRight, Clock, Zap, Info, BarChart2, Layers, RefreshCcw } from 'lucide-react';
 import type { Post } from '../types';
 import { motion } from 'framer-motion';
 import {
@@ -20,10 +20,25 @@ interface AnalyticsViewProps {
         likes: number;
         reposts: number;
     };
+    onSync?: () => Promise<void>;
 }
 
-export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats }) => {
+export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats, onSync }) => {
     const { growthData, bestTimes, performanceData, latestPost, isLoadingLatestPost } = useAnalytics();
+    const [isSyncing, setIsSyncing] = React.useState(false);
+
+    const handleSync = async () => {
+        if (!onSync) return;
+        setIsSyncing(true);
+        try {
+            await onSync();
+            alert("Sincronización completada. Los datos se actualizarán en breve.");
+        } catch (error: any) {
+            alert(`Error al sincronizar: ${error.message}`);
+        } finally {
+            setIsSyncing(false);
+        }
+    };
     const sentPosts = posts.filter(p => p.status === 'sent' && p.tweet_id);
 
     const totalViews = globalStats?.views || sentPosts.reduce((acc, p) => acc + (p.views_count || 0), 0);

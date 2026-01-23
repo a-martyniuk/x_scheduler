@@ -458,7 +458,90 @@ async def login_to_x(username, password):
 
     return {"success": success, "log": "\n".join(log_messages)}
 
-if __name__ == "__main__":
-    # Test run
-    # asyncio.run(publish_post_task("Thread Test Child", reply_to_id="123456789", dry_run=True))
-    pass
+async def sync_history_task(username: str):
+    """
+    Scrapes the user's profile to import historical posts.
+    """
+    log_messages = []
+    posts_imported = []
+
+    def log(msg):
+        logger.info(f"[Worker-Sync] {msg}")
+        log_messages.append(msg)
+
+    paths = get_user_paths(username)
+    cookies_path = paths["cookies"]
+
+    if not os.path.exists(cookies_path):
+        return {"success": False, "log": "cookies.json missing", "posts": []}
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        context = await browser.new_context(
+             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        )
+        
+        try:
+            with open(cookies_path, 'r') as f:
+                await context.add_cookies(json.load(f))
+            
+            page = await context.new_page()
+            url = f"https://x.com/{username}"
+            log(f"Navigating to profile: {url}")
+            await page.goto(url, timeout=60000)
+            await page.wait_for_selector('article[data-testid="tweet"]', timeout=30000)
+            await human_delay(2, 4)
+
+            # Extract recent tweets
+            articles = await page.locator('article[data-testid="tweet"]').all()
+            log(f"Found {len(articles)} tweets on profile.")
+
+            for article in articles:
+                try:
+                    # Content
+                    content_el = article.locator('[data-testid="tweetText"]')
+                    content = await content_el.inner_text() if await content_el.count() > 0 else ""
+                    
+                    # Tweet ID from link
+                    link_el = article.locator('time').locator('..')
+                    href = await link_el.get_attribute('href')
+                    tweet_id = None
+                    if href:
+                        match = re.search(r'status/(\d+)', href)
+                        tweet_id = match.group(1) if match else None
+
+                    if tweet_id:
+                        # Simple metric extraction
+                        stats = {"views": 0, "likes": 0, "reposts": 0}
+                        
+                        # Helper for numbers
+                        def parse_num(text):
+                            if not text: return 0
+                            text = text.replace(",", "").strip().upper()
+                            match = re.search(r'([\d\.]+)', text)
+                            if not match: return 0
+                            n = float(match.group(1))
+                            if 'K' in text: n *= 1000
+                            elif 'M' in text: n *= 1000000
+                            return int(n)
+
+                        # Likes/RTs labels
+                        label = await article.get_attribute("aria-label") or ""
+                        
+                        posts_imported.append({
+                            "tweet_id": tweet_id,
+                            "content": content,
+                            "views": 0, # Hard to get from feed reliably for all
+                            "likes": 0,
+                            "reposts": 0
+                        })
+                except Exception as e:
+                    log(f"Failed to parse a tweet: {e}")
+
+            log(f"Sync complete. Parsed {len(posts_imported)} posts.")
+        except Exception as e:
+            log(f"Sync error: {e}")
+        finally:
+            await browser.close()
+
+    return {"success": True, "log": "\n".join(log_messages), "posts": posts_imported}

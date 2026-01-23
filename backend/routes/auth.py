@@ -1,5 +1,7 @@
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks, Depends
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
+from backend.db import get_db
 from worker.publisher import login_to_x
 from loguru import logger
 
@@ -25,6 +27,53 @@ async def login(request: LoginRequest, background_tasks: BackgroundTasks):
         "status": "processing", 
         "message": "Login process started. This may take up to 30-60 seconds. Please check server logs or wait a minute before posting."
     }
+
+@router.post("/sync/{username}")
+async def sync_history(username: str, db: Session = Depends(get_db)):
+    """
+    Triggers a manual sync of account history.
+    """
+    from worker.publisher import sync_history_task
+    from backend.models import Post, PostMetricSnapshot
+    from datetime import datetime, timezone
+    
+    logger.info(f"Syncing history for {username}...")
+    result = await sync_history_task(username)
+    
+    if not result["success"]:
+        raise HTTPException(status_code=500, detail=result["log"])
+    
+    count = 0
+    for post_data in result["posts"]:
+        # Check if already exists
+        exists = db.query(Post).filter(Post.tweet_id == post_data["tweet_id"]).first()
+        if not exists:
+            new_post = Post(
+                content=post_data["content"],
+                tweet_id=post_data["tweet_id"],
+                username=username,
+                status="sent",
+                views_count=post_data["views"],
+                likes_count=post_data["likes"],
+                reposts_count=post_data["reposts"],
+                updated_at=datetime.now(timezone.utc).replace(tzinfo=None)
+            )
+            db.add(new_post)
+            db.flush() # Get ID
+            
+            # Day 0 baseline (current stats as baseline)
+            snapshot = PostMetricSnapshot(
+                post_id=new_post.id,
+                views=new_post.views_count,
+                likes=new_post.likes_count,
+                reposts=new_post.reposts_count,
+                timestamp=datetime.now(timezone.utc).replace(tzinfo=None)
+            )
+            db.add(snapshot)
+            count += 1
+            
+    db.commit()
+    return {"status": "success", "imported": count, "log": result["log"]}
 
 @router.get("/status")
 async def get_status():
