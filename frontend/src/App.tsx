@@ -294,9 +294,9 @@ function App() {
           </div>
           <h2 className="text-2xl font-black tracking-tighter text-rose-500 mb-3">Error de Conexión</h2>
           <p className="text-muted-foreground text-sm mb-2 leading-relaxed"> No pudimos conectar con el backend de X Scheduler.</p>
-          <p className="text-[10px] font-bold text-rose-500/60 uppercase tracking-widest mb-8">
-            Verifica que <code className="bg-rose-500/10 px-1 rounded">VITE_API_URL</code> esté configurado en Vercel.
-          </p>
+          <div className="mb-6 p-3 bg-black/10 dark:bg-white/5 rounded-xl border border-white/5 text-[9px] font-mono text-rose-400 overflow-x-auto">
+            {String(postsError)}
+          </div>
 
           {BASE_URL.includes('vercel.app') && (
             <div className="mb-8 p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-left">
