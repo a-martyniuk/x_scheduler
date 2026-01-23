@@ -128,6 +128,11 @@ function App() {
       } else {
         await createPost(post);
       }
+      // Immediate refetch to show changes in Metrics and Latest Post
+      await refetchPosts();
+      await refetchStats();
+      await refetchAnalytics();
+
       setIsPostModalOpen(false);
     } catch (error) {
       console.error('Error saving post:', error);

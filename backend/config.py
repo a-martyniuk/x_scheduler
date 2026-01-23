@@ -22,7 +22,9 @@ class Settings(BaseSettings):
         if not v or str(v).strip() == "":
             return "sqlite:///./x_scheduler.db"
         
-        # Compatibilidad con Railway/Heroku que usan postgres:// en lugar de postgresql://
+        # Si es un path relativo de SQLite, asegurar que se interprete bien
+        if str(v).startswith("sqlite:///./") or (str(v).startswith("sqlite:///") and not str(v).startswith("sqlite:////")):
+             pass # El default es manejable
         if str(v).startswith("postgres://"):
             return str(v).replace("postgres://", "postgresql://", 1)
             

@@ -11,7 +11,7 @@ services:
       - ./uploads:/app/uploads
       - ./x_scheduler.db:/app/x_scheduler.db
     environment:
-      - DATABASE_URL=sqlite:///x_scheduler.db
+      - DATABASE_URL=sqlite:////app/x_scheduler.db
     restart: always
 
   frontend:
