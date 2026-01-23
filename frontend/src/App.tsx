@@ -29,6 +29,7 @@ import { getUserTimezone } from './utils/timezone';
 import { usePosts } from './hooks/usePosts';
 import { useAuth } from './hooks/useAuth';
 import { useStats } from './hooks/useStats';
+import { useAnalytics } from './hooks/useAnalytics';
 import { cn } from './lib/utils';
 import { BASE_URL } from './api';
 
