@@ -11,6 +11,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from .db import engine, Base
 from fastapi.staticfiles import StaticFiles
 from .routes import posts, upload, auth, analytics
+from .config import settings
+from fastapi import Header, HTTPException, Depends
 from loguru import logger
 import sys
 
@@ -38,10 +40,15 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(posts.router, prefix="/api/posts", tags=["posts"])
-app.include_router(upload.router, prefix="/api/upload", tags=["upload"])
-app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
-app.include_router(analytics.router, prefix="/api/analytics", tags=["analytics"])
+async def verify_token(x_admin_token: str = Header(None)):
+    if settings.ADMIN_TOKEN and x_admin_token != settings.ADMIN_TOKEN:
+        raise HTTPException(status_code=401, detail="Unauthorized: Invalid Admin Token")
+    return x_admin_token
+
+app.include_router(posts.router, prefix="/api/posts", tags=["posts"], dependencies=[Depends(verify_token)])
+app.include_router(upload.router, prefix="/api/upload", tags=["upload"], dependencies=[Depends(verify_token)])
+app.include_router(auth.router, prefix="/api/auth", tags=["auth"], dependencies=[Depends(verify_token)])
+app.include_router(analytics.router, prefix="/api/analytics", tags=["analytics"], dependencies=[Depends(verify_token)])
 
 @app.on_event("startup")
 async def startup_event():

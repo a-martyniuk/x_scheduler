@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     X_USERNAME: Optional[str] = None
     X_PASSWORD: Optional[str] = None
     X_COOKIES_JSON: Optional[str] = None
+    
+    # Security
+    ADMIN_TOKEN: Optional[str] = "admin123" # Default for easy start, but should be changed
 
     @field_validator("DATABASE_URL", mode="before")
     @classmethod

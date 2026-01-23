@@ -14,6 +14,7 @@ import {
   Zap,
   BarChart3,
   RefreshCcw,
+  LogOut,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -21,6 +22,7 @@ import type { Post } from './types';
 import { PostModal } from './components/PostModal';
 import { LoginModal } from './components/LoginModal';
 import { AnalyticsView } from './components/AnalyticsView';
+import { LoginScreen } from './components/LoginScreen';
 import { getUserTimezone } from './utils/timezone';
 import { usePosts } from './hooks/usePosts';
 import { useAuth } from './hooks/useAuth';
@@ -43,6 +45,13 @@ function App() {
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     return hasDarkClass || prefersDark;
   });
+
+  const [isAuthenticated, setIsAuthenticated] = useState(() => !!localStorage.getItem('admin_token'));
+
+  const handleLogin = (token: string) => {
+    localStorage.setItem('admin_token', token);
+    setIsAuthenticated(true);
+  };
 
   // Sync with system theme changes
   useEffect(() => {
@@ -119,6 +128,10 @@ function App() {
 
   const sentCount = globalStats?.sent || 0;
   const queuedCount = globalStats?.scheduled || 0;
+
+  if (!isAuthenticated) {
+    return <LoginScreen onLogin={handleLogin} />;
+  }
 
   if (postsError) {
     return (
@@ -303,6 +316,16 @@ function App() {
               >
                 <Plus size={14} />
                 <span>Agregar Cuenta</span>
+              </button>
+              <button
+                onClick={() => {
+                  localStorage.removeItem('admin_token');
+                  setIsAuthenticated(false);
+                }}
+                className="w-full mt-6 flex items-center justify-center gap-2 py-3 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white rounded-2xl transition-all duration-300 font-black text-[10px] uppercase tracking-widest border border-rose-500/20"
+              >
+                <LogOut size={14} />
+                <span>Cerrar Sesión</span>
               </button>
             </div>
           </div>

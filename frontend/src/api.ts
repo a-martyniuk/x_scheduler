@@ -25,15 +25,24 @@ const BASE_URL = getBaseUrl();
 const API_URL = `${BASE_URL}/api/posts`;
 export { BASE_URL };
 
+const fetchWithToken = async (url: string, options: RequestInit = {}) => {
+    const token = localStorage.getItem('admin_token');
+    const headers = {
+        ...options.headers,
+        ...(token ? { 'X-Admin-Token': token } : {})
+    };
+    return fetch(url, { ...options, headers });
+};
+
 export const api = {
     getPosts: async (): Promise<Post[]> => {
-        const res = await fetch(API_URL + '/');
+        const res = await fetchWithToken(API_URL + '/');
         if (!res.ok) throw new Error('Failed to fetch posts');
         return res.json();
     },
 
     createPost: async (post: Post): Promise<Post> => {
-        const res = await fetch(API_URL + '/', {
+        const res = await fetchWithToken(API_URL + '/', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(post),
@@ -46,7 +55,7 @@ export const api = {
     },
 
     updatePost: async (id: number, post: Partial<Post>): Promise<Post> => {
-        const res = await fetch(`${API_URL}/${id}`, {
+        const res = await fetchWithToken(`${API_URL}/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(post),
@@ -59,7 +68,7 @@ export const api = {
     },
 
     deletePost: async (id: number): Promise<void> => {
-        const res = await fetch(`${API_URL}/${id}`, {
+        const res = await fetchWithToken(`${API_URL}/${id}`, {
             method: 'DELETE',
         });
         if (!res.ok) throw new Error('Failed to delete post');
@@ -69,7 +78,7 @@ export const api = {
         const formData = new FormData();
         formData.append('file', file);
 
-        const response = await fetch(`${BASE_URL}/api/upload/`, {
+        const response = await fetchWithToken(`${BASE_URL}/api/upload/`, {
             method: 'POST',
             body: formData,
         });
@@ -82,7 +91,7 @@ export const api = {
     },
 
     login: async (credentials: any): Promise<any> => {
-        const res = await fetch(`${BASE_URL}/api/auth/login`, {
+        const res = await fetchWithToken(`${BASE_URL}/api/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(credentials),
@@ -92,25 +101,25 @@ export const api = {
     },
 
     getAuthStatus: async (): Promise<{ accounts: { username: string; connected: boolean; last_connected?: string; is_legacy?: boolean }[] }> => {
-        const res = await fetch(`${BASE_URL}/api/auth/status`);
+        const res = await fetchWithToken(`${BASE_URL}/api/auth/status`);
         if (!res.ok) return { accounts: [] };
         return res.json();
     },
 
     getGlobalStats: async (): Promise<{ sent: number; failed: number; scheduled: number; drafts: number; views: number; likes: number; reposts: number }> => {
-        const res = await fetch(`${API_URL}/stats`);
+        const res = await fetchWithToken(`${API_URL}/stats`);
         if (!res.ok) throw new Error('Failed to fetch global stats');
         return res.json();
     },
 
     getGrowthData: async (): Promise<any[]> => {
-        const res = await fetch(`${BASE_URL}/api/analytics/growth`);
+        const res = await fetchWithToken(`${BASE_URL}/api/analytics/growth`);
         if (!res.ok) throw new Error('Failed to fetch growth data');
         return res.json();
     },
 
     getBestTimes: async (): Promise<any> => {
-        const res = await fetch(`${BASE_URL}/api/analytics/best-times`);
+        const res = await fetchWithToken(`${BASE_URL}/api/analytics/best-times`);
         if (!res.ok) throw new Error('Failed to fetch best times');
         return res.json();
     }
