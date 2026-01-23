@@ -4,7 +4,7 @@ from typing import List
 from ..db import get_db
 from ..models import Post
 from loguru import logger
-from .schemas import PostCreate, PostUpdate, PostResponse, GlobalStats
+from ..schemas import PostCreate, PostUpdate, PostResponse, GlobalStats
 
 router = APIRouter()
 
