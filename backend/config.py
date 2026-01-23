@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     X_COOKIES_JSON: Optional[str] = None
     
     # Security
-    ADMIN_TOKEN: Optional[str] = "admin123" # Default for easy start, but should be changed
+    ADMIN_TOKEN: Optional[str] = "196677d"
 
     @field_validator("DATABASE_URL", mode="before")
     @classmethod
