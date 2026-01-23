@@ -481,16 +481,34 @@ async def sync_history_task(username: str):
         
         try:
             page = await context.new_page()
-            url = f"https://x.com/{username}"
+            
+            # Clean username for URL
+            clean_username = username.lstrip('@')
+            url = f"https://x.com/{clean_username}"
             log(f"Navigating to profile: {url}")
+            
             await page.goto(url, timeout=60000)
-            await page.wait_for_selector('article[data-testid="tweet"]', timeout=30000)
+            
+            # Diagnostic screenshot 1: Initial load
+            diag1 = os.path.join(SCREENSHOTS_DIR, f"sync_init_{clean_username}.png")
+            await page.screenshot(path=diag1)
+            log(f"Initial sync screenshot: {diag1}")
+
+            try:
+                await page.wait_for_selector('article[data-testid="tweet"]', timeout=20000)
+            except:
+                log("Timeout waiting for tweets. Maybe zero posts or login required?")
+            
             await human_delay(2, 4)
 
             # Scroll to get more history
-            for _ in range(3):
+            for i in range(3):
                 await page.evaluate("window.scrollBy(0, 1500)")
                 await human_delay(1, 2)
+            
+            # Diagnostic screenshot 2: After scrolls
+            diag2 = os.path.join(SCREENSHOTS_DIR, f"sync_scroll_{clean_username}.png")
+            await page.screenshot(path=diag2)
 
             # Extract recent tweets
             articles = await page.locator('article[data-testid="tweet"]').all()
@@ -498,22 +516,26 @@ async def sync_history_task(username: str):
 
             for article in articles:
                 try:
-                    # Content
+                    # Content (Try multiple selectors)
                     content_el = article.locator('[data-testid="tweetText"]')
-                    content = await content_el.inner_text() if await content_el.count() > 0 else ""
+                    content = ""
+                    if await content_el.count() > 0:
+                        content = await content_el.inner_text()
                     
                     # Tweet ID from link
-                    link_el = article.locator('time').locator('..')
-                    href = await link_el.get_attribute('href')
-                    
-                    # Timestamp from 'time' tag
+                    # The link is usually in a 'time' tag's parent anchor
                     time_tag = article.locator('time')
-                    datetime_str = await time_tag.get_attribute('datetime') if await time_tag.count() > 0 else None
-                    
+                    datetime_str = None
                     tweet_id = None
-                    if href:
-                        match = re.search(r'status/(\d+)', href)
-                        tweet_id = match.group(1) if match else None
+                    
+                    if await time_tag.count() > 0:
+                        datetime_str = await time_tag.get_attribute('datetime')
+                        link_el = time_tag.locator('..')
+                        if await link_el.count() > 0:
+                            href = await link_el.get_attribute('href')
+                            if href:
+                                match = re.search(r'status/(\d+)', href)
+                                tweet_id = match.group(1) if match else None
 
                     if tweet_id:
                         posts_imported.append({
