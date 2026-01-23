@@ -21,3 +21,13 @@ class Post(Base):
     likes_count = Column(Integer, default=0)
     reposts_count = Column(Integer, default=0)
     username = Column(String, nullable=True) # Account to post from
+
+class PostMetricSnapshot(Base):
+    __tablename__ = "post_metrics_snapshots"
+
+    id = Column(Integer, primary_key=True, index=True)
+    post_id = Column(Integer, ForeignKey('posts.id'), nullable=False)
+    views = Column(Integer, default=0)
+    likes = Column(Integer, default=0)
+    reposts = Column(Integer, default=0)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))

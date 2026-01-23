@@ -10,7 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .db import engine, Base
 from fastapi.staticfiles import StaticFiles
-from .routes import posts, upload, auth
+from .routes import posts, upload, auth, analytics
 from loguru import logger
 import sys
 
@@ -41,6 +41,7 @@ app.add_middleware(
 app.include_router(posts.router, prefix="/api/posts", tags=["posts"])
 app.include_router(upload.router, prefix="/api/upload", tags=["upload"])
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
+app.include_router(analytics.router, prefix="/api/analytics", tags=["analytics"])
 
 @app.on_event("startup")
 async def startup_event():

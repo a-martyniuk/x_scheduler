@@ -2,7 +2,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta, timezone
 from .db import SessionLocal
-from .models import Post
+from .models import Post, PostMetricSnapshot
 from worker.publisher import publish_post_task, scrape_stats_task
 import asyncio
 from loguru import logger
@@ -108,6 +108,16 @@ async def update_analytics():
                 post.likes_count = stats.get("likes", 0)
                 post.reposts_count = stats.get("reposts", 0)
                 post.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                
+                # Crear Snapshot histórico
+                snapshot = PostMetricSnapshot(
+                    post_id=post.id,
+                    views=post.views_count,
+                    likes=post.likes_count,
+                    reposts=post.reposts_count
+                )
+                db.add(snapshot)
+                
                 db.commit()
                 logger.info(f"Updated Post {post.id}: {stats}")
             else:
