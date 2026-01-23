@@ -20,7 +20,7 @@ interface AnalyticsViewProps {
         likes: number;
         reposts: number;
     };
-    onSync?: () => Promise<void>;
+    onSync?: () => Promise<{ imported: number; log: string }>;
 }
 
 export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats, onSync }) => {
@@ -31,8 +31,8 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats
         if (!onSync) return;
         setIsSyncing(true);
         try {
-            await onSync();
-            alert("Sincronización completada. Los datos se actualizarán en breve.");
+            const result = await onSync();
+            alert(`Sincronización completada.\nPosts importados: ${result.imported}\nDetalles:\n${result.log}`);
         } catch (error: any) {
             alert(`Error al sincronizar: ${error.message}`);
         } finally {

@@ -488,50 +488,38 @@ async def sync_history_task(username: str):
             url = f"https://x.com/{clean_username}"
             log(f"Navigating to profile: {url}")
             
-            await page.goto(url, timeout=60000)
-            
-            # Diagnostic screenshot 1: Initial load
-            diag1 = os.path.join(SCREENSHOTS_DIR, f"sync_init_{clean_username}.png")
-            await page.screenshot(path=diag1)
-            log(f"Initial sync screenshot: {diag1}")
+            await page.goto(url, timeout=60000, wait_until="networkidle")
+            await human_delay(3, 5)
 
-            try:
-                await page.wait_for_selector('article[data-testid="tweet"]', timeout=20000)
-            except:
-                log("Timeout waiting for tweets. Maybe zero posts or login required?")
+            # Check for Login Wall
+            body_text = await page.inner_text("body")
+            if "Sign in to X" in body_text or "Log in" in body_text:
+                log("WARNING: Detected login wall. Cookies might be invalid or expired.")
+                # Save screenshot for debug
+                diag_login = os.path.join(SCREENSHOTS_DIR, f"sync_login_wall_{clean_username}.png")
+                await page.screenshot(path=diag_login)
             
-            await human_delay(2, 4)
-
             # Scroll to get more history
             for i in range(3):
                 await page.evaluate("window.scrollBy(0, 1500)")
                 await human_delay(1, 2)
             
-            # Diagnostic screenshot 2: After scrolls
-            diag2 = os.path.join(SCREENSHOTS_DIR, f"sync_scroll_{clean_username}.png")
-            await page.screenshot(path=diag2)
-
-            # Extract recent tweets
+            # Extract recent tweets (X uses cellInnerDiv for the list items)
+            # We look for articles inside them
             articles = await page.locator('article[data-testid="tweet"]').all()
-            log(f"Found {len(articles)} tweets on profile feed.")
+            log(f"Found {len(articles)} tweet articles on feed.")
 
             for article in articles:
                 try:
-                    # Content (Try multiple selectors)
-                    content_el = article.locator('[data-testid="tweetText"]')
-                    content = ""
-                    if await content_el.count() > 0:
-                        content = await content_el.inner_text()
-                    
-                    # Tweet ID from link
-                    # The link is usually in a 'time' tag's parent anchor
+                    # Tweet ID from link (X uses a specific link structure for time)
                     time_tag = article.locator('time')
                     datetime_str = None
                     tweet_id = None
                     
                     if await time_tag.count() > 0:
                         datetime_str = await time_tag.get_attribute('datetime')
-                        link_el = time_tag.locator('..')
+                        # The anchor is usually the parent of 'time'
+                        link_el = article.locator('a[href*="/status/"]').first
                         if await link_el.count() > 0:
                             href = await link_el.get_attribute('href')
                             if href:
@@ -539,6 +527,12 @@ async def sync_history_task(username: str):
                                 tweet_id = match.group(1) if match else None
 
                     if tweet_id:
+                        # Content
+                        content_el = article.locator('[data-testid="tweetText"]')
+                        content = ""
+                        if await content_el.count() > 0:
+                            content = await content_el.inner_text()
+                        
                         posts_imported.append({
                             "tweet_id": tweet_id,
                             "content": content,
