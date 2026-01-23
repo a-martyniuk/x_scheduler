@@ -26,6 +26,7 @@ import { usePosts } from './hooks/usePosts';
 import { useAuth } from './hooks/useAuth';
 import { useStats } from './hooks/useStats';
 import { cn } from './lib/utils';
+import { BASE_URL } from './api';
 
 function App() {
   const { posts, isLoading: isLoadingPosts, createPost, updatePost, error: postsError } = usePosts();
@@ -128,9 +129,13 @@ function App() {
           </div>
           <h2 className="text-2xl font-black tracking-tighter text-rose-500 mb-3">Error de Conexión</h2>
           <p className="text-muted-foreground text-sm mb-2 leading-relaxed"> No pudimos conectar con el backend de X Scheduler.</p>
-          <p className="text-[10px] font-bold text-rose-500/60 uppercase tracking-widest mb-8">
+          <p className="text-[10px] font-bold text-rose-500/60 uppercase tracking-widest mb-4">
             Verifica que <code className="bg-rose-500/10 px-1 rounded">VITE_API_URL</code> esté configurado en Vercel.
           </p>
+          <div className="bg-black/5 dark:bg-white/5 rounded-xl p-3 mb-8 text-left overflow-hidden border border-border/50">
+            <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mb-1">URL Intentada:</p>
+            <code className="text-[10px] block truncate font-mono text-rose-500/80">{BASE_URL}</code>
+          </div>
           <div className="space-y-3">
             <button
               onClick={() => window.location.reload()}
