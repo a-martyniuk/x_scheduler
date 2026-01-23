@@ -40,9 +40,10 @@ app.mount("/uploads", StaticFiles(directory=UPLOAD_PATH), name="uploads")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=False, # Cambiado a False para permitir '*' en allow_origins
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"]
 )
 
 async def verify_token(x_admin_token: str = Header(None)):
