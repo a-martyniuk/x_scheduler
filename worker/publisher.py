@@ -22,6 +22,11 @@ def get_user_paths(username: str):
         "login_log": os.path.join(user_dir, "login.log")
     }
 
+async def human_delay(min_sec=1.0, max_sec=3.0):
+    """Sleeps for a random amount of time to simulate human behavior."""
+    delay = random.uniform(min_sec, max_sec)
+    await asyncio.sleep(delay)
+
 async def _get_storage_state(username: str, log_func):
     """
     Helper to resolve storage state (cookies) from file or environment.
