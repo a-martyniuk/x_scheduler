@@ -35,9 +35,12 @@ const fetchWithToken = async (url: string, options: RequestInit = {}) => {
 
     // Si el servidor responde 401, el token es inválido o expiró
     if (response.status === 401) {
+        const hadToken = !!localStorage.getItem('admin_token');
         localStorage.removeItem('admin_token');
-        // Si no estamos ya en el login, forzar recarga para mostrar LoginScreen
-        if (window.location.pathname !== '/login') {
+
+        // Solo recargar si realmente teniamos una sesión activa que expiró
+        // Y no estamos en una ruta de login (aunque este app es SPA)
+        if (hadToken && window.location.pathname !== '/login') {
             window.location.reload();
         }
     }

@@ -8,6 +8,7 @@ export function useAuth() {
         queryKey: ['authStatus'],
         queryFn: api.getAuthStatus,
         refetchInterval: 30000,
+        enabled: !!localStorage.getItem('admin_token'),
     });
 
     const loginMutation = useMutation({

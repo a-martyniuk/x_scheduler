@@ -8,7 +8,8 @@ export function usePosts() {
     const { data: posts = [], isLoading, error } = useQuery({
         queryKey: ['posts'],
         queryFn: api.getPosts,
-        refetchInterval: 30000, // Refetch every 30s
+        refetchInterval: 30000,
+        enabled: !!localStorage.getItem('admin_token'),
     });
 
     const createMutation = useMutation({

@@ -5,6 +5,7 @@ export function useStats() {
     return useQuery({
         queryKey: ['globalStats'],
         queryFn: api.getGlobalStats,
-        refetchInterval: 60000, // Every minute
+        refetchInterval: 60000,
+        enabled: !!localStorage.getItem('admin_token'),
     });
 }
