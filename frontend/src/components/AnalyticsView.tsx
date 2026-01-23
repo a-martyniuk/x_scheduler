@@ -7,6 +7,7 @@ import {
 } from 'recharts';
 import { useAnalytics } from '../hooks/useAnalytics';
 import { cn } from '../lib/utils';
+import { LatestPostWidget } from './LatestPostWidget';
 
 interface AnalyticsViewProps {
     posts: Post[];
@@ -22,7 +23,7 @@ interface AnalyticsViewProps {
 }
 
 export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats }) => {
-    const { growthData, bestTimes, performanceData } = useAnalytics();
+    const { growthData, bestTimes, performanceData, latestPost, isLoadingLatestPost } = useAnalytics();
     const sentPosts = posts.filter(p => p.status === 'sent' && p.tweet_id);
 
     const totalViews = globalStats?.views || sentPosts.reduce((acc, p) => acc + (p.views_count || 0), 0);
@@ -58,8 +59,13 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats
             variants={container}
             initial="hidden"
             animate="show"
-            className="space-y-10"
+            className="space-y-12"
         >
+            {/* Latest Post Widget (Hero Section) */}
+            <motion.div variants={item}>
+                <LatestPostWidget post={latestPost} isLoading={isLoadingLatestPost} />
+            </motion.div>
+
             {/* Header Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 {[

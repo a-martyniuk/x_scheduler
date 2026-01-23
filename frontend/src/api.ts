@@ -65,6 +65,12 @@ export const api = {
         return res.json();
     },
 
+    getLatestPost: async (): Promise<Post> => {
+        const res = await fetchWithToken(API_URL + '/latest');
+        if (!res.ok) throw new Error('Failed to fetch latest post');
+        return res.json();
+    },
+
     createPost: async (post: Post): Promise<Post> => {
         const res = await fetchWithToken(API_URL + '/', {
             method: 'POST',

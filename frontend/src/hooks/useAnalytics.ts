@@ -25,6 +25,13 @@ export const useAnalytics = () => {
         enabled: isAuth,
     });
 
+    const latestPostQuery = useQuery({
+        queryKey: ['posts', 'latest'],
+        queryFn: api.getLatestPost,
+        refetchInterval: 60000,
+        enabled: isAuth,
+    });
+
     return {
         growthData: growthQuery.data || [],
         isLoadingGrowth: growthQuery.isLoading,
@@ -32,10 +39,13 @@ export const useAnalytics = () => {
         isLoadingBestTimes: bestTimesQuery.isLoading,
         performanceData: performanceQuery.data,
         isLoadingPerformance: performanceQuery.isLoading,
+        latestPost: latestPostQuery.data || null,
+        isLoadingLatestPost: latestPostQuery.isLoading,
         refetch: () => {
             growthQuery.refetch();
             bestTimesQuery.refetch();
             performanceQuery.refetch();
+            latestPostQuery.refetch();
         }
     };
 };
