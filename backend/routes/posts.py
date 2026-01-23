@@ -1,21 +1,77 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List
-from ..db import get_db
+from datetime import datetime, timezone
+from ..db import SessionLocal, get_db
 from ..models import Post
 from loguru import logger
 from ..schemas import PostCreate, PostUpdate, PostResponse, GlobalStats
+from worker.publisher import publish_post_task
 
 router = APIRouter()
 
+async def run_immediate_publish(post_id: int):
+    """
+    Background task to publish a post immediately.
+    """
+    logger.info(f"Running immediate publish for post {post_id}")
+    db = SessionLocal()
+    try:
+        post = db.query(Post).filter(Post.id == post_id).first()
+        if not post:
+            return
+
+        # Handle reply_to_id logic
+        reply_to_id = None
+        if post.parent_id:
+            parent = db.query(Post).filter(Post.id == post.parent_id).first()
+            if parent and parent.tweet_id:
+                reply_to_id = parent.tweet_id
+
+        # Publish
+        result = await publish_post_task(
+            post.content, 
+            post.media_paths, 
+            reply_to_id=reply_to_id, 
+            username=post.username
+        )
+
+        # Update status
+        post.status = "sent" if result.get("success") else "failed"
+        post.logs = (post.logs or "") + f"\n[Immediate] " + (result.get("log") or "No log provided")
+        post.screenshot_path = result.get("screenshot_path")
+        if result.get("tweet_id"):
+            post.tweet_id = result["tweet_id"]
+        
+        post.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        db.commit()
+        logger.info(f"Immediate publish for post {post_id} finished. Status: {post.status}")
+    except Exception as e:
+        logger.error(f"Error in immediate publish for post {post_id}: {e}")
+    finally:
+        db.close()
+
 # CRUD Routes
 @router.post("/", response_model=PostResponse)
-def create_post(post: PostCreate, db: Session = Depends(get_db)):
+def create_post(post: PostCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     logger.info(f"Creating new post for user: {post.username}")
-    db_post = Post(**post.model_dump())
+    
+    is_immediate = post.status == "immediate"
+    post_data = post.model_dump()
+    
+    if is_immediate:
+        post_data["status"] = "processing"
+        # Immediate posts don't need a scheduled_at, but we can keep it as now
+        post_data["scheduled_at"] = datetime.now(timezone.utc).replace(tzinfo=None)
+    
+    db_post = Post(**post_data)
     db.add(db_post)
     db.commit()
     db.refresh(db_post)
+    
+    if is_immediate:
+        background_tasks.add_task(run_immediate_publish, db_post.id)
+        
     return db_post
 
 @router.get("/", response_model=List[PostResponse])
@@ -31,16 +87,27 @@ def read_post(post_id: int, db: Session = Depends(get_db)):
     return post
 
 @router.put("/{post_id}", response_model=PostResponse)
-def update_post(post_id: int, post: PostUpdate, db: Session = Depends(get_db)):
+def update_post(post_id: int, post: PostUpdate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     db_post = db.query(Post).filter(Post.id == post_id).first()
     if db_post is None:
         raise HTTPException(status_code=404, detail="Post not found")
     
-    for key, value in post.model_dump(exclude_unset=True).items():
+    is_immediate = post.status == "immediate"
+    update_data = post.model_dump(exclude_unset=True)
+    
+    if is_immediate:
+        update_data["status"] = "processing"
+        update_data["scheduled_at"] = datetime.now(timezone.utc).replace(tzinfo=None)
+    
+    for key, value in update_data.items():
         setattr(db_post, key, value)
     
     db.commit()
     db.refresh(db_post)
+    
+    if is_immediate:
+        background_tasks.add_task(run_immediate_publish, db_post.id)
+        
     return db_post
 
 @router.get("/stats", response_model=GlobalStats)

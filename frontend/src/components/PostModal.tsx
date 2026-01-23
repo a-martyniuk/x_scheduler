@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Post } from '../types';
-import { X, Upload, Calendar as CalendarIcon, Trash2 } from 'lucide-react';
+import { X, Upload, Calendar as CalendarIcon, Trash2, Zap } from 'lucide-react';
 import { api, BASE_URL } from '../api';
 import { utcToLocal, localToUTC } from '../utils/timezone';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -91,14 +91,14 @@ export const PostModal: React.FC<PostModalProps> = ({ isOpen, onClose, onSave, p
         }
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSubmit = (e?: React.FormEvent, isImmediate = false) => {
+        if (e) e.preventDefault();
         onSave({
             ...post,
             content,
             media_paths: mediaPaths || undefined,
             scheduled_at: scheduledAt ? localToUTC(scheduledAt) : undefined,
-            status: scheduledAt ? 'scheduled' : 'draft',
+            status: isImmediate ? 'immediate' : (scheduledAt ? 'scheduled' : 'draft'),
             parent_id: parentId || undefined,
             username: username || undefined
         } as Post);
@@ -270,7 +270,15 @@ export const PostModal: React.FC<PostModalProps> = ({ isOpen, onClose, onSave, p
                                 <button type="button" onClick={onClose} className="px-6 py-4 font-black text-[10px] uppercase tracking-widest text-muted-foreground hover:text-foreground transition-all">
                                     Cancelar
                                 </button>
-                                <button type="submit" onClick={handleSubmit} className="px-10 py-4 bg-primary text-white rounded-[1.5rem] font-black text-[10px] uppercase tracking-[0.2em] shadow-xl shadow-primary/20 hover:scale-[1.05] active:scale-[0.95] transition-all bg-gradient-to-r from-primary to-indigo-600">
+                                <button
+                                    type="button"
+                                    onClick={() => handleSubmit(undefined, true)}
+                                    className="px-8 py-4 bg-emerald-500/10 text-emerald-600 rounded-[1.5rem] font-black text-[10px] uppercase tracking-[0.2em] border border-emerald-500/20 hover:bg-emerald-500 hover:text-white transition-all flex items-center gap-2"
+                                >
+                                    <Zap size={14} className="fill-current" />
+                                    Publicar ahora
+                                </button>
+                                <button type="submit" onClick={(e) => handleSubmit(e, false)} className="px-10 py-4 bg-primary text-white rounded-[1.5rem] font-black text-[10px] uppercase tracking-[0.2em] shadow-xl shadow-primary/20 hover:scale-[1.05] active:scale-[0.95] transition-all bg-gradient-to-r from-primary to-indigo-600">
                                     {post ? 'Actualizar' : (scheduledAt ? 'Programar' : 'Guardar Borrador')}
                                 </button>
                             </div>
