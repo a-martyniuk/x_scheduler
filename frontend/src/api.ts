@@ -31,7 +31,18 @@ const fetchWithToken = async (url: string, options: RequestInit = {}) => {
         ...options.headers,
         ...(token ? { 'X-Admin-Token': token } : {})
     };
-    return fetch(url, { ...options, headers });
+    const response = await fetch(url, { ...options, headers });
+
+    // Si el servidor responde 401, el token es inválido o expiró
+    if (response.status === 401) {
+        localStorage.removeItem('admin_token');
+        // Si no estamos ya en el login, forzar recarga para mostrar LoginScreen
+        if (window.location.pathname !== '/login') {
+            window.location.reload();
+        }
+    }
+
+    return response;
 };
 
 export const api = {

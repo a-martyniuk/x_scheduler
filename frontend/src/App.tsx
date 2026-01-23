@@ -165,13 +165,22 @@ function App() {
             >
               Reintentar Conexión
             </button>
+            <button
+              onClick={() => {
+                localStorage.removeItem('admin_token');
+                window.location.reload();
+              }}
+              className="w-full py-4 bg-white dark:bg-white/5 text-foreground rounded-2xl font-black uppercase tracking-widest text-[10px] border border-border/50"
+            >
+              Borrar Token / Re-iniciar Sesión
+            </button>
             <a
               href="https://xscheduler-production.up.railway.app"
               target="_blank"
               rel="noreferrer"
-              className="block w-full py-4 bg-white dark:bg-white/5 text-foreground rounded-2xl font-black uppercase tracking-widest text-[10px] border border-border/50"
+              className="block w-full py-2 text-muted-foreground hover:text-primary transition-colors font-bold uppercase tracking-widest text-[8px]"
             >
-              Abrir Backend Directamente
+              Probar Backend Directamente ↗
             </a>
           </div>
         </div>
