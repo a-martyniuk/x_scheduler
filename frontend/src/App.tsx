@@ -48,6 +48,14 @@ function App() {
     return hasDarkClass || prefersDark;
   });
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+
+  // Track window resizing for responsive calendar
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const [isAuthenticated, setIsAuthenticated] = useState(() => !!localStorage.getItem('admin_token'));
 
@@ -480,7 +488,11 @@ function App() {
                   initialView="dayGridMonth"
                   timeZone={userTimezone}
                   themeSystem="standard"
-                  headerToolbar={{
+                  headerToolbar={isMobile ? {
+                    left: 'prev,next',
+                    center: 'title',
+                    right: 'dayGridMonth,timeGridWeek'
+                  } : {
                     left: 'prev,next today',
                     center: 'title',
                     right: 'dayGridMonth,timeGridWeek'
@@ -542,10 +554,17 @@ function App() {
         __html: `
         .fc-theme-standard td, .fc-theme-standard th { border-color: var(--border) !important; opacity: 0.5; }
         .fc-theme-standard .fc-scrollgrid { border: none !important; }
-        .fc-header-toolbar { margin-bottom: 2rem !important; }
-        .fc-button { background: hsl(var(--primary)) !important; border: none !important; border-radius: 1rem !important; font-weight: 800 !important; text-transform: uppercase !important; font-size: 10px !important; letter-spacing: 0.1em !important; padding: 0.8rem 1.2rem !important; }
+        .fc-header-toolbar { margin-bottom: 2rem !important; flex-wrap: wrap; gap: 1rem; }
+        .fc-toolbar-title { font-weight: 900 !important; letter-spacing: -0.05em !important; font-size: 1.25rem !important; }
+        .fc-button { background: hsl(var(--primary)) !important; border: none !important; border-radius: 1rem !important; font-weight: 800 !important; text-transform: uppercase !important; font-size: 9px !important; letter-spacing: 0.1em !important; padding: 0.6rem 1rem !important; }
         .fc-button-primary:not(:disabled).fc-button-active, .fc-button-primary:not(:disabled):active { background: hsl(var(--primary)) !important; opacity: 0.8; }
-        .fc-toolbar-title { font-weight: 900 !important; letter-spacing: -0.05em !important; }
+        
+        @media (max-width: 768px) {
+          .fc-header-toolbar { flex-direction: column; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem !important; }
+          .fc-toolbar-chunk { display: flex; justify-content: center; width: 100%; }
+          .fc-button { padding: 0.5rem 0.8rem !important; font-size: 8px !important; }
+          .fc-toolbar-title { font-size: 1.1rem !important; text-align: center; }
+        }
         .sidebar-active { background: linear-gradient(135deg, hsl(var(--primary)) 0%, #3b82f6 100%); color: white !important; box-shadow: 0 10px 25px -5px hsla(var(--primary), 0.4); }
         .sidebar-inactive { color: hsl(var(--muted-foreground)) !important; }
         .sidebar-inactive:hover { background: hsla(var(--primary), 0.05); color: hsl(var(--foreground)) !important; }
