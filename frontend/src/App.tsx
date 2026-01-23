@@ -311,6 +311,9 @@ function App() {
             </div>
           )}
           <div className="space-y-3">
+            <div className="text-[9px] text-muted-foreground/50 font-mono mb-4 break-all px-4 py-2 bg-black/5 dark:bg-white/5 rounded-xl border border-white/5">
+              Target: {BASE_URL}
+            </div>
             <button
               onClick={() => window.location.reload()}
               className="w-full py-4 bg-rose-500 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-all"
@@ -327,12 +330,12 @@ function App() {
               Borrar Token / Re-iniciar Sesión
             </button>
             <a
-              href="https://xscheduler-production.up.railway.app"
+              href={`${BASE_URL}/api/health`}
               target="_blank"
               rel="noreferrer"
               className="block w-full py-2 text-muted-foreground hover:text-primary transition-colors font-bold uppercase tracking-widest text-[8px]"
             >
-              Probar Backend Directamente ↗
+              Verificar Estado del Backend ↗
             </a>
           </div>
         </div>
