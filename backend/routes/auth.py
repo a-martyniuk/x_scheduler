@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from backend.db import get_db
 from worker.publisher import login_to_x
 from loguru import logger
+from backend.main import verify_token
 
 router = APIRouter()
 
@@ -16,6 +17,14 @@ async def background_login(username, password):
     logger.info(f"Starting background login for {username}...")
     result = await login_to_x(username, password)
     logger.info(f"Background login result: {result}")
+
+@router.post("/verify-token")
+async def verify_admin_token(token: str = Depends(verify_token)):
+    """
+    Endpoint to verify the Admin Token from the Login Screen.
+    Uses the global dependency verify_token. If it passes, ret 200.
+    """
+    return {"status": "valid"}
 
 @router.post("/login")
 async def login(request: LoginRequest, background_tasks: BackgroundTasks):
