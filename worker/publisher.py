@@ -12,6 +12,15 @@ WORKER_DIR = os.path.dirname(__file__)
 SCREENSHOTS_DIR = os.path.join(WORKER_DIR, "screenshots")
 ACCOUNTS_DIR = os.path.join(WORKER_DIR, "accounts")
 
+def get_user_paths(username: str):
+    user_dir = os.path.join(ACCOUNTS_DIR, username)
+    os.makedirs(user_dir, exist_ok=True)
+    return {
+        "cookies": os.path.join(user_dir, "cookies.json"),
+        "user_info": os.path.join(user_dir, "user_info.json"),
+        "login_log": os.path.join(user_dir, "login.log")
+    }
+
 async def _get_storage_state(username: str, log_func):
     """
     Helper to resolve storage state (cookies) from file or environment.
