@@ -11,14 +11,24 @@ const getBaseUrl = () => {
         return url;
     }
 
-    // 2. Detección automática para local
+    // 2. Detección automática para local e IPs de red local (Mobile Testing)
     const hostname = window.location.hostname;
-    if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        return 'http://127.0.0.1:8000';
+    const protocol = window.location.protocol;
+
+    // Si estamos en localhost o una IP de red privada (192.168.x.x, 10.x.x.x, 172.x.x.x)
+    const isLocalIP = hostname === 'localhost' ||
+        hostname === '127.0.0.1' ||
+        hostname.startsWith('192.168.') ||
+        hostname.startsWith('10.') ||
+        /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname);
+
+    if (isLocalIP) {
+        // En local, forzamos http y puerto 8000 (puerto por defecto del backend)
+        return `http://${hostname}:8000`;
     }
 
-    // 3. Fallback inteligente (usar el mismo host si estamos en Railway o similar)
-    return `https://${hostname}`.replace(/\/$/, '');
+    // 3. Fallback inteligente (usar el mismo host y protocolo)
+    return `${protocol}//${hostname}`.replace(/\/$/, '');
 };
 
 const BASE_URL = getBaseUrl();
@@ -98,8 +108,8 @@ export const api = {
         });
 
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ detail: 'Unknown upload error' }));
-            throw new Error(errorData.detail || 'Upload failed');
+            const errorData = await response.json().catch(() => ({ detail: 'No JSON detail' }));
+            throw new Error(`[${response.status}] ${errorData.detail || 'Upload failed'}`);
         }
 
         return response.json();
