@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Shield, Lock, ArrowRight, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { api } from '../api';
 
 interface LoginScreenProps {
     onLogin: (token: string) => void;
@@ -10,10 +11,16 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
     const [token, setToken] = useState('');
     const [error, setError] = useState(false);
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (token.trim()) {
-            onLogin(token);
+            try {
+                // Verify with backend first
+                await api.verifyAdminToken(token.trim());
+                onLogin(token.trim());
+            } catch (err) {
+                setError(true);
+            }
         } else {
             setError(true);
         }

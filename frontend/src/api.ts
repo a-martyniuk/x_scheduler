@@ -141,6 +141,20 @@ export const api = {
         return res.json();
     },
 
+    verifyAdminToken: async (token: string): Promise<boolean> => {
+        const res = await fetch(`${BASE_URL}/api/auth/verify-token`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Admin-Token': token
+            },
+            mode: 'cors',
+            credentials: 'omit'
+        });
+        if (!res.ok) throw new Error('Invalid token');
+        return true;
+    },
+
     getAuthStatus: async (): Promise<{ accounts: { username: string; connected: boolean; last_connected?: string; is_legacy?: boolean }[] }> => {
         const res = await fetchWithToken(`${BASE_URL}/api/auth/status`);
         if (!res.ok) return { accounts: [] };
