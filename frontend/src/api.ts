@@ -2,7 +2,14 @@ import type { Post } from './types';
 
 const getBaseUrl = () => {
     // 1. Prioridad: Variable de entorno definida en el build (Vercel/Local)
-    if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL.replace(/\/$/, '');
+    let url = import.meta.env.VITE_API_URL;
+    if (url) {
+        url = url.replace(/\/$/, '');
+        if (!url.startsWith('http')) {
+            url = `https://${url}`;
+        }
+        return url;
+    }
 
     // 2. Detección automática para local
     const hostname = window.location.hostname;
