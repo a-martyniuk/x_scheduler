@@ -234,6 +234,7 @@
     transform: translateX(-100%);
     opacity: 0;
   }
+
   to {
     transform: translateX(0);
     opacity: 1;
@@ -244,6 +245,7 @@
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
@@ -251,6 +253,54 @@
 
 .animate-slide-in-left {
   animation: slideInLeft 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+/* Premium Calendar Events */
+.premium-event {
+  border-radius: 8px !important;
+  border: none !important;
+  padding: 4px 8px !important;
+  font-size: 0.7rem !important;
+  font-weight: 700 !important;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05) !important;
+  transition: all 0.2s ease !important;
+}
+
+.event-sent {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+  color: white !important;
+}
+
+.event-failed {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%) !important;
+  color: white !important;
+}
+
+.event-processing {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+  color: white !important;
+  animation: pulse-light 2s infinite !important;
+}
+
+.fc-v-event {
+  background-color: hsl(var(--primary)) !important;
+  border: none !important;
+}
+
+@keyframes pulse-light {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.animate-spin-slow {
+  animation: spin 3s linear infinite;
 }
 
 .animate-fade-in {

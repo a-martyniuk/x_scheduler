@@ -1,8 +1,20 @@
 import type { Post } from './types';
 
-const IS_PROD = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
-const PRODUCTION_URL = 'https://xscheduler-production.up.railway.app';
-const BASE_URL = IS_PROD ? PRODUCTION_URL : 'http://127.0.0.1:8000';
+const getBaseUrl = () => {
+    // 1. Prioridad: Variable de entorno definida en el build (Vercel/Local)
+    if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+
+    // 2. Detección automática para local
+    const hostname = window.location.hostname;
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        return 'http://127.0.0.1:8000';
+    }
+
+    // 3. Fallback inteligente (usar el mismo host si estamos en Railway o similar)
+    return `https://${hostname}`;
+};
+
+const BASE_URL = getBaseUrl();
 const API_URL = `${BASE_URL}/api/posts`;
 export { BASE_URL };
 

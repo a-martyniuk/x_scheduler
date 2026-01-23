@@ -28,7 +28,7 @@ import { useStats } from './hooks/useStats';
 import { cn } from './lib/utils';
 
 function App() {
-  const { posts, isLoading: isLoadingPosts, createPost, updatePost } = usePosts();
+  const { posts, isLoading: isLoadingPosts, createPost, updatePost, error: postsError } = usePosts();
   const { accounts } = useAuth();
   const { data: globalStats, isLoading: isLoadingStats, refetch: refetchStats } = useStats();
 
@@ -85,11 +85,9 @@ function App() {
   };
 
   const handleEventClick = (arg: any) => {
-    const post = posts.find((p) => p.id === parseInt(arg.event.id));
-    if (post) {
-      setSelectedPost(post);
-      setIsPostModalOpen(true);
-    }
+    setSelectedPost(arg.event.extendedProps as Post);
+    setSelectedDate(arg.event.start!);
+    setIsPostModalOpen(true);
   };
 
   const handleSavePost = async (post: Post) => {
@@ -105,25 +103,54 @@ function App() {
     }
   };
 
-  const statusColors: Record<string, string> = {
-    sent: '#10b981',
-    failed: '#ef4444',
-    scheduled: '#6366f1',
-    processing: '#f59e0b',
-    draft: '#94a3b8'
-  };
-
-  const calendarEvents = useMemo(() => posts.map((post) => ({
-    id: post.id?.toString(),
-    title: post.content.substring(0, 30) + (post.content.length > 30 ? '...' : ''),
-    start: post.scheduled_at,
-    backgroundColor: statusColors[post.status || 'draft'],
-    borderColor: 'transparent',
-    extendedProps: { ...post }
+  const calendarEvents = useMemo(() => posts.filter(p => p.status !== 'draft').map(p => ({
+    id: String(p.id),
+    title: p.content,
+    start: p.scheduled_at || p.updated_at,
+    extendedProps: p,
+    className: cn(
+      'premium-event',
+      p.status === 'sent' && 'event-sent',
+      p.status === 'failed' && 'event-failed',
+      p.status === 'processing' && 'event-processing'
+    )
   })), [posts]);
 
   const sentCount = globalStats?.sent || 0;
   const queuedCount = globalStats?.scheduled || 0;
+
+  if (postsError) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-[#F8FAFC] dark:bg-black p-4 text-center">
+        <div className="p-10 rounded-[3rem] bg-rose-500/5 border border-rose-500/20 max-w-md backdrop-blur-xl">
+          <div className="w-16 h-16 bg-rose-500/10 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <Zap className="text-rose-500 rotate-12" size={32} />
+          </div>
+          <h2 className="text-2xl font-black tracking-tighter text-rose-500 mb-3">Error de Conexión</h2>
+          <p className="text-muted-foreground text-sm mb-2 leading-relaxed"> No pudimos conectar con el backend de X Scheduler.</p>
+          <p className="text-[10px] font-bold text-rose-500/60 uppercase tracking-widest mb-8">
+            Verifica que <code className="bg-rose-500/10 px-1 rounded">VITE_API_URL</code> esté configurado en Vercel.
+          </p>
+          <div className="space-y-3">
+            <button
+              onClick={() => window.location.reload()}
+              className="w-full py-4 bg-rose-500 text-white rounded-2xl font-black uppercase tracking-widest text-[10px] shadow-lg shadow-rose-500/20 hover:bg-rose-600 transition-all"
+            >
+              Reintentar Conexión
+            </button>
+            <a
+              href="https://xscheduler-production.up.railway.app"
+              target="_blank"
+              rel="noreferrer"
+              className="block w-full py-4 bg-white dark:bg-white/5 text-foreground rounded-2xl font-black uppercase tracking-widest text-[10px] border border-border/50"
+            >
+              Abrir Backend Directamente
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoadingPosts && posts.length === 0) {
     return (
