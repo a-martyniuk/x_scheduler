@@ -46,9 +46,14 @@ app.add_middleware(
     expose_headers=["*"]
 )
 
-async def verify_token(x_admin_token: str = Header(None)):
+async def verify_token(request: Request, x_admin_token: str = Header(None)):
+    # Crucial: Allow CORS preflight requests to pass without token
+    if request.method == "OPTIONS":
+        return x_admin_token
+        
     if settings.ADMIN_TOKEN and x_admin_token != settings.ADMIN_TOKEN:
-        raise HTTPException(status_code=401, detail="Unauthorized: Invalid Admin Token")
+        logger.warning(f"Invalid token attempt from {request.client.host}")
+        raise HTTPException(status_code=401, detail="Invalid token")
     return x_admin_token
 
 app.include_router(posts.router, prefix="/api/posts", tags=["posts"], dependencies=[Depends(verify_token)])
