@@ -4,6 +4,7 @@ from typing import Optional
 import os
 
 class Settings(BaseSettings):
+    DATA_DIR: str = "data"
     DATABASE_URL: str = "sqlite:///./x_scheduler.db"
     PORT: int = 8000
     HOST: str = "0.0.0.0"

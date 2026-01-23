@@ -3,10 +3,11 @@ import shutil
 import os
 import uuid
 from loguru import logger
+from backend.config import settings
 
 router = APIRouter()
 
-UPLOAD_DIR = "uploads"
+UPLOAD_DIR = os.path.join(settings.DATA_DIR, "uploads")
 
 @router.post("/")
 async def upload_file(file: UploadFile = File(...)):

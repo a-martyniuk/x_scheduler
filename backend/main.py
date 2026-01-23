@@ -19,18 +19,22 @@ import sys
 # Configure Loguru
 logger.remove()
 logger.add(sys.stderr, format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>")
-logger.add("logs/backend.log", rotation="10 MB", retention="10 days", level="INFO")
+# LOG_PATH se define más abajo, así que usamos settings.DATA_DIR aquí o movemos la lógica
+logger.add(os.path.join(settings.DATA_DIR, "logs", "backend.log"), rotation="10 MB", retention="10 days", level="INFO")
 
 # Create tables
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="X Scheduler")
 
-# Ensure uploads and logs directory exists
-os.makedirs("uploads", exist_ok=True)
-os.makedirs("logs", exist_ok=True)
+# Ensure data, uploads and logs directory exists
+os.makedirs(settings.DATA_DIR, exist_ok=True)
+UPLOAD_PATH = os.path.join(settings.DATA_DIR, "uploads")
+LOG_PATH = os.path.join(settings.DATA_DIR, "logs")
+os.makedirs(UPLOAD_PATH, exist_ok=True)
+os.makedirs(LOG_PATH, exist_ok=True)
 
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+app.mount("/uploads", StaticFiles(directory=UPLOAD_PATH), name="uploads")
 
 app.add_middleware(
     CORSMiddleware,
