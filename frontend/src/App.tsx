@@ -31,7 +31,7 @@ import { useAuth } from './hooks/useAuth';
 import { useStats } from './hooks/useStats';
 import { useAnalytics } from './hooks/useAnalytics';
 import { cn } from './lib/utils';
-import { BASE_URL } from './api';
+import { api, BASE_URL } from './api';
 
 function App() {
   const { posts, isLoading: isLoadingPosts, createPost, updatePost, error: postsError, refetch: refetchPosts } = usePosts();
