@@ -359,7 +359,10 @@ function App() {
           <div className="p-2 bg-primary rounded-xl shadow-lg shadow-primary/20">
             <Zap size={18} className="text-white fill-current" />
           </div>
-          <span className="text-sm font-black tracking-tighter uppercase italic text-gradient">Command Mobile</span>
+          <div className="flex flex-col">
+            <span className="text-sm font-black tracking-tighter uppercase italic text-gradient">Command Mobile</span>
+            <span className="text-[8px] font-black text-primary/60 uppercase tracking-widest leading-none">V2 - Fixed Layout</span>
+          </div>
         </div>
         <button
           onClick={() => setIsMobileMenuOpen(true)}
@@ -372,30 +375,32 @@ function App() {
       {/* Mobile Sidebar / Drawer */}
       <AnimatePresence>
         {isMobileMenuOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+          <motion.div
+            key="overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={() => setIsMobileMenuOpen(false)}
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md md:hidden"
+          />
+        )}
+        {isMobileMenuOpen && (
+          <motion.aside
+            key="drawer"
+            initial={{ x: "-100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "-100%" }}
+            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+            className="fixed left-0 top-0 bottom-0 w-[85%] max-w-[320px] z-[60] flex flex-col glass bg-white dark:bg-slate-950 md:hidden overflow-hidden"
+          >
+            <button
               onClick={() => setIsMobileMenuOpen(false)}
-              className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md md:hidden"
-            />
-            <motion.aside
-              initial={{ x: "-100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "-100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed left-0 top-0 bottom-0 w-[85%] max-w-[320px] z-[60] flex flex-col glass bg-white dark:bg-slate-950 md:hidden overflow-hidden"
+              className="absolute top-6 right-6 p-2 bg-slate-500/10 dark:bg-white/5 rounded-xl text-muted-foreground z-10"
             >
-              <button
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="absolute top-6 right-6 p-2 bg-slate-500/10 dark:bg-white/5 rounded-xl text-muted-foreground z-10"
-              >
-                <X size={20} />
-              </button>
-              <SidebarContent />
-            </motion.aside>
-          </>
+              <X size={20} />
+            </button>
+            <SidebarContent />
+          </motion.aside>
         )}
       </AnimatePresence>
 
