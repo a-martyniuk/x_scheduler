@@ -546,9 +546,11 @@ function App() {
                 onSync={async () => {
                   const username = accounts[0]?.username;
                   if (username) {
-                    await api.syncHistory(username);
+                    const res = await api.syncHistory(username);
                     await handleGlobalRefresh();
+                    return res;
                   }
+                  return { imported: 0, log: "No hay cuenta activa" };
                 }}
               />
             </motion.div>
