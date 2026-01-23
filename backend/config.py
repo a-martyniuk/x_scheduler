@@ -21,6 +21,11 @@ class Settings(BaseSettings):
     def validate_database_url(cls, v: str) -> str:
         if not v or str(v).strip() == "":
             return "sqlite:///./x_scheduler.db"
+        
+        # Compatibilidad con Railway/Heroku que usan postgres:// en lugar de postgresql://
+        if str(v).startswith("postgres://"):
+            return str(v).replace("postgres://", "postgresql://", 1)
+            
         return v
 
     model_config = SettingsConfigDict(

@@ -117,6 +117,7 @@ async def update_analytics():
                 post.likes_count = stats.get("likes", 0)
                 post.reposts_count = stats.get("reposts", 0)
                 post.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
+                post.logs = (post.logs or "") + f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M')}] Scraper Success: Views={stats.get('views')}, Likes={stats.get('likes')}"
                 
                 # Crear Snapshot histórico
                 snapshot = PostMetricSnapshot(
@@ -131,6 +132,8 @@ async def update_analytics():
                 logger.info(f"Updated Post {post.id}: {stats}")
             else:
                 logger.warning(f"Failed to scrape Post {post.id}: {result['log']}")
+                post.logs = (post.logs or "") + f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M')}] Scraper Failed: {result['log']}"
+                db.commit()
             
             # Gentle delay between scrapes
             await asyncio.sleep(10) 

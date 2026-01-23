@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Post } from '../types';
-import { X, Upload, Calendar as CalendarIcon, Trash2, Zap } from 'lucide-react';
+import { X, Upload, Calendar as CalendarIcon, Trash2, Zap, Terminal } from 'lucide-react';
 import { api, BASE_URL } from '../api';
 import { utcToLocal, localToUTC } from '../utils/timezone';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -257,6 +257,18 @@ export const PostModal: React.FC<PostModalProps> = ({ isOpen, onClose, onSave, p
                                     onChange={(e) => setScheduledAt(e.target.value)}
                                 />
                             </div>
+
+                            {/* Activity Logs (Debug section) */}
+                            {post?.logs && (
+                                <div className="space-y-2">
+                                    <label className="text-[11px] font-black text-muted-foreground uppercase tracking-widest ml-1 flex items-center gap-2">
+                                        <Terminal size={14} className="text-primary" /> Registro de Actividad
+                                    </label>
+                                    <div className="w-full p-6 bg-slate-950 rounded-[2rem] font-mono text-[10px] text-emerald-400/80 leading-relaxed overflow-hidden shadow-2xl border border-white/5 whitespace-pre-wrap max-h-40 overflow-y-auto">
+                                        {post.logs}
+                                    </div>
+                                </div>
+                            )}
                         </form>
 
                         {/* Footer */}
