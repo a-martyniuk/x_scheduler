@@ -473,7 +473,14 @@ async def sync_history_task(username: str):
     cookies_path = paths["cookies"]
 
     if not os.path.exists(cookies_path):
-        return {"success": False, "log": "cookies.json missing", "posts": []}
+        # Try legacy fallback
+        legacy_cookies = os.path.join(WORKER_DIR, "cookies.json")
+        if os.path.exists(legacy_cookies):
+            cookies_path = legacy_cookies
+            log(f"Using legacy cookies from {cookies_path}")
+        else:
+            log(f"No cookies found for {username}")
+            return {"success": False, "log": f"cookies.json missing for {username}", "posts": []}
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)

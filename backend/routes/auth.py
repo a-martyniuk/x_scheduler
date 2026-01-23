@@ -38,7 +38,11 @@ async def sync_history(username: str, db: Session = Depends(get_db)):
     from datetime import datetime, timezone
     
     logger.info(f"Syncing history for {username}...")
-    result = await sync_history_task(username)
+    try:
+        result = await sync_history_task(username)
+    except Exception as e:
+        logger.error(f"Worker crashed during sync: {e}")
+        raise HTTPException(status_code=500, detail=f"Worker error: {str(e)}")
     
     if not result["success"]:
         raise HTTPException(status_code=500, detail=result["log"])

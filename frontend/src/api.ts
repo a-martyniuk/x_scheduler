@@ -162,7 +162,7 @@ export const api = {
     },
 
     syncHistory: async (username: string): Promise<{ imported: number; log: string }> => {
-        const res = await fetchWithToken(`${BASE_URL}/api/auth/sync/${username}`, {
+        const res = await fetchWithToken(`${BASE_URL}/api/auth/sync/${encodeURIComponent(username)}`, {
             method: 'POST'
         });
         if (!res.ok) {
