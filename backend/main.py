@@ -28,35 +28,33 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="X Scheduler")
 
-# Ensure data, uploads and logs directory exists
-os.makedirs(settings.DATA_DIR, exist_ok=True)
-UPLOAD_PATH = os.path.join(settings.DATA_DIR, "uploads")
-LOG_PATH = os.path.join(settings.DATA_DIR, "logs")
-os.makedirs(UPLOAD_PATH, exist_ok=True)
-os.makedirs(LOG_PATH, exist_ok=True)
-
-app.mount("/uploads", StaticFiles(directory=UPLOAD_PATH), name="uploads")
-
+# 1. CORS Middleware - MUST BE FIRST
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=False,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["Content-Type", "X-Admin-Token", "Authorization", "Accept"],
     expose_headers=["*"]
 )
 
+# 2. Request Logging Middleware for Diagnostics
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    logger.info(f"Incoming {request.method} request to {request.url.path}")
+    response = await call_next(request)
+    logger.info(f"Response status: {response.status_code}")
+    return response
+
 async def verify_token(request: Request, x_admin_token: str = Header(None)):
-    # Crucial: Allow CORS preflight requests
+    # allow OPTIONS for CORS
     if request.method == "OPTIONS":
         return x_admin_token
-        
-    # Check token only if defined in env
+    
     if settings.ADMIN_TOKEN and settings.ADMIN_TOKEN.strip():
         if x_admin_token != settings.ADMIN_TOKEN:
-            logger.warning(f"Invalid token attempt: {x_admin_token}")
+            logger.warning(f"Invalid token from {request.client.host if request.client else 'unknown'}")
             raise HTTPException(status_code=401, detail="Invalid token")
-    
     return x_admin_token
 
 app.include_router(posts.router, prefix="/api/posts", tags=["posts"], dependencies=[Depends(verify_token)])
