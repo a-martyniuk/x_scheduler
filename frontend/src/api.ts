@@ -2,7 +2,7 @@ import type { Post } from './types';
 
 const getBaseUrl = () => {
     // 1. Prioridad: Variable de entorno definida en el build (Vercel/Local)
-    if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+    if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL.replace(/\/$/, '');
 
     // 2. Detección automática para local
     const hostname = window.location.hostname;
@@ -11,7 +11,7 @@ const getBaseUrl = () => {
     }
 
     // 3. Fallback inteligente (usar el mismo host si estamos en Railway o similar)
-    return `https://${hostname}`;
+    return `https://${hostname}`.replace(/\/$/, '');
 };
 
 const BASE_URL = getBaseUrl();
