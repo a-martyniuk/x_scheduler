@@ -43,7 +43,7 @@ app.add_middleware(
     allow_origins=["*"],
     allow_credentials=False,
     allow_methods=["*"],
-    allow_headers=["Content-Type", "X-Admin-Token", "Authorization", "Accept"],
+    allow_headers=["*"],
     expose_headers=["*"]
 )
 
