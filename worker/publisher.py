@@ -12,19 +12,40 @@ WORKER_DIR = os.path.dirname(__file__)
 SCREENSHOTS_DIR = os.path.join(WORKER_DIR, "screenshots")
 ACCOUNTS_DIR = os.path.join(WORKER_DIR, "accounts")
 
-def get_user_paths(username: str):
-    user_dir = os.path.join(ACCOUNTS_DIR, username)
-    os.makedirs(user_dir, exist_ok=True)
-    return {
-        "cookies": os.path.join(user_dir, "cookies.json"),
-        "user_info": os.path.join(user_dir, "user_info.json"),
-        "login_log": os.path.join(user_dir, "login.log")
-    }
+async def _get_storage_state(username: str, log_func):
+    """
+    Helper to resolve storage state (cookies) from file or environment.
+    Returns (path_to_use, temp_path_to_cleanup)
+    """
+    paths = get_user_paths(username)
+    cookies_path = paths["cookies"]
+    
+    # Priority 1: User-specific file
+    if os.path.exists(cookies_path) and os.path.getsize(cookies_path) > 2:
+        log_func(f"Using cookies from file: {cookies_path}")
+        return cookies_path, None
 
-async def human_delay(min_sec=1.0, max_sec=3.0):
-    """Sleeps for a random amount of time to simulate human behavior."""
-    delay = random.uniform(min_sec, max_sec)
-    await asyncio.sleep(delay)
+    # Priority 2: Legacy root file
+    legacy_cookies = os.path.join(WORKER_DIR, "cookies.json")
+    if os.path.exists(legacy_cookies) and os.path.getsize(legacy_cookies) > 2:
+        log_func(f"Using legacy cookies from: {legacy_cookies}")
+        return legacy_cookies, None
+
+    # Priority 3: X_COOKIES_JSON Environment Variable
+    cookies_json_str = os.environ.get('X_COOKIES_JSON')
+    if cookies_json_str:
+        try:
+            import tempfile
+            temp_fd, temp_cookies_path = tempfile.mkstemp(suffix='.json', text=True)
+            with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
+                f.write(cookies_json_str)
+            log_func("Using cookies from X_COOKIES_JSON environment variable")
+            return temp_cookies_path, temp_cookies_path
+        except Exception as e:
+            log_func(f"Failed to load cookies from environment: {e}")
+    
+    log_func(f"No cookies found for {username or 'default'}")
+    return None, None
 
 async def publish_post_task(content: str, media_paths: str = None, reply_to_id: str = None, username: str = None, dry_run: bool = False):
     """
@@ -40,41 +61,10 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
     def log(msg):
         logger.info(f"[Worker] {msg}")
         log_messages.append(msg)
-
-    # Resolve cookies path
-    if username:
-        paths = get_user_paths(username)
-        cookies_path = paths["cookies"]
-    else:
-        # Fallback to legacy path if no username provided
-        cookies_path = os.path.join(WORKER_DIR, "cookies.json")
-
-    # Check if cookies file exists, if not try environment variable
-    storage_state = None
-    temp_cookies_path = None
     
-    if os.path.exists(cookies_path) and os.path.getsize(cookies_path) > 2:
-        storage_state = cookies_path
-        log(f"Using cookies from file: {cookies_path}")
-    else:
-        # Try to load from environment variable (for Railway deployment)
-        cookies_json_str = os.environ.get('X_COOKIES_JSON')
-        if cookies_json_str:
-            try:
-                # Create a temporary file with the cookies
-                import tempfile
-                temp_fd, temp_cookies_path = tempfile.mkstemp(suffix='.json', text=True)
-                with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
-                    f.write(cookies_json_str)
-                storage_state = temp_cookies_path
-                log("Using cookies from X_COOKIES_JSON environment variable")
-            except Exception as e:
-                log(f"Failed to load cookies from environment: {e}")
-                return {"success": False, "log": f"Failed to load cookies from environment: {e}", "screenshot_path": None, "tweet_id": None}
-        else:
-            log(f"No cookies found for {username or 'default'}")
-            return {"success": False, "log": f"cookies.json not found and X_COOKIES_JSON not set for {username or 'default'}.", "screenshot_path": None, "tweet_id": None}
-
+    storage_state, temp_cookies_path = await _get_storage_state(username, log)
+    if not storage_state:
+        return {"success": False, "log": f"No credentials found for {username or 'default'}", "screenshot_path": None, "tweet_id": None}
 
     async with async_playwright() as p:
         # Launch browser (headless=True for background operation)
@@ -469,29 +459,18 @@ async def sync_history_task(username: str):
         logger.info(f"[Worker-Sync] {msg}")
         log_messages.append(msg)
 
-    paths = get_user_paths(username)
-    cookies_path = paths["cookies"]
-
-    if not os.path.exists(cookies_path):
-        # Try legacy fallback
-        legacy_cookies = os.path.join(WORKER_DIR, "cookies.json")
-        if os.path.exists(legacy_cookies):
-            cookies_path = legacy_cookies
-            log(f"Using legacy cookies from {cookies_path}")
-        else:
-            log(f"No cookies found for {username}")
-            return {"success": False, "log": f"cookies.json missing for {username}", "posts": []}
+    storage_state, temp_cookies_path = await _get_storage_state(username, log)
+    if not storage_state:
+        return {"success": False, "log": f"cookies missing for {username}", "posts": []}
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         context = await browser.new_context(
-             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+             storage_state=storage_state
         )
         
         try:
-            with open(cookies_path, 'r') as f:
-                await context.add_cookies(json.load(f))
-            
             page = await context.new_page()
             url = f"https://x.com/{username}"
             log(f"Navigating to profile: {url}")
