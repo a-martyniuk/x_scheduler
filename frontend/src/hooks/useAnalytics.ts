@@ -4,19 +4,13 @@ import { api } from '../api';
 export const useAnalytics = () => {
     const growthQuery = useQuery({
         queryKey: ['analytics', 'growth'],
-        queryFn: async () => {
-            const response = await api.get('/analytics/growth');
-            return response.data;
-        },
+        queryFn: api.getGrowthData,
         refetchInterval: 300000, // 5 minutes
     });
 
     const bestTimesQuery = useQuery({
         queryKey: ['analytics', 'best-times'],
-        queryFn: async () => {
-            const response = await api.get('/analytics/best-times');
-            return response.data;
-        },
+        queryFn: api.getBestTimes,
         refetchInterval: 3600000, // 1 hour
     });
 

@@ -101,6 +101,18 @@ export const api = {
         const res = await fetch(`${API_URL}/stats`);
         if (!res.ok) throw new Error('Failed to fetch global stats');
         return res.json();
+    },
+
+    getGrowthData: async (): Promise<any[]> => {
+        const res = await fetch(`${BASE_URL}/api/analytics/growth`);
+        if (!res.ok) throw new Error('Failed to fetch growth data');
+        return res.json();
+    },
+
+    getBestTimes: async (): Promise<any> => {
+        const res = await fetch(`${BASE_URL}/api/analytics/best-times`);
+        if (!res.ok) throw new Error('Failed to fetch best times');
+        return res.json();
     }
 
 };

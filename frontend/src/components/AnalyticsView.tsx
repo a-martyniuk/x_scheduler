@@ -22,7 +22,7 @@ interface AnalyticsViewProps {
 }
 
 export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats }) => {
-    const { growthData, bestTimes, isLoadingGrowth } = useAnalytics();
+    const { growthData, bestTimes } = useAnalytics();
     const sentPosts = posts.filter(p => p.status === 'sent' && p.tweet_id);
 
     const totalViews = globalStats?.views || sentPosts.reduce((acc, p) => acc + (p.views_count || 0), 0);
