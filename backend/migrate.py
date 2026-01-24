@@ -78,3 +78,6 @@ def run_migrations():
             
     except Exception as e:
         logger.error(f"Migration failed: {e}")
+
+if __name__ == "__main__":
+    run_migrations()

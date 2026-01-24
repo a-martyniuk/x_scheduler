@@ -27,7 +27,7 @@ class PostResponse(PostBase):
     tweet_id: Optional[str] = None
     views_count: int = 0
     likes_count: int = 0
-    likes_count: int = 0
+
     reposts_count: int = 0
     is_repost: bool = False
     
