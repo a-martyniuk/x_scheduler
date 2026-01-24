@@ -147,4 +147,52 @@ def start_scheduler():
     scheduler.add_job(check_scheduled_posts, "interval", minutes=1)
     # Run analytics every 15 minutes for higher resolution tracking
     scheduler.add_job(update_analytics, "interval", minutes=15)
+    
+    # Run full history sync every 6 hours to catch up with external changes
+    scheduler.add_job(sync_history_job, "interval", hours=6)
+    
     scheduler.start()
+
+async def sync_history_job():
+    """
+    Periodically syncs history for all connected accounts.
+    """
+    logger.info("Running Periodic History Sync...")
+    from backend.services.sync_service import sync_account_history
+    import os
+    import json
+    
+    db: Session = SessionLocal()
+    try:
+        # Discover accounts from file system (similar to get_status)
+        worker_dir = os.path.join(os.path.dirname(__file__), "..", "worker")
+        accounts_dir = os.path.join(worker_dir, "accounts")
+        
+        usernames = []
+        
+        # 1. File based accounts
+        if os.path.exists(accounts_dir):
+            for username in os.listdir(accounts_dir):
+                user_info_path = os.path.join(accounts_dir, username, "user_info.json")
+                if os.path.exists(user_info_path):
+                    usernames.append(username)
+
+        # 2. Env var account
+        env_username = os.environ.get('X_USERNAME')
+        if env_username and env_username not in usernames:
+             usernames.append(env_username)
+
+        for username in usernames:
+            logger.info(f"Auto-Syncing {username}...")
+            try:
+                await sync_account_history(username, db)
+            except Exception as e:
+                logger.error(f"Auto-Sync failed for {username}: {e}")
+            
+            # Sleep between accounts
+            await asyncio.sleep(30)
+
+    except Exception as e:
+        logger.exception(f"History Sync Loop Error: {e}")
+    finally:
+        db.close()

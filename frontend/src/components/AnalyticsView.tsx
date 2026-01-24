@@ -20,10 +20,11 @@ interface AnalyticsViewProps {
         likes: number;
         reposts: number;
     };
+    accounts?: { username: string; last_synced?: string }[];
     onSync?: () => Promise<{ imported: number; log: string; debug_screenshot?: string }>;
 }
 
-export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats, onSync }) => {
+export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats, accounts, onSync }) => {
     const { growthData, bestTimes, performanceData, latestPost, isLoadingLatestPost } = useAnalytics();
     const [isSyncing, setIsSyncing] = React.useState(false);
 
@@ -73,6 +74,8 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats
         hidden: { opacity: 0, y: 20 },
         show: { opacity: 1, y: 0 }
     };
+
+    const lastSyncedTime = accounts?.[0]?.last_synced ? new Date(accounts[0].last_synced).toLocaleString() : null;
 
     return (
         <motion.div
@@ -197,12 +200,42 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats
                 {/* Account Growth Chart */}
                 <motion.div
                     variants={item}
-                    className="bg-white/60 dark:bg-gray-900/80 p-8 rounded-[3rem] border border-white/80 dark:border-white/10 shadow-xl flex flex-col"
+                    className="bg-white/60 dark:bg-gray-900/80 p-8 rounded-[3rem] border border-white/80 dark:border-white/10 shadow-xl flex flex-col relative overflow-hidden group"
                 >
-                    <div className="flex items-center gap-4 mb-8">
-                        <TrendingUp className="text-emerald-500" size={24} />
-                        <h3 className="text-xl font-black tracking-tight">Crecimiento</h3>
+                    {/* Background Pattern */}
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
+
+                    <div className="flex items-center justify-between mb-8 z-10 w-full">
+                        <div className="flex items-center gap-4">
+                            <TrendingUp className="text-emerald-500" size={24} />
+                            <h3 className="text-xl font-black tracking-tight">Crecimiento</h3>
+                        </div>
+
+                        {/* Sync Button MOVED Here */}
+                        {onSync && (
+                            <button
+                                onClick={handleSync}
+                                disabled={isSyncing}
+                                className={cn(
+                                    "p-2 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl hover:bg-emerald-500 hover:text-white transition-all active:scale-95",
+                                    isSyncing && "animate-spin opacity-50 cursor-not-allowed"
+                                )}
+                                title="Sincronizar Historial"
+                            >
+                                <RefreshCcw size={14} />
+                            </button>
+                        )}
                     </div>
+
+                    {/* Last Synced Info */}
+                    {lastSyncedTime && (
+                        <div className="mb-4 flex items-center gap-2 px-3 py-1.5 bg-emerald-500/5 rounded-lg border border-emerald-500/10 w-fit">
+                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            <span className="text-[9px] font-bold text-emerald-600/80 dark:text-emerald-400/80 uppercase tracking-wide">
+                                Sinc: {lastSyncedTime}
+                            </span>
+                        </div>
+                    )}
 
                     <div className="h-[200px] w-full mt-auto">
                         {useAnalytics().accountGrowth && useAnalytics().accountGrowth.length > 0 ? (
@@ -360,19 +393,6 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats
                             <div className="w-2 h-8 bg-primary rounded-full shadow-[0_0_15px_rgba(99,102,241,0.5)]" />
                             <h3 className="text-2xl font-black tracking-tight">Top Performance</h3>
                         </div>
-                        {onSync && (
-                            <button
-                                onClick={handleSync}
-                                disabled={isSyncing}
-                                className={cn(
-                                    "px-4 py-2 bg-primary/10 text-primary rounded-xl text-[10px] font-black uppercase tracking-widest border border-primary/20 hover:bg-primary hover:text-white transition-all flex items-center gap-2",
-                                    isSyncing && "opacity-50 cursor-not-allowed"
-                                )}
-                            >
-                                <RefreshCcw size={12} className={isSyncing ? "animate-spin" : ""} />
-                                {isSyncing ? 'Sincronizando...' : 'Sincronizar Historial'}
-                            </button>
-                        )}
                     </div>
 
                     <div className="overflow-x-auto h-[400px] custom-scrollbar">

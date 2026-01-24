@@ -374,6 +374,7 @@ function App() {
               <AnalyticsView
                 posts={posts}
                 globalStats={globalStats}
+                accounts={accounts}
                 onSync={async () => {
                   const username = accounts[0]?.username;
                   if (username) {

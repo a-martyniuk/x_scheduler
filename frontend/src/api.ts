@@ -167,7 +167,7 @@ export const api = {
         return true;
     },
 
-    getAuthStatus: async (): Promise<{ accounts: { username: string; connected: boolean; last_connected?: string; is_legacy?: boolean }[] }> => {
+    getAuthStatus: async (): Promise<{ accounts: { username: string; connected: boolean; last_connected?: string; is_legacy?: boolean; last_synced?: string }[] }> => {
         const res = await fetchWithToken(`${BASE_URL}/api/auth/status`);
         if (!res.ok) return { accounts: [] };
         return res.json();

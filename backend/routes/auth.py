@@ -48,18 +48,30 @@ async def sync_history(username: str, db: Session = Depends(get_db)):
     return await sync_account_history(username, db)
 
 @router.get("/status")
-async def get_status():
+async def get_status(db: Session = Depends(get_db)):
     """
     Returns a list of all connected accounts.
     """
     import os
     import json
+    from backend.models import AccountMetricSnapshot
     
     worker_dir = os.path.join(os.path.dirname(__file__), "..", "..", "worker")
     accounts_dir = os.path.join(worker_dir, "accounts")
     
     accounts = []
     
+    def get_last_synced(username: str) -> str | None:
+        try:
+            snapshot = db.query(AccountMetricSnapshot).filter(
+                AccountMetricSnapshot.username == username
+            ).order_by(AccountMetricSnapshot.timestamp.desc()).first()
+            if snapshot and snapshot.timestamp:
+                return snapshot.timestamp.isoformat()
+        except:
+            pass
+        return None
+
     if os.path.exists(accounts_dir):
         for username in os.listdir(accounts_dir):
             user_dir = os.path.join(accounts_dir, username)
@@ -77,7 +89,8 @@ async def get_status():
                         accounts.append({
                             "username": username,
                             "connected": is_cookies_valid,
-                            "last_connected": data.get("connected_at")
+                            "last_connected": data.get("connected_at"),
+                            "last_synced": get_last_synced(username)
                         })
                 except Exception as e:
                     logger.error(f"Failed to load {username} info: {e}")
@@ -103,7 +116,8 @@ async def get_status():
                 "username": username,
                 "connected": True,
                 "last_connected": last_connected,
-                "is_legacy": True
+                "is_legacy": True,
+                "last_synced": get_last_synced(username)
             })
     
     # Check for environment variable cookies (Railway deployment)
@@ -120,7 +134,8 @@ async def get_status():
                     "username": env_username,
                     "connected": True,
                     "last_connected": None,
-                    "is_legacy": False
+                    "is_legacy": False,
+                    "last_synced": get_last_synced(env_username)
                 })
                 logger.info(f"Detected environment variable cookies for {env_username}")
         except json.JSONDecodeError:
