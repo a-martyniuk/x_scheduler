@@ -31,7 +31,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats
         if (!onSync) return;
         setIsSyncing(true);
         try {
-            const result = await onSync();
+            await onSync();
 
             // Optional: Show alert or just rely on the UI update
             // alert(`Sincronización completada.\nPosts importados: ${result.imported}`);
