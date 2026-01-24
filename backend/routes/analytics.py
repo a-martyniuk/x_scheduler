@@ -11,32 +11,36 @@ router = APIRouter()
 @router.get("/growth")
 def get_growth_data(db: Session = Depends(get_db)):
     """
-    Returns aggregated engagement data over the last 7 days for the wave chart.
-    Now includes post_count (distinct posts that had snapshots on that day).
+    Returns aggregated engagement data over the last 30 days based on Post publication date.
     """
     now = datetime.now(timezone.utc).replace(tzinfo=None)
-    cutoff = now - timedelta(days=7)
+    cutoff = now - timedelta(days=30)
     
-    # Query snapshots in the last 7 days
-    snapshots = db.query(
-        func.date(PostMetricSnapshot.timestamp).label('date'),
-        func.sum(PostMetricSnapshot.views).label('views'),
-        func.sum(PostMetricSnapshot.likes).label('likes'),
-        func.sum(PostMetricSnapshot.reposts).label('reposts'),
-        func.count(func.distinct(PostMetricSnapshot.post_id)).label('post_count')
-    ).filter(PostMetricSnapshot.timestamp >= cutoff)\
-     .group_by(func.date(PostMetricSnapshot.timestamp))\
-     .order_by(func.date(PostMetricSnapshot.timestamp)).all()
+    # Query Posts directly to reconstruct history
+    # We use updated_at because that's where we store the legacy publish date
+    stats = db.query(
+        func.date(Post.updated_at).label('date'),
+        func.sum(Post.views_count).label('views'),
+        func.sum(Post.likes_count).label('likes'),
+        func.sum(Post.reposts_count).label('reposts'),
+        func.count(Post.id).label('post_count')
+    ).filter(
+        Post.status == 'sent',
+        Post.updated_at >= cutoff,
+        Post.is_repost.isnot(True) # Exclude reposts from growth chart too
+    )\
+     .group_by(func.date(Post.updated_at))\
+     .order_by(func.date(Post.updated_at)).all()
     
     return [
         {
             "date": str(s.date),
-            "views": s.views,
-            "likes": s.likes,
-            "reposts": s.reposts,
-            "engagement": s.likes + s.reposts,
+            "views": s.views or 0,
+            "likes": s.likes or 0,
+            "reposts": s.reposts or 0,
+            "engagement": (s.likes or 0) + (s.reposts or 0),
             "posts": s.post_count
-        } for s in snapshots
+        } for s in stats
     ]
 
 @router.get("/performance")
@@ -44,7 +48,7 @@ def get_performance_data(db: Session = Depends(get_db)):
     """
     Compares performance between Text-only and Media posts.
     """
-    sent_posts = db.query(Post).filter(Post.status == "sent").all()
+    sent_posts = db.query(Post).filter(Post.status == "sent", Post.is_repost.isnot(True)).all()
     
     performance = {
         "text": {"count": 0, "views": 0, "engagement": 0},
@@ -52,7 +56,10 @@ def get_performance_data(db: Session = Depends(get_db)):
     }
     
     for post in sent_posts:
-        type_key = "media" if post.media_paths else "text"
+        # Check both local media paths AND imported media URLs
+        has_media = bool(post.media_paths) or bool(post.media_url)
+        type_key = "media" if has_media else "text"
+        
         performance[type_key]["count"] += 1
         performance[type_key]["views"] += (post.views_count or 0)
         performance[type_key]["engagement"] += ((post.likes_count or 0) + (post.reposts_count or 0))
