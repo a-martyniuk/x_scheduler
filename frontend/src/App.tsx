@@ -1,20 +1,10 @@
+```
 import { useState, useMemo, useEffect } from 'react';
-import FullCalendar from '@fullcalendar/react';
-import dayGridPlugin from '@fullcalendar/daygrid';
-import timeGridPlugin from '@fullcalendar/timegrid';
-import interactionPlugin from '@fullcalendar/interaction';
 import {
-  Calendar as CalendarIcon,
-  Plus,
   Moon,
   Sun,
-  CheckCircle2,
-  Clock,
-  Image as ImageIcon,
   Zap,
-  BarChart3,
-  RefreshCcw,
-  LogOut,
+  Plus,
   Menu,
   X,
 } from 'lucide-react';
@@ -25,6 +15,8 @@ import { PostModal } from './components/PostModal';
 import { LoginModal } from './components/LoginModal';
 import { AnalyticsView } from './components/AnalyticsView';
 import { LoginScreen } from './components/LoginScreen';
+import { Sidebar } from './components/Sidebar';
+import { CalendarView } from './components/CalendarView';
 import { getUserTimezone } from './utils/timezone';
 import { usePosts } from './hooks/usePosts';
 import { useAuth } from './hooks/useAuth';
@@ -64,7 +56,7 @@ function App() {
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth < 768);
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    return () => window.removeEventListener('change', handleResize);
   }, []);
 
   const [isAuthenticated, setIsAuthenticated] = useState(() => !!localStorage.getItem('admin_token'));
@@ -72,6 +64,11 @@ function App() {
   const handleLogin = (token: string) => {
     localStorage.setItem('admin_token', token);
     setIsAuthenticated(true);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('admin_token');
+    setIsAuthenticated(false);
   };
 
   // Sync with system theme changes
@@ -139,148 +136,6 @@ function App() {
     }
   };
 
-  const calendarEvents = useMemo(() => posts.filter(p => p.status !== 'draft').map(p => ({
-    id: String(p.id),
-    title: p.content,
-    start: p.scheduled_at || p.updated_at,
-    extendedProps: p,
-    className: cn(
-      'premium-event',
-      p.status === 'sent' && 'event-sent',
-      p.status === 'failed' && 'event-failed',
-      p.status === 'processing' && 'event-processing'
-    )
-  })), [posts]);
-
-  const sentCount = globalStats?.sent || 0;
-  const queuedCount = globalStats?.scheduled || 0;
-
-  const SidebarContent = () => (
-    <div className="flex flex-col h-full overflow-y-auto custom-scrollbar">
-      <div className="p-8 pb-4">
-        <div className="flex items-center gap-4 mb-10 group/logo cursor-pointer">
-          <div className="bg-primary text-primary-foreground p-3 rounded-2xl shadow-lg shadow-primary/20 bg-gradient-to-br from-primary to-blue-600 group-hover/logo:scale-110 transition-transform duration-500">
-            <Zap size={24} className="fill-current stroke-[1.5px]" />
-          </div>
-          <div>
-            <h1 className="text-xl font-extrabold tracking-tighter text-foreground leading-tight">X Command</h1>
-            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary/80">Scheduler Pro</span>
-          </div>
-        </div>
-
-        <nav className="space-y-2 mb-10">
-          {[
-            { id: 'calendar', label: 'Cronograma', icon: CalendarIcon },
-            { id: 'analytics', label: 'Analíticas', icon: BarChart3 },
-          ].map((item) => (
-            <button
-              key={item.id}
-              onClick={() => {
-                setCurrentView(item.id as any);
-                setIsMobileMenuOpen(false);
-              }}
-              className={cn(
-                "flex items-center gap-3 w-full px-5 py-4 rounded-2xl font-bold transition-all duration-300 group",
-                currentView === item.id ? "sidebar-active" : "sidebar-inactive"
-              )}
-            >
-              <item.icon size={18} className={currentView === item.id ? "group-hover:rotate-12 transition-transform" : ""} />
-              <span>{item.label}</span>
-            </button>
-          ))}
-        </nav>
-
-        <div className="space-y-10">
-          <div>
-            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-6 px-2 flex justify-between">
-              Métricas Live
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-ping" />
-            </p>
-            <div className="grid grid-cols-1 gap-3">
-              {[
-                { label: 'En Cola', val: queuedCount, icon: Clock, color: 'text-orange-500', bg: 'bg-orange-500/10' },
-                { label: 'Enviados', val: sentCount, icon: CheckCircle2, color: 'text-green-500', bg: 'bg-green-500/10' },
-              ].map((stat, i) => (
-                <div key={i} className="flex items-center justify-between p-4 rounded-[1.5rem] bg-white/40 dark:bg-white/5 border border-border/50 hover-lift group">
-                  <div className="flex items-center gap-3">
-                    <div className={cn("p-2 rounded-xl group-hover:scale-110 transition-transform", stat.bg, stat.color)}>
-                      <stat.icon size={16} />
-                    </div>
-                    <span className="text-xs font-bold text-muted-foreground">{stat.label}</span>
-                  </div>
-                  <span className={cn("font-black text-sm tabular-nums", stat.color)}>{stat.val}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-6 px-2 flex justify-between">
-              Borradores Rápidos
-              <span className="text-primary font-bold">{posts.filter(p => p.status === 'draft').length}</span>
-            </p>
-            <div className="space-y-3">
-              {posts.filter(p => p.status === 'draft').slice(0, 3).map(draft => (
-                <div
-                  key={draft.id}
-                  onClick={() => { setSelectedPost(draft); setIsPostModalOpen(true); setIsMobileMenuOpen(false); }}
-                  className="p-5 bg-white/50 dark:bg-white/5 hover:bg-white/80 dark:hover:bg-white/10 border border-border/50 hover:border-primary/40 rounded-2xl cursor-pointer transition-all duration-300 group shadow-sm hover:shadow-xl hover:-translate-y-1"
-                >
-                  <p className="text-xs font-bold line-clamp-2 text-foreground/80 leading-relaxed mb-4">
-                    {draft.content || "(Sin contenido)"}
-                  </p>
-                  <div className="flex justify-between items-center opacity-60 group-hover:opacity-100 transition-opacity">
-                    <span className="text-[9px] font-bold uppercase tracking-tighter">
-                      {draft.updated_at ? new Date(draft.updated_at).toLocaleDateString() : 'Reciente'}
-                    </span>
-                    {draft.media_paths && <ImageIcon size={12} className="text-primary" />}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="pb-8">
-            <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-6 px-2">Cuentas Activas</p>
-            <div className="space-y-3">
-              {accounts.map(acc => (
-                <div key={acc.username} className="flex items-center gap-3 p-3 rounded-2xl bg-white/60 dark:bg-black/40 border border-border/50 shadow-sm">
-                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-indigo-600 flex items-center justify-center text-xs font-black text-white shadow-lg shadow-primary/20">
-                    {acc.username[0].toUpperCase()}
-                  </div>
-                  <div className="flex flex-col min-w-0">
-                    <span className="text-xs font-black text-foreground truncate">@{acc.username}</span>
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]" />
-                      <span className="text-[9px] text-green-500/80 font-black uppercase tracking-widest">En Línea</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              <button
-                onClick={() => { setIsLoginModalOpen(true); setIsMobileMenuOpen(false); }}
-                className="w-full flex items-center justify-center gap-2 py-3 border-2 border-dashed border-border/50 rounded-2xl text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all duration-300 font-bold text-xs"
-              >
-                <Plus size={14} />
-                <span>Agregar Cuenta</span>
-              </button>
-              <button
-                onClick={() => {
-                  localStorage.removeItem('admin_token');
-                  setIsAuthenticated(false);
-                }}
-                className="w-full mt-6 flex items-center justify-center gap-2 py-3 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white rounded-2xl transition-all duration-300 font-black text-[10px] uppercase tracking-widest border border-rose-500/20"
-              >
-                <LogOut size={14} />
-                <span>Cerrar Sesión</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
   if (!isAuthenticated) {
     return <LoginScreen onLogin={handleLogin} />;
   }
@@ -330,7 +185,7 @@ function App() {
               Borrar Token / Re-iniciar Sesión
             </button>
             <a
-              href={`${BASE_URL}/api/health`}
+              href={`${ BASE_URL } /api/health`}
               target="_blank"
               rel="noreferrer"
               className="block w-full py-2 text-muted-foreground hover:text-primary transition-colors font-bold uppercase tracking-widest text-[8px]"
@@ -374,7 +229,17 @@ function App() {
         "fixed left-6 top-6 bottom-6 w-80 flex flex-col z-50 transition-all duration-500 rounded-[2.5rem] glass hidden md:flex overflow-hidden group",
         isDarkMode ? "bg-slate-900/40 border-slate-800" : "bg-white/40 border-white/60"
       )}>
-        <SidebarContent />
+        <Sidebar
+          currentView={currentView}
+          setCurrentView={setCurrentView}
+          setIsMobileMenuOpen={setIsMobileMenuOpen}
+          globalStats={globalStats}
+          posts={posts}
+          accounts={accounts}
+          onOpenPostModal={(post) => { setSelectedPost(post); setIsPostModalOpen(true); }}
+          onOpenLoginModal={() => setIsLoginModalOpen(true)}
+          onLogout={handleLogout}
+        />
       </aside>
 
       {/* Mobile Header */}
@@ -423,7 +288,17 @@ function App() {
             >
               <X size={20} />
             </button>
-            <SidebarContent />
+            <Sidebar
+                currentView={currentView}
+                setCurrentView={setCurrentView}
+                setIsMobileMenuOpen={setIsMobileMenuOpen}
+                globalStats={globalStats}
+                posts={posts}
+                accounts={accounts}
+                onOpenPostModal={(post) => { setSelectedPost(post); setIsPostModalOpen(true); }}
+                onOpenLoginModal={() => setIsLoginModalOpen(true)}
+                onLogout={handleLogout}
+            />
           </motion.aside>
         )}
       </AnimatePresence>
@@ -481,61 +356,15 @@ function App() {
         {/* Dynamic View */}
         <AnimatePresence mode="wait">
           {currentView === 'calendar' ? (
-            <motion.div
-              key="calendar"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="bg-white/60 dark:bg-gray-900/80 p-6 md:p-10 rounded-[3.5rem] border border-white/80 dark:border-white/10 backdrop-blur-3xl shadow-2xl shadow-indigo-500/5 min-h-[700px]"
-            >
-              <div className="flex items-center justify-between mb-12">
-                <div className="flex items-center gap-4">
-                  <div className="w-2 h-8 bg-primary rounded-full shadow-[0_0_15px_rgba(99,102,241,0.5)]" />
-                  <h3 className="text-2xl font-black tracking-tight">Calendario Editorial</h3>
-                </div>
-                <button onClick={handleGlobalRefresh} className="p-3 rounded-2xl hover:bg-primary/10 hover:text-primary transition-all duration-500 text-muted-foreground group">
-                  <RefreshCcw size={20} className={isLoadingStats || isLoadingPosts ? "animate-spin" : "group-hover:rotate-180 transition-transform duration-700"} />
-                </button>
-              </div>
-
-              <div className="calendar-container">
-                <FullCalendar
-                  plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-                  initialView="dayGridMonth"
-                  timeZone={userTimezone}
-                  themeSystem="standard"
-                  headerToolbar={isMobile ? {
-                    left: 'prev,next',
-                    center: 'title',
-                    right: 'dayGridMonth,timeGridWeek'
-                  } : {
-                    left: 'prev,next today',
-                    center: 'title',
-                    right: 'dayGridMonth,timeGridWeek'
-                  }}
-                  events={calendarEvents}
-                  dateClick={handleDateClick}
-                  eventClick={handleEventClick}
-                  editable={true}
-                  selectable={true}
-                  height="auto"
-                  eventContent={(arg) => {
-                    const date = new Date(arg.event.start!);
-                    const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-                    return (
-                      <div className="p-3 rounded-xl border border-border/50 bg-card/50 backdrop-blur-sm transition-all hover:scale-[1.02] overflow-hidden">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="font-black text-[9px] opacity-60 tabular-nums">{timeStr}</span>
-                          <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: arg.event.backgroundColor }} />
-                        </div>
-                        <div className="font-bold text-[11px] line-clamp-1 leading-tight">{arg.event.title}</div>
-                      </div>
-                    );
-                  }}
-                />
-              </div>
-            </motion.div>
+            <CalendarView
+                posts={posts}
+                userTimezone={userTimezone}
+                isMobile={isMobile}
+                onDateClick={handleDateClick}
+                onEventClick={handleEventClick}
+                onRefresh={handleGlobalRefresh}
+                isLoading={isLoadingStats || isLoadingPosts}
+            />
           ) : (
             <motion.div
               key="analytics"
@@ -580,23 +409,23 @@ function App() {
       {/* CSS Overrides for Premium Feel */}
       <style dangerouslySetInnerHTML={{
         __html: `
-        .fc-theme-standard td, .fc-theme-standard th { border-color: var(--border) !important; opacity: 0.5; }
-        .fc-theme-standard .fc-scrollgrid { border: none !important; }
-        .fc-header-toolbar { margin-bottom: 2rem !important; flex-wrap: wrap; gap: 1rem; }
-        .fc-toolbar-title { font-weight: 900 !important; letter-spacing: -0.05em !important; font-size: 1.25rem !important; }
-        .fc-button { background: hsl(var(--primary)) !important; border: none !important; border-radius: 1rem !important; font-weight: 800 !important; text-transform: uppercase !important; font-size: 9px !important; letter-spacing: 0.1em !important; padding: 0.6rem 1rem !important; }
-        .fc-button-primary:not(:disabled).fc-button-active, .fc-button-primary:not(:disabled):active { background: hsl(var(--primary)) !important; opacity: 0.8; }
-        
-        @media (max-width: 768px) {
-          .fc-header-toolbar { flex-direction: column; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem !important; }
-          .fc-toolbar-chunk { display: flex; justify-content: center; width: 100%; }
-          .fc-button { padding: 0.5rem 0.8rem !important; font-size: 8px !important; }
-          .fc-toolbar-title { font-size: 1.1rem !important; text-align: center; }
-        }
-        .sidebar-active { background: linear-gradient(135deg, hsl(var(--primary)) 0%, #3b82f6 100%); color: white !important; box-shadow: 0 10px 25px -5px hsla(var(--primary), 0.4); }
-        .sidebar-inactive { color: hsl(var(--muted-foreground)) !important; }
-        .sidebar-inactive:hover { background: hsla(var(--primary), 0.05); color: hsl(var(--foreground)) !important; }
-      `}} />
+  .fc - theme - standard td, .fc - theme - standard th { border - color: var(--border)!important; opacity: 0.5; }
+        .fc - theme - standard.fc - scrollgrid { border: none!important; }
+        .fc - header - toolbar { margin - bottom: 2rem!important; flex - wrap: wrap; gap: 1rem; }
+        .fc - toolbar - title { font - weight: 900!important; letter - spacing: -0.05em!important; font - size: 1.25rem!important; }
+        .fc - button { background: hsl(var(--primary)) !important; border: none!important; border - radius: 1rem!important; font - weight: 800!important; text - transform: uppercase!important; font - size: 9px!important; letter - spacing: 0.1em!important; padding: 0.6rem 1rem!important; }
+        .fc - button - primary: not(: disabled).fc - button - active, .fc - button - primary: not(: disabled):active { background: hsl(var(--primary)) !important; opacity: 0.8; }
+
+@media(max - width: 768px) {
+          .fc - header - toolbar { flex - direction: column; align - items: center; gap: 0.75rem; margin - bottom: 1.5rem!important; }
+          .fc - toolbar - chunk { display: flex; justify - content: center; width: 100 %; }
+          .fc - button { padding: 0.5rem 0.8rem!important; font - size: 8px!important; }
+          .fc - toolbar - title { font - size: 1.1rem!important; text - align: center; }
+}
+        .sidebar - active { background: linear - gradient(135deg, hsl(var(--primary)) 0 %, #3b82f6 100 %); color: white!important; box - shadow: 0 10px 25px - 5px hsla(var(--primary), 0.4); }
+        .sidebar - inactive { color: hsl(var(--muted - foreground)) !important; }
+        .sidebar - inactive:hover { background: hsla(var(--primary), 0.05); color: hsl(var(--foreground)) !important; }
+`}} />
     </div>
   );
 }
