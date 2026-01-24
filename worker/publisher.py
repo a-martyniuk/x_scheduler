@@ -8,7 +8,6 @@ from loguru import logger
 from datetime import datetime
 
 # CONFIG
-# CONFIG
 WORKER_DIR = os.path.dirname(__file__)
 SCREENSHOTS_DIR = os.path.join(WORKER_DIR, "screenshots")
 ACCOUNTS_DIR = os.path.join(WORKER_DIR, "accounts")
