@@ -612,10 +612,14 @@ async def sync_history_task(username: str):
                             # Look for "You reposted" or similar header
                             header = article.locator('[data-testid="socialContext"]').first
                             if await header.count() > 0:
-                                header_text = await header.inner_text()
-                                if "Repost" in header_text or "Retweet" in header_text:
+                                header_text = (await header.inner_text()).lower()
+                                log(f"Found header for {tweet_id}: {header_text}")
+                                # Spanish: "reposteaste", "repost", "retwitteaste"
+                                if any(x in header_text for x in ["repost", "retweet", "reposte", "comparti"]):
                                     is_repost = True
-                        except:
+                                    log(f"Detected REPOST for {tweet_id}")
+                        except Exception as e:
+                            log(f"Repost check error: {e}")
                             pass
 
                         posts_imported.append({
