@@ -391,39 +391,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats
                 </motion.div>
             </div>
             {/* Debug Screenshot Modal */}
-            {debugScreenshot && (
-                <div
-                    className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in"
-                    onClick={() => setDebugScreenshot(null)}
-                >
-                    <div className="relative max-w-5xl w-full bg-slate-900 rounded-3xl overflow-hidden border border-white/10 shadow-2xl flex flex-col max-h-[90vh]">
-                        <div className="p-6 border-b border-white/10 flex justify-between items-center bg-slate-900/50 backdrop-blur-md">
-                            <div>
-                                <h3 className="text-lg font-black tracking-tight text-white flex items-center gap-2">
-                                    <Eye className="text-emerald-500" size={20} />
-                                    Visión del Scraper
-                                </h3>
-                                <p className="text-[10px] uppercase font-bold tracking-widest opacity-50">Esto es lo que vio el bot al sincronizar</p>
-                            </div>
-                            <button
-                                onClick={() => setDebugScreenshot(null)}
-                                className="px-3 py-1 rounded-full bg-white/10 hover:bg-white/20 text-xs font-bold transition-colors"
-                            >
-                                CERRAR ESC
-                            </button>
-                        </div>
-                        <div className="flex-1 overflow-auto p-4 bg-black/50 flex justify-center">
-                            {/* Use full URL with backend origin if mostly local, 
-                                but in prod 'uploads' is relative root */ }
-                            <img
-                                src={debugScreenshot}
-                                alt="Debug Feed"
-                                className="max-w-full h-auto rounded-xl border border-white/10 shadow-lg"
-                            />
-                        </div>
-                    </div>
-                </div>
-            )}
+
         </motion.div>
     );
 };

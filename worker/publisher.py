@@ -509,13 +509,7 @@ async def sync_history_task(username: str):
                 diag_login = os.path.join(SCREENSHOTS_DIR, f"sync_login_wall_{clean_username}.png")
                 await page.screenshot(path=diag_login)
             
-            # --- DEBUG: Snapshot of the feed ---
-            try:
-                debug_feed = os.path.join(SCREENSHOTS_DIR, f"debug_feed_{clean_username}_{random.randint(1000,9999)}.png")
-                await page.screenshot(path=debug_feed)
-                log(f"Debug Feed Screenshot saved: {debug_feed}")
-            except Exception as e:
-                log(f"Failed to take debug screenshot: {e}")
+            # --- DEBUG: Snapshot removed manually by user request ---
             # -----------------------------------
 
             # Scroll to get more history
