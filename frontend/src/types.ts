@@ -19,6 +19,8 @@ export interface Post {
     views_count?: number;
     likes_count?: number;
     reposts_count?: number;
+    bookmarks_count?: number;
+    replies_count?: number;
     username?: string;
     media_url?: string;
     is_repost?: boolean;
@@ -29,6 +31,8 @@ export interface GrowthData {
     views: number;
     likes: number;
     reposts: number;
+    bookmarks: number;
+    replies: number;
     engagement: number;
     posts: number;
 }

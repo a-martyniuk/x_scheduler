@@ -581,6 +581,8 @@ async def sync_history_task(username: str):
                         views = 0
                         likes = 0
                         reposts = 0
+                        replies = 0
+                        bookmarks = 0
 
                         try:
                             # Likes
@@ -597,6 +599,26 @@ async def sync_history_task(username: str):
                                 if label and "Repost" in label:
                                     reposts = parse_number(label.split("Repost")[0])
                             
+                            # Replies
+                            reply_el = article.locator(f'[data-testid="reply"]').first
+                            if await reply_el.count() > 0:
+                                label = await reply_el.get_attribute("aria-label")
+                                # Label usually: "0 Replies. Reply"
+                                if label and ("Repl" in label or "Resp" in label):
+                                    # Fallback for Spanish generic "Responder"
+                                    # English: "XYZ Replies"
+                                    raw = label.split("Repl")[0].split("Resp")[0]
+                                    replies = parse_number(raw)
+                            
+                            # Bookmarks
+                            bm_el = article.locator(f'[data-testid="bookmark"], [data-testid="removeBookmark"]').first
+                            if await bm_el.count() > 0:
+                                label = await bm_el.get_attribute("aria-label")
+                                # Label usually: "0 Bookmarks. Bookmark" or "Guardar"
+                                if label and ("Bookm" in label or "Guard" in label):
+                                     raw = label.split("Bookm")[0].split("Guard")[0]
+                                     bookmarks = parse_number(raw)
+
                             # Views
                             analytics_link = article.locator(XSelectors.LINK_ANALYTICS).first
                             if await analytics_link.count() > 0:
@@ -633,6 +655,8 @@ async def sync_history_task(username: str):
                             "views": views,
                             "likes": likes,
                             "reposts": reposts,
+                            "replies": replies,
+                            "bookmarks": bookmarks,
                             "published_at": datetime_str,
                             "media_url": media_url,
                             "is_repost": is_repost

@@ -20,9 +20,12 @@ class Post(Base):
     views_count = Column(Integer, default=0)
     likes_count = Column(Integer, default=0)
     reposts_count = Column(Integer, default=0)
+    bookmarks_count = Column(Integer, default=0)
+    replies_count = Column(Integer, default=0)
     username = Column(String, nullable=True) # Account to post from
     media_url = Column(String, nullable=True) # URL of the first image/video thumbnail
     is_repost = Column(Boolean, default=False)
+    tags = Column(String, nullable=True) # Comma separate tags e.g "tech,ai,sales"
 
 class PostMetricSnapshot(Base):
     __tablename__ = "post_metrics_snapshots"
@@ -32,6 +35,8 @@ class PostMetricSnapshot(Base):
     views = Column(Integer, default=0)
     likes = Column(Integer, default=0)
     reposts = Column(Integer, default=0)
+    bookmarks = Column(Integer, default=0)
+    replies = Column(Integer, default=0)
     timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 class AccountMetricSnapshot(Base):

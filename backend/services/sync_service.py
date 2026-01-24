@@ -71,6 +71,9 @@ async def sync_account_history(username: str, db: Session):
             existing_post.views_count = post_data["views"]
             existing_post.likes_count = post_data["likes"]
             existing_post.reposts_count = post_data["reposts"]
+            existing_post.bookmarks_count = post_data.get("bookmarks", 0)
+            existing_post.replies_count = post_data.get("replies", 0)
+
             if post_data.get("media_url"):
                 existing_post.media_url = post_data["media_url"]
             existing_post.is_repost = post_data.get("is_repost", False)
@@ -93,6 +96,8 @@ async def sync_account_history(username: str, db: Session):
                 views_count=post_data["views"],
                 likes_count=post_data["likes"],
                 reposts_count=post_data["reposts"],
+                bookmarks_count=post_data.get("bookmarks", 0),
+                replies_count=post_data.get("replies", 0),
                 updated_at=final_date,
                 created_at=final_date, # Sync creation time too
                 media_url=post_data.get("media_url"),
@@ -106,12 +111,23 @@ async def sync_account_history(username: str, db: Session):
         # Create Snapshot
         latest_snap = db.query(PostMetricSnapshot).filter(PostMetricSnapshot.post_id == existing_post.id).order_by(PostMetricSnapshot.timestamp.desc()).first()
         
-        if not latest_snap or (latest_snap.views != post_data["views"] or latest_snap.likes != post_data["likes"]):
+        # Check if anything changed worth saving (including new metrics)
+        has_changes = not latest_snap or (
+            latest_snap.views != post_data["views"] or 
+            latest_snap.likes != post_data["likes"] or 
+            latest_snap.reposts != post_data["reposts"] or
+            latest_snap.bookmarks != post_data.get("bookmarks", 0) or
+            latest_snap.replies != post_data.get("replies", 0)
+        )
+
+        if has_changes:
              snapshot = PostMetricSnapshot(
                 post_id=existing_post.id,
                 views=post_data["views"],
                 likes=post_data["likes"],
                 reposts=post_data["reposts"],
+                bookmarks=post_data.get("bookmarks", 0),
+                replies=post_data.get("replies", 0),
                 timestamp=datetime.now(timezone.utc).replace(tzinfo=None)
             )
              db.add(snapshot)

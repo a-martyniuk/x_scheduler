@@ -58,6 +58,33 @@ def run_migrations():
                 logger.info("Migrating: Adding is_repost column")
                 conn.execute(text("ALTER TABLE posts ADD COLUMN is_repost BOOLEAN DEFAULT FALSE"))
 
+            # 8. Add bookmarks_count
+            if "bookmarks_count" not in columns:
+                logger.info("Migrating: Adding bookmarks_count column")
+                conn.execute(text("ALTER TABLE posts ADD COLUMN bookmarks_count INTEGER DEFAULT 0"))
+
+            # 9. Add replies_count
+            if "replies_count" not in columns:
+                logger.info("Migrating: Adding replies_count column")
+                conn.execute(text("ALTER TABLE posts ADD COLUMN replies_count INTEGER DEFAULT 0"))
+
+            # 10. Add tags
+            if "tags" not in columns:
+                logger.info("Migrating: Adding tags column")
+                conn.execute(text("ALTER TABLE posts ADD COLUMN tags VARCHAR(500)"))
+
+            # --- Check post_metrics_snapshots table ---
+            if inspector.has_table("post_metrics_snapshots"):
+                snap_columns = [col["name"] for col in inspector.get_columns("post_metrics_snapshots")]
+                
+                if "bookmarks" not in snap_columns:
+                    logger.info("Migrating: Adding bookmarks column to post_metrics_snapshots")
+                    conn.execute(text("ALTER TABLE post_metrics_snapshots ADD COLUMN bookmarks INTEGER DEFAULT 0"))
+
+                if "replies" not in snap_columns:
+                    logger.info("Migrating: Adding replies column to post_metrics_snapshots")
+                    conn.execute(text("ALTER TABLE post_metrics_snapshots ADD COLUMN replies INTEGER DEFAULT 0"))
+
             # 6. Sanitize Legacy Data (Fix 500 Errors)
             logger.info("Migrating: Sanitizing legacy data...")
             

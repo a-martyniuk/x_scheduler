@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, Heart, TrendingUp, ArrowUpRight, Clock, Zap, Info, BarChart2, Layers, RefreshCcw, Share2 } from 'lucide-react';
+import { Eye, Heart, TrendingUp, ArrowUpRight, Clock, Zap, Info, BarChart2, Layers, RefreshCcw, Share2, Bookmark, MessageCircle } from 'lucide-react';
 import type { Post } from '../types';
 import { motion } from 'framer-motion';
 import {
@@ -27,14 +27,16 @@ interface AnalyticsViewProps {
 export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats, accounts, onSync }) => {
     const { growthData, bestTimes, performanceData, latestPost, isLoadingLatestPost, accountGrowth } = useAnalytics();
     const [isSyncing, setIsSyncing] = React.useState(false);
-    const [selectedMetric, setSelectedMetric] = React.useState<'views' | 'likes' | 'followers' | 'posts'>('views');
+    const [selectedMetric, setSelectedMetric] = React.useState<'views' | 'likes' | 'followers' | 'posts' | 'bookmarks' | 'replies'>('views');
 
     // Mapeo de colores para la métrica activa
     const metricColors = {
         views: '#6366F1',
         likes: '#F43F5E',
         followers: '#10B981',
-        posts: '#3B82F6'
+        posts: '#3B82F6',
+        bookmarks: '#F59E0B',
+        replies: '#8B5CF6'
     };
     const ACTIVE_METRIC_COLOR = metricColors[selectedMetric];
 
@@ -56,6 +58,8 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats
             entry.views = d.views;
             entry.likes = d.likes;
             entry.posts = d.posts;
+            entry.bookmarks = d.bookmarks;
+            entry.replies = d.replies;
         });
 
         // 2. Process Account Growth (Followers)
@@ -82,6 +86,8 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats
             views: r.views || 0,
             likes: r.likes || 0,
             posts: r.posts || 0,
+            bookmarks: r.bookmarks || 0,
+            replies: r.replies || 0,
             // For followers, we might want to carry over previous value if missing (step line), 
             // but for now let's leave as undefined so the line breaks or is interpolated by Recharts
             followers: r.followers
@@ -206,6 +212,8 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats
                             {[
                                 { id: 'views', label: 'Alcance', icon: Eye, color: '#6366F1' },
                                 { id: 'likes', label: 'Likes', icon: Heart, color: '#F43F5E' },
+                                { id: 'bookmarks', label: 'Guardados', icon: Bookmark, color: '#F59E0B' },
+                                { id: 'replies', label: 'Respuestas', icon: MessageCircle, color: '#8B5CF6' },
                                 { id: 'followers', label: 'Seguidores', icon: TrendingUp, color: '#10B981' },
                                 { id: 'posts', label: 'Posts', icon: Layers, color: '#3B82F6' },
                             ].map((m) => {

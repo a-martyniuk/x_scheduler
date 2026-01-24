@@ -23,6 +23,8 @@ def get_growth_data(db: Session = Depends(get_db)):
         func.sum(Post.views_count).label('views'),
         func.sum(Post.likes_count).label('likes'),
         func.sum(Post.reposts_count).label('reposts'),
+        func.sum(Post.bookmarks_count).label('bookmarks'),
+        func.sum(Post.replies_count).label('replies'),
         func.count(Post.id).label('post_count')
     ).filter(
         Post.status == 'sent',
@@ -38,7 +40,9 @@ def get_growth_data(db: Session = Depends(get_db)):
             "views": s.views or 0,
             "likes": s.likes or 0,
             "reposts": s.reposts or 0,
-            "engagement": (s.likes or 0) + (s.reposts or 0),
+            "bookmarks": s.bookmarks or 0,
+            "replies": s.replies or 0,
+            "engagement": (s.likes or 0) + (s.reposts or 0) + (s.bookmarks or 0) + (s.replies or 0),
             "posts": s.post_count
         } for s in stats
     ]
