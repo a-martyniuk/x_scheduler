@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import type { Post } from '../types';
-import { X, Upload, Calendar as CalendarIcon, Trash2, Zap, Terminal, Camera } from 'lucide-react';
+import { X, Upload, Calendar as CalendarIcon, Trash2, Zap, Terminal, Camera, RefreshCcw } from 'lucide-react';
 import { api, BASE_URL } from '../api';
 import { utcToLocal, localToUTC } from '../utils/timezone';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -315,9 +315,34 @@ export const PostModal: React.FC<PostModalProps> = ({ isOpen, onClose, onSave, p
                                     <Zap size={14} className="fill-current" />
                                     Publicar ahora
                                 </button>
-                                <button type="submit" onClick={(e) => handleSubmit(e, false)} className="px-10 py-4 bg-primary text-white rounded-[1.5rem] font-black text-[10px] uppercase tracking-[0.2em] shadow-xl shadow-primary/20 hover:scale-[1.05] active:scale-[0.95] transition-all bg-gradient-to-r from-primary to-indigo-600">
-                                    {post ? 'Actualizar' : (scheduledAt ? 'Programar' : 'Guardar Borrador')}
-                                </button>
+                                {post?.status === 'sent' ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            // Clone: Remove ID, keep content, set to draft/scheduled
+                                            onSave({
+                                                ...post,
+                                                id: undefined, // Clear ID to create new
+                                                status: scheduledAt ? 'scheduled' : 'draft',
+                                                scheduled_at: scheduledAt ? localToUTC(scheduledAt) : undefined,
+                                                content,
+                                                media_paths: mediaPaths || undefined,
+                                                tweet_id: undefined, // Clear tweet ID
+                                                created_at: undefined,
+                                                updated_at: undefined
+                                            } as Post);
+                                            onClose();
+                                        }}
+                                        className="px-8 py-4 bg-slate-100 dark:bg-white/10 text-foreground rounded-[1.5rem] font-black text-[10px] uppercase tracking-[0.2em] border border-border/50 hover:bg-primary hover:text-white hover:border-primary transition-all flex items-center gap-2"
+                                    >
+                                        <RefreshCcw size={14} />
+                                        Reutilizar
+                                    </button>
+                                ) : (
+                                    <button type="submit" onClick={(e) => handleSubmit(e, false)} className="px-10 py-4 bg-primary text-white rounded-[1.5rem] font-black text-[10px] uppercase tracking-[0.2em] shadow-xl shadow-primary/20 hover:scale-[1.05] active:scale-[0.95] transition-all bg-gradient-to-r from-primary to-indigo-600">
+                                        {post ? 'Actualizar' : (scheduledAt ? 'Programar' : 'Guardar Borrador')}
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </motion.div>
