@@ -160,8 +160,6 @@ async def sync_history(username: str, db: Session = Depends(get_db)):
             logger.error(f"Error detecting deleted posts: {e}")
 
     db.commit()
-            
-    db.commit()
     
     # Debug screenshot logic removed
     
