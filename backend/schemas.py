@@ -16,8 +16,8 @@ class PostCreate(PostBase):
 class PostUpdate(PostBase):
     content: Optional[str] = Field(None, min_length=1, max_length=280)
 
-class PostResponse(PostBase):
     id: int
+    content: Optional[str] = None # Override base to allow robust read
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     logs: Optional[str] = None
@@ -38,6 +38,11 @@ class PostResponse(PostBase):
         if v is None:
             return datetime.now()
         return v
+
+    @field_validator('content', mode='before')
+    @classmethod
+    def set_placeholder_if_none(cls, v):
+        return v or "(No content)"
     
     model_config = ConfigDict(from_attributes=True)
 

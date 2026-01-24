@@ -120,7 +120,7 @@ def read_latest_post(db: Session = Depends(get_db)):
 
 @router.get("/", response_model=List[PostResponse])
 def read_posts(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    posts = db.query(Post).offset(skip).limit(limit).all()
+    posts = db.query(Post).order_by(Post.id.desc()).offset(skip).limit(limit).all()
     return posts
 
 @router.get("/{post_id}", response_model=PostResponse)
