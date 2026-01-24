@@ -65,17 +65,17 @@ async def run_immediate_publish(post_id: int):
 def get_stats(db: Session = Depends(get_db)):
     from sqlalchemy import func
     
-    total_sent = db.query(Post).filter(Post.status == "sent").count()
+    total_sent = db.query(Post).filter(Post.status == "sent", Post.is_repost.isnot(True)).count()
     total_failed = db.query(Post).filter(Post.status == "failed").count()
     total_scheduled = db.query(Post).filter(Post.status == "scheduled").count()
     total_drafts = db.query(Post).filter(Post.status == "draft").count()
     
-    # Aggregated metrics for sent posts
+    # Aggregated metrics for sent posts (Excluding reposts)
     metrics = db.query(
         func.sum(Post.views_count).label("views"),
         func.sum(Post.likes_count).label("likes"),
         func.sum(Post.reposts_count).label("reposts")
-    ).filter(Post.status == "sent").first()
+    ).filter(Post.status == "sent", Post.is_repost.isnot(True)).first()
     
     return {
         "sent": total_sent,
