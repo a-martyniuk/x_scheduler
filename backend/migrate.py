@@ -51,12 +51,17 @@ def run_migrations():
             # 6. Sanitize Legacy Data (Fix 500 Errors)
             logger.info("Migrating: Sanitizing legacy data...")
             
-            # Fix NULL created_at and updated_at
-            conn.execute(text("UPDATE posts SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL"))
-            conn.execute(text("UPDATE posts SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL"))
+            # Fix NULL created_at
+            if "created_at" in columns:
+                conn.execute(text("UPDATE posts SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL"))
             
-            # Fix NULL content (shouldn't happen but defensive)
-            conn.execute(text("UPDATE posts SET content = '(No content)' WHERE content IS NULL"))
+            # Fix NULL updated_at
+            if "updated_at" in columns:
+                conn.execute(text("UPDATE posts SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL"))
+            
+            # Fix NULL content
+            if "content" in columns:
+                conn.execute(text("UPDATE posts SET content = '(No content)' WHERE content IS NULL"))
 
             conn.commit()
             logger.info("Migrations completed successfully.")

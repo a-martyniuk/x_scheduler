@@ -16,6 +16,7 @@ class PostCreate(PostBase):
 class PostUpdate(PostBase):
     content: Optional[str] = Field(None, min_length=1, max_length=280)
 
+class PostResponse(PostBase):
     id: int
     content: Optional[str] = None # Override base to allow robust read
     created_at: Optional[datetime] = None
