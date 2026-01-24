@@ -116,6 +116,9 @@ async def update_analytics():
                 post.views_count = stats.get("views", 0)
                 post.likes_count = stats.get("likes", 0)
                 post.reposts_count = stats.get("reposts", 0)
+                post.bookmarks_count = stats.get("bookmarks", 0)
+                post.replies_count = stats.get("replies", 0)
+                
                 post.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
                 post.logs = (post.logs or "") + f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M')}] Scraper Success: Views={stats.get('views')}, Likes={stats.get('likes')}"
                 
@@ -124,7 +127,10 @@ async def update_analytics():
                     post_id=post.id,
                     views=post.views_count,
                     likes=post.likes_count,
-                    reposts=post.reposts_count
+                    reposts=post.reposts_count,
+                    bookmarks=post.bookmarks_count,
+                    replies=post.replies_count,
+                    timestamp=datetime.now(timezone.utc).replace(tzinfo=None)
                 )
                 db.add(snapshot)
                 
