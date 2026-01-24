@@ -18,8 +18,8 @@ class PostUpdate(PostBase):
 
 class PostResponse(PostBase):
     id: int
-    created_at: datetime
-    updated_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
     logs: Optional[str] = None
     screenshot_path: Optional[str] = None
     tweet_id: Optional[str] = None
@@ -31,6 +31,13 @@ class PostResponse(PostBase):
     @classmethod
     def set_zero_if_none(cls, v):
         return v or 0
+
+    @field_validator('created_at', 'updated_at', mode='before')
+    @classmethod
+    def set_now_if_none(cls, v):
+        if v is None:
+            return datetime.now()
+        return v
     
     model_config = ConfigDict(from_attributes=True)
 

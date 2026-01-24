@@ -48,6 +48,16 @@ def run_migrations():
                 logger.info("Migrating: Adding username column")
                 conn.execute(text("ALTER TABLE posts ADD COLUMN username VARCHAR(255)"))
 
+            # 6. Sanitize Legacy Data (Fix 500 Errors)
+            logger.info("Migrating: Sanitizing legacy data...")
+            
+            # Fix NULL created_at and updated_at
+            conn.execute(text("UPDATE posts SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL"))
+            conn.execute(text("UPDATE posts SET updated_at = CURRENT_TIMESTAMP WHERE updated_at IS NULL"))
+            
+            # Fix NULL content (shouldn't happen but defensive)
+            conn.execute(text("UPDATE posts SET content = '(No content)' WHERE content IS NULL"))
+
             conn.commit()
             logger.info("Migrations completed successfully.")
             
