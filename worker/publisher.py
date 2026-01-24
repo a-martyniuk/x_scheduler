@@ -538,13 +538,27 @@ async def sync_history_task(username: str):
                         if await content_el.count() > 0:
                             content = await content_el.inner_text()
                         
+                        # Media Scraping
+                        media_url = None
+                        try:
+                            # Look for photos or video thumbs
+                            imgs = article.locator('img[src*="pbs.twimg.com/media"], img[src*="video_thumb"]').all()
+                            for img in await imgs:
+                                src = await img.get_attribute("src")
+                                if src:
+                                    media_url = src
+                                    break # Just get the first one for now
+                        except:
+                            pass
+
                         posts_imported.append({
                             "tweet_id": tweet_id,
                             "content": content,
                             "views": 0,
                             "likes": 0,
                             "reposts": 0,
-                            "published_at": datetime_str
+                            "published_at": datetime_str,
+                            "media_url": media_url
                         })
                 except Exception as e:
                     log(f"Failed to parse a tweet: {e}")

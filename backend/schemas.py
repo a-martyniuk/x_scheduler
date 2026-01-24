@@ -19,6 +19,7 @@ class PostUpdate(PostBase):
 class PostResponse(PostBase):
     id: int
     content: Optional[str] = None # Override base to allow robust read
+    media_url: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     logs: Optional[str] = None

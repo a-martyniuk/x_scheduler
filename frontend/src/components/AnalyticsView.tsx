@@ -319,10 +319,25 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats
                                     return (
                                         <tr key={post.id} className="group hover:bg-primary/5 transition-colors">
                                             <td className="py-5 px-4">
-                                                <p className="text-sm font-bold line-clamp-1 max-w-sm mb-1">{post.content}</p>
-                                                <div className="flex items-center gap-3">
-                                                    <span className="text-[8px] font-black text-muted-foreground/50 uppercase">{new Date(post.updated_at!).toLocaleDateString()}</span>
-                                                    {post.media_paths && <span className="text-[8px] font-black text-primary uppercase bg-primary/10 px-1.5 rounded-sm">Media</span>}
+                                                <div className="flex items-start gap-3">
+                                                    {post.media_url ? (
+                                                        <img
+                                                            src={post.media_url}
+                                                            alt="Thumbnail"
+                                                            className="w-10 h-10 rounded-lg object-cover bg-slate-100 dark:bg-white/5 border border-border/20 shrink-0"
+                                                        />
+                                                    ) : (
+                                                        <div className="w-10 h-10 rounded-lg bg-primary/5 flex items-center justify-center shrink-0">
+                                                            <div className="w-2 h-2 rounded-full bg-primary/20" />
+                                                        </div>
+                                                    )}
+                                                    <div>
+                                                        <p className="text-sm font-bold line-clamp-2 max-w-[200px] mb-1">{post.content}</p>
+                                                        <div className="flex items-center gap-3">
+                                                            <span className="text-[8px] font-black text-muted-foreground/50 uppercase">{new Date(post.updated_at!).toLocaleDateString()}</span>
+                                                            {(post.media_paths || post.media_url) && !post.media_url && <span className="text-[8px] font-black text-primary uppercase bg-primary/10 px-1.5 rounded-sm">Media</span>}
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </td>
                                             <td className="py-5 px-4 text-center">

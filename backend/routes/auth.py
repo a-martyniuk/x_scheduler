@@ -80,7 +80,8 @@ async def sync_history(username: str, db: Session = Depends(get_db)):
                 views_count=post_data["views"],
                 likes_count=post_data["likes"],
                 reposts_count=post_data["reposts"],
-                updated_at=final_date
+                updated_at=final_date,
+                media_url=post_data.get("media_url")
             )
             db.add(new_post)
             db.flush() # Get ID

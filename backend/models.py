@@ -21,6 +21,7 @@ class Post(Base):
     likes_count = Column(Integer, default=0)
     reposts_count = Column(Integer, default=0)
     username = Column(String, nullable=True) # Account to post from
+    media_url = Column(String, nullable=True) # URL of the first image/video thumbnail
 
 class PostMetricSnapshot(Base):
     __tablename__ = "post_metrics_snapshots"

@@ -48,6 +48,11 @@ def run_migrations():
                 logger.info("Migrating: Adding username column")
                 conn.execute(text("ALTER TABLE posts ADD COLUMN username VARCHAR(255)"))
 
+            # 6. Add media_url (for thumbnails)
+            if "media_url" not in columns:
+                logger.info("Migrating: Adding media_url column")
+                conn.execute(text("ALTER TABLE posts ADD COLUMN media_url VARCHAR(500)"))
+
             # 6. Sanitize Legacy Data (Fix 500 Errors)
             logger.info("Migrating: Sanitizing legacy data...")
             

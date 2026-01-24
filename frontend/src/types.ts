@@ -14,6 +14,7 @@ export interface Post {
     likes_count?: number;
     reposts_count?: number;
     username?: string;
+    media_url?: string;
 }
 
 export interface GrowthData {
