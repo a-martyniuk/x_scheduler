@@ -562,7 +562,20 @@ async def sync_history_task(username: str):
                         if await content_el.count() > 0:
                             content = await content_el.inner_text()
                         
-                        # ... (Media scraping same) ...
+                        # Media Scraping
+                        media_url = None
+                        try:
+                            # Try to find an image
+                            img_el = article.locator('[data-testid="tweetPhoto"] img').first
+                            if await img_el.count() > 0:
+                                media_url = await img_el.get_attribute("src")
+                            else:
+                                # Try video poster
+                                video_el = article.locator('[data-testid="videoPlayer"] video').first
+                                if await video_el.count() > 0:
+                                    media_url = await video_el.get_attribute("poster")
+                        except Exception as e:
+                            pass
 
                         # Stats Scraping
                         views = 0
