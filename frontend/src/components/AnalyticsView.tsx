@@ -194,6 +194,73 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats
                     </div>
                 </motion.div>
 
+                {/* Account Growth Chart */}
+                <motion.div
+                    variants={item}
+                    className="bg-white/60 dark:bg-gray-900/80 p-8 rounded-[3rem] border border-white/80 dark:border-white/10 shadow-xl flex flex-col"
+                >
+                    <div className="flex items-center gap-4 mb-8">
+                        <TrendingUp className="text-emerald-500" size={24} />
+                        <h3 className="text-xl font-black tracking-tight">Crecimiento</h3>
+                    </div>
+
+                    <div className="h-[200px] w-full mt-auto">
+                        {useAnalytics().accountGrowth && useAnalytics().accountGrowth.length > 0 ? (
+                            <ResponsiveContainer width="100%" height="100%">
+                                <AreaChart data={useAnalytics().accountGrowth}>
+                                    <defs>
+                                        <linearGradient id="colorFollowers" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                                            <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                                    <XAxis
+                                        dataKey="date"
+                                        axisLine={false}
+                                        tickLine={false}
+                                        tick={{ fontSize: 10, fontWeight: 700 }}
+                                        dy={10}
+                                        tickFormatter={(str) => {
+                                            const date = new Date(str);
+                                            return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
+                                        }}
+                                    />
+                                    <YAxis
+                                        axisLine={false}
+                                        tickLine={false}
+                                        tick={{ fontSize: 10, fontWeight: 700 }}
+                                        domain={['auto', 'auto']}
+                                    />
+                                    <Tooltip
+                                        contentStyle={{
+                                            borderRadius: '20px',
+                                            border: 'none',
+                                            boxShadow: '0 20px 40px rgba(0,0,0,0.1)',
+                                            backgroundColor: 'rgba(255,255,255,0.95)',
+                                            color: '#000'
+                                        }}
+                                        itemStyle={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase' }}
+                                    />
+                                    <Area
+                                        type="monotone"
+                                        dataKey="followers"
+                                        stroke="#10b981"
+                                        strokeWidth={4}
+                                        fillOpacity={1}
+                                        fill="url(#colorFollowers)"
+                                        name="Seguidores"
+                                    />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        ) : (
+                            <div className="flex-1 flex items-center justify-center opacity-30 text-[10px] font-black uppercase tracking-widest italic h-full">
+                                Sincroniza para ver historial de seguidores...
+                            </div>
+                        )}
+                    </div>
+                </motion.div>
+
                 {/* Performance Breakdown */}
                 <motion.div
                     variants={item}
