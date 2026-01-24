@@ -25,7 +25,7 @@ interface AnalyticsViewProps {
 }
 
 export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats, accounts, onSync }) => {
-    const { growthData, bestTimes, performanceData, latestPost, isLoadingLatestPost } = useAnalytics();
+    const { growthData, bestTimes, performanceData, latestPost, isLoadingLatestPost, accountGrowth } = useAnalytics();
     const [isSyncing, setIsSyncing] = React.useState(false);
 
     const handleSync = async () => {
@@ -238,9 +238,9 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats
                     )}
 
                     <div className="h-[200px] w-full mt-auto">
-                        {useAnalytics().accountGrowth && useAnalytics().accountGrowth.length > 0 ? (
+                        {accountGrowth && accountGrowth.length > 0 ? (
                             <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={useAnalytics().accountGrowth}>
+                                <AreaChart data={accountGrowth}>
                                     <defs>
                                         <linearGradient id="colorFollowers" x1="0" y1="0" x2="0" y2="1">
                                             <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
