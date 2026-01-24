@@ -217,10 +217,10 @@ function App() {
           <div>
             <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-6 px-2 flex justify-between">
               Borradores Rápidos
-              <span className="text-primary font-bold">{posts.filter(p => !p.scheduled_at).length}</span>
+              <span className="text-primary font-bold">{posts.filter(p => p.status === 'draft').length}</span>
             </p>
             <div className="space-y-3">
-              {posts.filter(p => !p.scheduled_at && p.status !== 'deleted').slice(0, 3).map(draft => (
+              {posts.filter(p => p.status === 'draft').slice(0, 3).map(draft => (
                 <div
                   key={draft.id}
                   onClick={() => { setSelectedPost(draft); setIsPostModalOpen(true); setIsMobileMenuOpen(false); }}
