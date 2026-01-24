@@ -606,6 +606,18 @@ async def sync_history_task(username: str):
                             # log(f"Stats parse error: {e}") # Silent fail to keep going
                             pass
 
+                        # Check if Repost
+                        is_repost = False
+                        try:
+                            # Look for "You reposted" or similar header
+                            header = article.locator('[data-testid="socialContext"]').first
+                            if await header.count() > 0:
+                                header_text = await header.inner_text()
+                                if "Repost" in header_text or "Retweet" in header_text:
+                                    is_repost = True
+                        except:
+                            pass
+
                         posts_imported.append({
                             "tweet_id": tweet_id,
                             "content": content,
@@ -613,7 +625,8 @@ async def sync_history_task(username: str):
                             "likes": likes,
                             "reposts": reposts,
                             "published_at": datetime_str,
-                            "media_url": media_url
+                            "media_url": media_url,
+                            "is_repost": is_repost
                         })
                 except Exception as e:
                     log(f"Failed to parse a tweet: {e}")

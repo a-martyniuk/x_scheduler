@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, Heart, TrendingUp, ArrowUpRight, Clock, Zap, Info, BarChart2, Layers, RefreshCcw } from 'lucide-react';
+import { Eye, Heart, TrendingUp, ArrowUpRight, Clock, Zap, Info, BarChart2, Layers, RefreshCcw, Share2 } from 'lucide-react';
 import type { Post } from '../types';
 import { motion } from 'framer-motion';
 import {
@@ -41,11 +41,14 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats
     };
     const sentPosts = posts.filter(p => (p.status === 'sent' || p.status === 'deleted_on_x') && p.tweet_id);
 
-    const totalViews = globalStats?.views || sentPosts.reduce((acc, p) => acc + (p.views_count || 0), 0);
-    const totalLikes = globalStats?.likes || sentPosts.reduce((acc, p) => acc + (p.likes_count || 0), 0);
-    const totalReposts = globalStats?.reposts || sentPosts.reduce((acc, p) => acc + (p.reposts_count || 0), 0);
+    // Filter out retweets for aggregate stats
+    const originalPosts = sentPosts.filter(p => !p.is_repost);
 
-    const totalSent = globalStats?.sent || sentPosts.length;
+    const totalViews = globalStats?.views || originalPosts.reduce((acc, p) => acc + (p.views_count || 0), 0);
+    const totalLikes = globalStats?.likes || originalPosts.reduce((acc, p) => acc + (p.likes_count || 0), 0);
+    const totalReposts = globalStats?.reposts || originalPosts.reduce((acc, p) => acc + (p.reposts_count || 0), 0);
+
+    const totalSent = globalStats?.sent || originalPosts.length;
     const averageEngagement = totalSent > 0
         ? ((totalLikes + totalReposts) / totalSent).toFixed(1)
         : '0.0';
@@ -340,6 +343,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats
                                                             <span className="text-[8px] font-black text-muted-foreground/50 uppercase">{new Date(post.updated_at!).toLocaleDateString()}</span>
                                                             {(post.media_paths || post.media_url) && !post.media_url && <span className="text-[8px] font-black text-primary uppercase bg-primary/10 px-1.5 rounded-sm">Media</span>}
                                                             {post.status === 'deleted_on_x' && <span className="text-[8px] font-black text-white bg-red-500 px-1.5 rounded-sm uppercase tracking-wider">Deleted on X</span>}
+                                                            {post.is_repost && <span className="text-[8px] font-black text-indigo-500 bg-indigo-500/10 px-1.5 rounded-sm uppercase tracking-wider flex items-center gap-1"><Share2 size={8} /> Repost</span>}
                                                         </div>
                                                     </div>
                                                 </div>

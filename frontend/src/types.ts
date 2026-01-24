@@ -15,6 +15,7 @@ export interface Post {
     reposts_count?: number;
     username?: string;
     media_url?: string;
+    is_repost?: boolean;
 }
 
 export interface GrowthData {

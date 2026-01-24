@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey, Boolean
 from datetime import datetime, timezone
 from .db import Base
 
@@ -22,6 +22,7 @@ class Post(Base):
     reposts_count = Column(Integer, default=0)
     username = Column(String, nullable=True) # Account to post from
     media_url = Column(String, nullable=True) # URL of the first image/video thumbnail
+    is_repost = Column(Boolean, default=False)
 
 class PostMetricSnapshot(Base):
     __tablename__ = "post_metrics_snapshots"

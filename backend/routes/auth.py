@@ -78,6 +78,9 @@ async def sync_history(username: str, db: Session = Depends(get_db)):
             existing_post.reposts_count = post_data["reposts"]
             if post_data.get("media_url"):
                 existing_post.media_url = post_data["media_url"]
+            # Update repost status
+            existing_post.is_repost = post_data.get("is_repost", False)
+            
             # Also update content if it was empty before
             if post_data.get("content") and (not existing_post.content or existing_post.content == "(No content)"):
                 existing_post.content = post_data["content"]
@@ -94,7 +97,8 @@ async def sync_history(username: str, db: Session = Depends(get_db)):
                 likes_count=post_data["likes"],
                 reposts_count=post_data["reposts"],
                 updated_at=final_date,
-                media_url=post_data.get("media_url")
+                media_url=post_data.get("media_url"),
+                is_repost=post_data.get("is_repost", False)
             )
             db.add(new_post)
             db.flush() # Get ID
