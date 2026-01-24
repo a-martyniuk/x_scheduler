@@ -9,20 +9,21 @@ interface LoginScreenProps {
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
     const [token, setToken] = useState('');
-    const [error, setError] = useState(false);
+    const [errorMsg, setErrorMsg] = useState('');
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setErrorMsg('');
         if (token.trim()) {
             try {
                 // Verify with backend first
                 await api.verifyAdminToken(token.trim());
                 onLogin(token.trim());
-            } catch (err) {
-                setError(true);
+            } catch (err: any) {
+                setErrorMsg(err.message || 'Token inválido');
             }
         } else {
-            setError(true);
+            setErrorMsg('Ingresa un token');
         }
     };
 
@@ -61,20 +62,20 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
                                 value={token}
                                 onChange={(e) => {
                                     setToken(e.target.value);
-                                    setError(false);
+                                    setErrorMsg('');
                                 }}
                                 placeholder="Ingresa tu Admin Token"
-                                className={`w-full bg-white/5 border ${error ? 'border-rose-500' : 'border-white/10'} rounded-2xl py-5 pl-16 pr-6 outline-none focus:border-primary/50 focus:bg-white/[0.08] transition-all text-sm font-bold tracking-widest placeholder:text-muted-foreground/30`}
+                                className={`w-full bg-white/5 border ${errorMsg ? 'border-rose-500' : 'border-white/10'} rounded-2xl py-5 pl-16 pr-6 outline-none focus:border-primary/50 focus:bg-white/[0.08] transition-all text-sm font-bold tracking-widest placeholder:text-muted-foreground/30`}
                             />
                         </div>
 
-                        {error && (
+                        {errorMsg && (
                             <motion.p
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
-                                className="text-[10px] text-rose-500 font-black uppercase tracking-widest"
+                                className="text-[10px] text-rose-500 font-black uppercase tracking-widest break-all"
                             >
-                                Debes ingresar un token válido
+                                {errorMsg}
                             </motion.p>
                         )}
 
