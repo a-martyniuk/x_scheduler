@@ -26,7 +26,7 @@ import { api, BASE_URL } from './api';
 
 function App() {
   const { posts, isLoading: isLoadingPosts, createPost, updatePost, error: postsError, refetch: refetchPosts } = usePosts();
-  const { accounts } = useAuth();
+  const { accounts, refetch: refetchAuth } = useAuth();
   const { data: globalStats, isLoading: isLoadingStats, refetch: refetchStats } = useStats();
   const { refetch: refetchAnalytics } = useAnalytics();
 
@@ -34,7 +34,8 @@ function App() {
     await Promise.all([
       refetchPosts(),
       refetchStats(),
-      refetchAnalytics()
+      refetchAnalytics(),
+      refetchAuth()
     ]);
   };
 

@@ -31,5 +31,6 @@ export function useAuth() {
         isLoading,
         login: loginMutation.mutateAsync,
         isLoggingIn: loginMutation.isPending,
+        refetch: async () => { await queryClient.invalidateQueries({ queryKey: ['authStatus'] }) }
     };
 }
