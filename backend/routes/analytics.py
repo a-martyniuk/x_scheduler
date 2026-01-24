@@ -81,8 +81,10 @@ def get_best_times(db: Session = Depends(get_db)):
     
     hourly_engagement = {}
     for post in posts:
-        if post.scheduled_at:
-            hour = post.scheduled_at.hour
+        # Use scheduled_at, or updated_at (for imported posts), or created_at
+        timestamp = post.scheduled_at or post.updated_at or post.created_at
+        if timestamp:
+            hour = timestamp.hour
             # Simple engagement formula: (likes + RT) / views * 1000 (to avoid small floats)
             engagement = (post.likes_count + post.reposts_count)
             if post.views_count > 0:
