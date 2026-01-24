@@ -73,6 +73,10 @@ async def sync_history(username: str, db: Session = Depends(get_db)):
 
         if existing_post:
             # UPDATE existing
+            if existing_post.status == "deleted_on_x":
+                existing_post.status = "sent"
+                existing_post.logs = (existing_post.logs or "") + "\n[Sync] Restored from deleted_on_x (Found in scan)"
+
             existing_post.views_count = post_data["views"]
             existing_post.likes_count = post_data["likes"]
             existing_post.reposts_count = post_data["reposts"]
@@ -127,37 +131,37 @@ async def sync_history(username: str, db: Session = Depends(get_db)):
             )
              db.add(snapshot)
             
-    # --- Detection of Deleted Posts ---
+    # --- Detection of Deleted Posts (DISABLED due to false positives) ---
     # Only if we have a valid scan range
-    oldest_scanned = result.get("oldest_scanned_date")
-    if oldest_scanned:
-        try:
-            min_date = datetime.fromisoformat(oldest_scanned)
-            
-            # Find posts that SHOULD have been in the feed
-            # i.e., Sent posts, with tweet_id, belonging to user, newer than min_date
-            # We use updated_at or created_at as proxy for "published_at" if not stored perfectly, 
-            # but ideally we should store `published_at` in DB. 
-            # For now, updated_at is usually setted to published time during sync.
-            
-            candidates = db.query(Post).filter(
-                Post.username == username,
-                Post.status == "sent",
-                Post.tweet_id.isnot(None),
-                Post.updated_at >= min_date
-            ).all()
-            
-            scanned_ids = [p["tweet_id"] for p in result["posts"]]
-            
-            for candidate in candidates:
-                if candidate.tweet_id not in scanned_ids:
-                    logger.warning(f"Post {candidate.id} (Tweet {candidate.tweet_id}) missing from X feed. Marking as deleted_on_x.")
-                    candidate.status = "deleted_on_x"
-                    candidate.logs = (candidate.logs or "") + f"\n[Sync] Marked as deleted_on_x (Missing in scan > {min_date})"
-                    count += 1 # Count as a sync change
-                    
-        except Exception as e:
-            logger.error(f"Error detecting deleted posts: {e}")
+    # oldest_scanned = result.get("oldest_scanned_date")
+    # if oldest_scanned:
+    #     try:
+    #         min_date = datetime.fromisoformat(oldest_scanned)
+    #         
+    #         # Find posts that SHOULD have been in the feed
+    #         # i.e., Sent posts, with tweet_id, belonging to user, newer than min_date
+    #         # We use updated_at or created_at as proxy for "published_at" if not stored perfectly, 
+    #         # but ideally we should store `published_at` in DB. 
+    #         # For now, updated_at is usually setted to published time during sync.
+    #         
+    #         candidates = db.query(Post).filter(
+    #             Post.username == username,
+    #             Post.status == "sent",
+    #             Post.tweet_id.isnot(None),
+    #             Post.updated_at >= min_date
+    #         ).all()
+    #         
+    #         scanned_ids = [p["tweet_id"] for p in result["posts"]]
+    #         
+    #         for candidate in candidates:
+    #             if candidate.tweet_id not in scanned_ids:
+    #                 logger.warning(f"Post {candidate.id} (Tweet {candidate.tweet_id}) missing from X feed. Marking as deleted_on_x.")
+    #                 candidate.status = "deleted_on_x"
+    #                 candidate.logs = (candidate.logs or "") + f"\n[Sync] Marked as deleted_on_x (Missing in scan > {min_date})"
+    #                 count += 1 # Count as a sync change
+    #                 
+    #     except Exception as e:
+    #         logger.error(f"Error detecting deleted posts: {e}")
 
     db.commit()
     
