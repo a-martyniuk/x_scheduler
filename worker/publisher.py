@@ -524,7 +524,8 @@ async def sync_history_task(username: str):
             for i, art in enumerate(articles[:5]):
                 try:
                     txt = await art.locator('[data-testid="tweetText"]').inner_text()
-                    log(f"Feed Item {i}: {txt[:50].replace('\n', ' ')}...")
+                    preview = txt[:50].replace('\n', ' ')
+                    log(f"Feed Item {i}: {preview}...")
                 except:
                     log(f"Feed Item {i}: (No text or failed to read)")
 
