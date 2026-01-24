@@ -1,3 +1,9 @@
+export interface Account {
+    username: string;
+    profile_image_url?: string;
+    is_active: boolean;
+}
+
 export interface Post {
     id?: number;
     content: string;
