@@ -113,7 +113,13 @@ def create_post(post: PostCreate, background_tasks: BackgroundTasks, db: Session
 @router.get("/latest", response_model=PostResponse)
 def read_latest_post(db: Session = Depends(get_db)):
     logger.info("Fetching latest sent post")
-    post = db.query(Post).filter(Post.status == "sent").order_by(Post.updated_at.desc()).first()
+    # Order by created_at (which reflects publish date) instead of updated_at (which changes on sync)
+    # Also exclude reposts to show USER's last post
+    post = db.query(Post).filter(
+        Post.status == "sent", 
+        Post.is_repost.isnot(True)
+    ).order_by(Post.created_at.desc()).first()
+    
     if post is None:
         raise HTTPException(status_code=404, detail="No sent posts found")
     return post
