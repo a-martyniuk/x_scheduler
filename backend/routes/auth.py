@@ -164,12 +164,11 @@ async def sync_history(username: str, db: Session = Depends(get_db)):
     db.commit()
     
     # Debug screenshot logic removed
-
+    
     return {
         "status": "success", 
         "imported": count, 
-        "log": result["log"],
-        "debug_screenshot": debug_screenshot
+        "log": result["log"]
     }
 
 @router.get("/status")
