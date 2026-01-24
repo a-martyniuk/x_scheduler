@@ -20,19 +20,25 @@ interface AnalyticsViewProps {
         likes: number;
         reposts: number;
     };
-    onSync?: () => Promise<{ imported: number; log: string }>;
+    onSync?: () => Promise<{ imported: number; log: string; debug_screenshot?: string }>;
 }
 
 export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats, onSync }) => {
     const { growthData, bestTimes, performanceData, latestPost, isLoadingLatestPost } = useAnalytics();
     const [isSyncing, setIsSyncing] = React.useState(false);
+    const [debugScreenshot, setDebugScreenshot] = React.useState<string | null>(null);
 
     const handleSync = async () => {
         if (!onSync) return;
         setIsSyncing(true);
+        setDebugScreenshot(null);
         try {
             const result = await onSync();
-            alert(`Sincronización completada.\nPosts importados: ${result.imported}\nDetalles:\n${result.log}`);
+            if (result.debug_screenshot) {
+                setDebugScreenshot(result.debug_screenshot);
+            }
+            // Optional: Show alert or just rely on the UI update
+            // alert(`Sincronización completada.\nPosts importados: ${result.imported}`);
         } catch (error: any) {
             alert(`Error al sincronizar: ${error.message}`);
         } finally {
