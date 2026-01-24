@@ -409,8 +409,8 @@ async def login_to_x(username, password):
                 await page.fill(XSelectors.LOGIN_INPUT_PASSWORD, password)
                 await page.keyboard.press("Enter")
                 await human_delay(3, 5)
-            except:
-                 log("Password field not found. Maybe username invalid or challenge triggered.")
+            except Exception as e:
+                 log(f"Password field not found. Maybe username invalid or challenge triggered. Error: {e}")
                  await browser.close()
                  return {"success": False, "log": "Login flow interrupted (Password step). check username."}
 
