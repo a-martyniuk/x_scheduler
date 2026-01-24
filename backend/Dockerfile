@@ -1,8 +1,8 @@
-FROM python:3.12-slim
+FROM mcr.microsoft.com/playwright/python:v1.41.0-jammy
 
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies (optional, image has most)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
@@ -12,8 +12,7 @@ COPY requirements.txt .
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install Playwright Browsers and System Dependencies
-RUN pip install playwright && playwright install --with-deps chromium
+# (Playwright browsers are already in the base image)
 
 # Copy backend code
 COPY backend/ ./backend/
