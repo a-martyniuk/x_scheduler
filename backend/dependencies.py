@@ -17,6 +17,7 @@ async def verify_token(request: Request, x_admin_token: str = Header(None)):
         if client_token != server_token:
             masked_client = client_token[:2] + "***" if len(client_token) > 2 else "***"
             masked_server = server_token[:2] + "***" if len(server_token) > 2 else "***"
-            logger.warning(f"Auth Failed. Client sent: '{masked_client}', Server expects: '{masked_server}'")
-            raise HTTPException(status_code=401, detail="Invalid token")
+            debug_msg = f"Expected length: {len(server_token)}, Starts with: {server_token[0] if server_token else 'None'}"
+            logger.warning(f"Auth Failed. {debug_msg}")
+            raise HTTPException(status_code=401, detail=f"Invalid token. Debug: {debug_msg}")
     return x_admin_token
