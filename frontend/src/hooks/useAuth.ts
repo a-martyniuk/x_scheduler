@@ -18,7 +18,11 @@ export function useAuth() {
         },
     });
 
-    const accounts = data?.accounts || [];
+    const accounts = (data?.accounts || []).map((acc: any) => ({
+        ...acc,
+        is_active: acc.connected,
+        profile_image_url: acc.profile_image_url || null
+    }));
     const primaryAccount = accounts[0] || null;
 
     return {
