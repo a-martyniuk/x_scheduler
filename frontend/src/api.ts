@@ -154,12 +154,18 @@ export const api = {
         if (!res.ok) {
             let errorMessage = 'Invalid token';
             try {
-                const errorData = await res.json();
-                if (errorData.detail) errorMessage = errorData.detail;
-            } catch (e) {
-                // If JSON parse fails, maybe it's text
+                // Read text ONCE
                 const text = await res.text();
-                if (text) errorMessage = text;
+                try {
+                    // Try to parse as JSON
+                    const errorData = JSON.parse(text);
+                    if (errorData.detail) errorMessage = errorData.detail;
+                } catch {
+                    // If not JSON, use the raw text
+                    if (text) errorMessage = text;
+                }
+            } catch (e) {
+                console.error("Error reading error response:", e);
             }
             throw new Error(errorMessage);
         }
