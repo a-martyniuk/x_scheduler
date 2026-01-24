@@ -53,6 +53,11 @@ def run_migrations():
                 logger.info("Migrating: Adding media_url column")
                 conn.execute(text("ALTER TABLE posts ADD COLUMN media_url VARCHAR(500)"))
 
+            # 7. Add is_repost
+            if "is_repost" not in columns:
+                logger.info("Migrating: Adding is_repost column")
+                conn.execute(text("ALTER TABLE posts ADD COLUMN is_repost BOOLEAN DEFAULT FALSE"))
+
             # 6. Sanitize Legacy Data (Fix 500 Errors)
             logger.info("Migrating: Sanitizing legacy data...")
             
