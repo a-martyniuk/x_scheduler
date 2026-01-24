@@ -206,6 +206,12 @@ export const api = {
             throw new Error(errorData.detail || 'Sync failed');
         }
         return res.json();
+    },
+
+    getAccountGrowth: async (): Promise<{ date: string; followers: number; following: number }[]> => {
+        const res = await fetchWithToken(`${BASE_URL}/api/analytics/account-growth`);
+        if (!res.ok) return [];
+        return res.json();
     }
 
 };

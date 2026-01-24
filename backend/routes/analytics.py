@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import datetime, timedelta, timezone
 from backend.db import get_db
-from backend.models import Post, PostMetricSnapshot
+from backend.models import Post, PostMetricSnapshot, AccountMetricSnapshot
 from typing import List, Dict
 
 router = APIRouter()
@@ -113,3 +113,23 @@ def get_best_times(db: Session = Depends(get_db)):
         "hourly_data": avg_engagement,
         "total_posts_analyzed": len(posts)
     }
+
+@router.get("/account-growth")
+def get_account_growth(db: Session = Depends(get_db)):
+    """
+    Returns follower count history.
+    """
+    # Get all snapshots ordered by date
+    snapshots = db.query(
+        AccountMetricSnapshot.timestamp,
+        AccountMetricSnapshot.followers_count,
+        AccountMetricSnapshot.following_count
+    ).order_by(AccountMetricSnapshot.timestamp).all()
+    
+    return [
+        {
+            "date": s.timestamp.isoformat(),
+            "followers": s.followers_count,
+            "following": s.following_count
+        } for s in snapshots
+    ]

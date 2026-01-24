@@ -32,6 +32,13 @@ export const useAnalytics = () => {
         enabled: isAuth,
     });
 
+    const accountGrowthQuery = useQuery({
+        queryKey: ['analytics', 'account-growth'],
+        queryFn: api.getAccountGrowth,
+        refetchInterval: 300000,
+        enabled: isAuth,
+    });
+
     return {
         growthData: growthQuery.data || [],
         isLoadingGrowth: growthQuery.isLoading,
@@ -41,11 +48,13 @@ export const useAnalytics = () => {
         isLoadingPerformance: performanceQuery.isLoading,
         latestPost: latestPostQuery.data || null,
         isLoadingLatestPost: latestPostQuery.isLoading,
+        accountGrowth: accountGrowthQuery.data || [],
         refetch: () => {
             growthQuery.refetch();
             bestTimesQuery.refetch();
             performanceQuery.refetch();
             latestPostQuery.refetch();
+            accountGrowthQuery.refetch();
         }
     };
 };
