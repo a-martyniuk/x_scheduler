@@ -1,4 +1,3 @@
-```
 import { useState, useMemo, useEffect } from 'react';
 import {
   Moon,
@@ -185,7 +184,7 @@ function App() {
               Borrar Token / Re-iniciar Sesión
             </button>
             <a
-              href={`${ BASE_URL } /api/health`}
+              href={`${BASE_URL} /api/health`}
               target="_blank"
               rel="noreferrer"
               className="block w-full py-2 text-muted-foreground hover:text-primary transition-colors font-bold uppercase tracking-widest text-[8px]"
@@ -289,15 +288,15 @@ function App() {
               <X size={20} />
             </button>
             <Sidebar
-                currentView={currentView}
-                setCurrentView={setCurrentView}
-                setIsMobileMenuOpen={setIsMobileMenuOpen}
-                globalStats={globalStats}
-                posts={posts}
-                accounts={accounts}
-                onOpenPostModal={(post) => { setSelectedPost(post); setIsPostModalOpen(true); }}
-                onOpenLoginModal={() => setIsLoginModalOpen(true)}
-                onLogout={handleLogout}
+              currentView={currentView}
+              setCurrentView={setCurrentView}
+              setIsMobileMenuOpen={setIsMobileMenuOpen}
+              globalStats={globalStats}
+              posts={posts}
+              accounts={accounts}
+              onOpenPostModal={(post) => { setSelectedPost(post); setIsPostModalOpen(true); }}
+              onOpenLoginModal={() => setIsLoginModalOpen(true)}
+              onLogout={handleLogout}
             />
           </motion.aside>
         )}
@@ -357,13 +356,13 @@ function App() {
         <AnimatePresence mode="wait">
           {currentView === 'calendar' ? (
             <CalendarView
-                posts={posts}
-                userTimezone={userTimezone}
-                isMobile={isMobile}
-                onDateClick={handleDateClick}
-                onEventClick={handleEventClick}
-                onRefresh={handleGlobalRefresh}
-                isLoading={isLoadingStats || isLoadingPosts}
+              posts={posts}
+              userTimezone={userTimezone}
+              isMobile={isMobile}
+              onDateClick={handleDateClick}
+              onEventClick={handleEventClick}
+              onRefresh={handleGlobalRefresh}
+              isLoading={isLoadingStats || isLoadingPosts}
             />
           ) : (
             <motion.div
@@ -409,23 +408,23 @@ function App() {
       {/* CSS Overrides for Premium Feel */}
       <style dangerouslySetInnerHTML={{
         __html: `
-  .fc - theme - standard td, .fc - theme - standard th { border - color: var(--border)!important; opacity: 0.5; }
-        .fc - theme - standard.fc - scrollgrid { border: none!important; }
-        .fc - header - toolbar { margin - bottom: 2rem!important; flex - wrap: wrap; gap: 1rem; }
-        .fc - toolbar - title { font - weight: 900!important; letter - spacing: -0.05em!important; font - size: 1.25rem!important; }
-        .fc - button { background: hsl(var(--primary)) !important; border: none!important; border - radius: 1rem!important; font - weight: 800!important; text - transform: uppercase!important; font - size: 9px!important; letter - spacing: 0.1em!important; padding: 0.6rem 1rem!important; }
-        .fc - button - primary: not(: disabled).fc - button - active, .fc - button - primary: not(: disabled):active { background: hsl(var(--primary)) !important; opacity: 0.8; }
-
-@media(max - width: 768px) {
-          .fc - header - toolbar { flex - direction: column; align - items: center; gap: 0.75rem; margin - bottom: 1.5rem!important; }
-          .fc - toolbar - chunk { display: flex; justify - content: center; width: 100 %; }
-          .fc - button { padding: 0.5rem 0.8rem!important; font - size: 8px!important; }
-          .fc - toolbar - title { font - size: 1.1rem!important; text - align: center; }
-}
-        .sidebar - active { background: linear - gradient(135deg, hsl(var(--primary)) 0 %, #3b82f6 100 %); color: white!important; box - shadow: 0 10px 25px - 5px hsla(var(--primary), 0.4); }
-        .sidebar - inactive { color: hsl(var(--muted - foreground)) !important; }
-        .sidebar - inactive:hover { background: hsla(var(--primary), 0.05); color: hsl(var(--foreground)) !important; }
-`}} />
+        .fc-theme-standard td, .fc-theme-standard th { border-color: var(--border) !important; opacity: 0.5; }
+        .fc-theme-standard .fc-scrollgrid { border: none !important; }
+        .fc-header-toolbar { margin-bottom: 2rem !important; flex-wrap: wrap; gap: 1rem; }
+        .fc-toolbar-title { font-weight: 900 !important; letter-spacing: -0.05em !important; font-size: 1.25rem !important; }
+        .fc-button { background: hsl(var(--primary)) !important; border: none !important; border-radius: 1rem !important; font-weight: 800 !important; text-transform: uppercase !important; font-size: 9px !important; letter-spacing: 0.1em !important; padding: 0.6rem 1rem !important; }
+        .fc-button-primary:not(:disabled).fc-button-active, .fc-button-primary:not(:disabled):active { background: hsl(var(--primary)) !important; opacity: 0.8; }
+        
+        @media (max-width: 768px) {
+          .fc-header-toolbar { flex-direction: column; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem !important; }
+          .fc-toolbar-chunk { display: flex; justify-content: center; width: 100%; }
+          .fc-button { padding: 0.5rem 0.8rem !important; font-size: 8px !important; }
+          .fc-toolbar-title { font-size: 1.1rem !important; text-align: center; }
+        }
+        .sidebar-active { background: linear-gradient(135deg, hsl(var(--primary)) 0%, #3b82f6 100%); color: white !important; box-shadow: 0 10px 25px -5px hsla(var(--primary), 0.4); }
+        .sidebar-inactive { color: hsl(var(--muted-foreground)) !important; }
+        .sidebar-inactive:hover { background: hsla(var(--primary), 0.05); color: hsl(var(--foreground)) !important; }
+      `}} />
     </div>
   );
 }
