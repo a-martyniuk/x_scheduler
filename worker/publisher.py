@@ -8,81 +8,8 @@ from loguru import logger
 from datetime import datetime
 from .config import XSelectors
 
-# ... (Config vars remain same) ...
-
-# ... (Helper functions remain same until publish_post_task) ...
-
-async def publish_post_task(content: str, media_paths: str = None, reply_to_id: str = None, username: str = None, dry_run: bool = False):
-    # ... (setup code same) ...
-    
-    # ... inside browser context ...
-        try:
-            # --- NAVIGATION / SETUP ---
-            if reply_to_id:
-                log(f"Thread Mode: Replying to tweet {reply_to_id}...")
-                await page.goto(f"https://x.com/i/status/{reply_to_id}", timeout=60000)
-                await human_delay(3, 5)
-                
-                try:
-                    reply_btn = page.locator(f'{XSelectors.TWEET_ARTICLE}').first.locator(XSelectors.BTN_REPLY_MODAL)
-                    await reply_btn.click()
-                    log("Clicked Reply button.")
-                    await page.wait_for_selector(XSelectors.COMPOSE_BOX_HOME, state="visible", timeout=10000)
-                except Exception as e:
-                     log(f"Failed to open reply modal: {e}")
-
-            else:
-                log("New Post Mode: Navigating to home...")
-                await page.goto("https://x.com/home", timeout=60000)
-                await human_delay(2, 5)
-                try:
-                    await page.wait_for_selector(XSelectors.COMPOSE_BOX_HOME, state="visible", timeout=10000)
-                    log("Home Compose box found.")
-                    await page.locator(XSelectors.COMPOSE_BOX_HOME).click()
-                except:
-                    log("Converting to Global Compose modal logic...")
-                    await page.keyboard.press("n")
-                    await human_delay(1, 2)
-
-            # --- CONTENT ENTRY ---
-            textarea = page.locator(XSelectors.COMPOSE_BOX_HOME)
-            if await textarea.is_visible():
-                await textarea.click()
-                await human_delay(0.5, 1)
-                
-                await page.keyboard.type(content, delay=random.randint(30, 80)) 
-                log(f"Typed: {content[:20]}...")
-                await human_delay(1, 3)
-
-                if media_paths:
-                    # ... (media processing same) ...
-                    if valid_paths:
-                        await page.set_input_files(XSelectors.FILE_INPUT, valid_paths)
-                        log("Media upload triggered.")
-                        await human_delay(5, 10)
-                
-                # --- SEND ---
-                if not dry_run:
-                    tweet_button = page.locator(XSelectors.BTN_TWEET_INLINE)
-                    if not await tweet_button.is_visible():
-                         tweet_button = page.locator(XSelectors.BTN_TWEET_MODAL)
-                    
-                    if await tweet_button.is_enabled():
-                        await tweet_button.click()
-                        log("Clicked Post/Reply button.")
-                        await human_delay(4, 7)
-                        success = True
-                    else:
-                         log("Button disabled.")
-                else:
-                    log("DRY RUN: Skipping send.")
-                    success = True
-
-            # --- ID EXTRACTION ---
-            if success and not dry_run:
-                try:
-                    await page.locator(XSelectors.PROFILE_LINK).click()
-                    # ... (rest of id extraction same) ...
+# CONFIG
+WORKER_DIR = os.path.dirname(__file__)
 
 SCREENSHOTS_DIR = os.path.join(WORKER_DIR, "screenshots")
 ACCOUNTS_DIR = os.path.join(WORKER_DIR, "accounts")
@@ -198,10 +125,10 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
                 
                 # Find the main tweet and click reply
                 try:
-                    reply_btn = page.locator('article[data-testid="tweet"]').first.locator('[data-testid="reply"]')
+                    reply_btn = page.locator(f'{XSelectors.TWEET_ARTICLE}').first.locator(XSelectors.BTN_REPLY_MODAL)
                     await reply_btn.click()
                     log("Clicked Reply button on parent tweet.")
-                    await page.wait_for_selector('[data-testid="tweetTextarea_0"]', state="visible", timeout=10000)
+                    await page.wait_for_selector(XSelectors.COMPOSE_BOX_HOME, state="visible", timeout=10000)
                     log("Reply modal open.")
                 except Exception as e:
                      log(f"Failed to open reply modal: {e}. Trying fallback.")
@@ -210,9 +137,9 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
                 await page.goto("https://x.com/home", timeout=60000)
                 await human_delay(2, 5)
                 try:
-                    await page.wait_for_selector('[data-testid="tweetTextarea_0"]', state="visible", timeout=10000)
+                    await page.wait_for_selector(XSelectors.COMPOSE_BOX_HOME, state="visible", timeout=10000)
                     log("Home Compose box found.")
-                    await page.locator('[data-testid="tweetTextarea_0"]').click()
+                    await page.locator(XSelectors.COMPOSE_BOX_HOME).click()
                 except:
                     log("Converting to Global Compose modal logic...")
                     await page.keyboard.press("n") # Shortcut for new tweet
@@ -220,7 +147,7 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
 
             # --- CONTENT ENTRY ---
             # Wait for text area (works for both Home and Reply Modal)
-            textarea = page.locator('[data-testid="tweetTextarea_0"]')
+            textarea = page.locator(XSelectors.COMPOSE_BOX_HOME)
             if await textarea.is_visible():
                 await textarea.click()
                 await human_delay(0.5, 1)
@@ -238,7 +165,7 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
                     if valid_paths:
                         log(f"Uploading {len(valid_paths)} media files: {valid_paths}")
                         # X allows up to 4 images, or 1 video, or 1 GIF
-                        await page.set_input_files('[data-testid="fileInput"]', valid_paths)
+                        await page.set_input_files(XSelectors.FILE_INPUT, valid_paths)
                         log("Media upload triggered. Waiting for processing...")
                         await human_delay(5, 10) # Videos need more time
                     else:
@@ -247,12 +174,12 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
                 # --- SEND ---
 
                 if not dry_run:
-                    tweet_button = page.locator('[data-testid="tweetButtonInline"]')
+                    tweet_button = page.locator(XSelectors.BTN_TWEET_INLINE)
                     # Determine correct button (Modal uses 'tweetButton', inline uses 'tweetButtonInline' usually)
                     # Actually, for replies it might be 'tweetButton' inside the modal.
                     # Let's try to find *any* enabled tweet button in the active context
                     if not await tweet_button.is_visible():
-                         tweet_button = page.locator('[data-testid="tweetButton"]')
+                         tweet_button = page.locator(XSelectors.BTN_TWEET_MODAL)
                     
                     if await tweet_button.is_enabled():
                         await tweet_button.click()
@@ -273,13 +200,13 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
                 log("Attempting to retrieve Tweet ID...")
                 try:
                     # Strategy: Click 'Profile' -> Get First Tweet Link
-                    await page.locator('[data-testid="AppTabBar_Profile_Link"]').click()
+                    await page.locator(XSelectors.PROFILE_LINK).click()
                     await page.wait_for_url("**/status/**", timeout=2000) # Optional wait if profile redirects fast? No, profile is /username
                     await human_delay(2, 4)
                     
                     # Look for the first tweet timestamp/link
                     # Selector: article -> time -> parent anchor
-                    latest_tweet_link = page.locator('article').first.locator('time').locator('..')
+                    latest_tweet_link = page.locator(f'{XSelectors.TWEET_ARTICLE}').first.locator('time').locator('..')
                     href = await latest_tweet_link.get_attribute('href')
                     
                     if href and 'status' in href:
