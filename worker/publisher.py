@@ -13,6 +13,10 @@ WORKER_DIR = os.path.dirname(__file__)
 SCREENSHOTS_DIR = os.path.join(WORKER_DIR, "screenshots")
 ACCOUNTS_DIR = os.path.join(WORKER_DIR, "accounts")
 
+# Ensure critical directories exist
+os.makedirs(SCREENSHOTS_DIR, exist_ok=True)
+os.makedirs(ACCOUNTS_DIR, exist_ok=True)
+
 def get_user_paths(username: str):
     username = username.lstrip('@')
     user_dir = os.path.join(ACCOUNTS_DIR, username)
