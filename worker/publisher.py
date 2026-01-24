@@ -505,15 +505,28 @@ async def sync_history_task(username: str):
                 diag_login = os.path.join(SCREENSHOTS_DIR, f"sync_login_wall_{clean_username}.png")
                 await page.screenshot(path=diag_login)
             
+            # --- DEBUG: Snapshot of the feed ---
+            debug_feed = os.path.join(SCREENSHOTS_DIR, f"debug_feed_{clean_username}_{random.randint(1000,9999)}.png")
+            await page.screenshot(path=debug_feed)
+            log(f"Debug Feed Screenshot saved: {debug_feed}")
+            # -----------------------------------
+
             # Scroll to get more history
             for i in range(3):
                 await page.evaluate("window.scrollBy(0, 1500)")
                 await human_delay(1, 2)
             
-            # Extract recent tweets (X uses cellInnerDiv for the list items)
-            # We look for articles inside them
+            # Extract recent tweets
             articles = await page.locator('article[data-testid="tweet"]').all()
             log(f"Found {len(articles)} tweet articles on feed.")
+            
+            # Debug: Log first few texts
+            for i, art in enumerate(articles[:5]):
+                try:
+                    txt = await art.locator('[data-testid="tweetText"]').inner_text()
+                    log(f"Feed Item {i}: {txt[:50].replace('\n', ' ')}...")
+                except:
+                    log(f"Feed Item {i}: (No text or failed to read)")
 
             for article in articles:
                 try:

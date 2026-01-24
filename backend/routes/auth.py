@@ -162,7 +162,33 @@ async def sync_history(username: str, db: Session = Depends(get_db)):
     db.commit()
             
     db.commit()
-    return {"status": "success", "imported": count, "log": result["log"]}
+    
+    # Try to extract debug screenshot from log
+    debug_screenshot = None
+    import re
+    match = re.search(r"Debug Feed Screenshot saved: (.*\.png)", result["log"])
+    if match:
+        # Convert local path to static URL
+        filename = os.path.basename(match.group(1))
+        # Assuming we expose screenshots dir? 
+        # We only expose 'uploads'. We should probably move screenshots to uploads or expose it.
+        # Quick hack: Copy to uploads
+        try:
+            import shutil
+            from backend.config import settings
+            src = match.group(1)
+            dst = os.path.join(settings.DATA_DIR, "uploads", filename)
+            shutil.copy(src, dst)
+            debug_screenshot = f"/uploads/{filename}"
+        except Exception as e:
+            logger.error(f"Failed to copy debug screenshot: {e}")
+
+    return {
+        "status": "success", 
+        "imported": count, 
+        "log": result["log"],
+        "debug_screenshot": debug_screenshot
+    }
 
 @router.get("/status")
 async def get_status():
