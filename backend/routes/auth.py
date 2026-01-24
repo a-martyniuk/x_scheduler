@@ -59,21 +59,34 @@ async def sync_history(username: str, db: Session = Depends(get_db)):
     count = 0
     for post_data in result["posts"]:
         # Check if already exists
-        exists = db.query(Post).filter(Post.tweet_id == post_data["tweet_id"]).first()
-        if not exists:
-            # Parse historical date if available
-            pub_date = None
-            if post_data.get("published_at"):
-                try:
-                    # ISO string to datetime
-                    pub_date = datetime.fromisoformat(post_data["published_at"].replace("Z", "+00:00")).replace(tzinfo=None)
-                except:
-                    pass
+        existing_post = db.query(Post).filter(Post.tweet_id == post_data["tweet_id"]).first()
+        
+        # Parse date
+        pub_date = None
+        if post_data.get("published_at"):
+            try:
+                # ISO string to datetime
+                pub_date = datetime.fromisoformat(post_data["published_at"].replace("Z", "+00:00")).replace(tzinfo=None)
+            except:
+                pass
+        final_date = pub_date or datetime.now(timezone.utc).replace(tzinfo=None)
+
+        if existing_post:
+            # UPDATE existing
+            existing_post.views_count = post_data["views"]
+            existing_post.likes_count = post_data["likes"]
+            existing_post.reposts_count = post_data["reposts"]
+            if post_data.get("media_url"):
+                existing_post.media_url = post_data["media_url"]
+            # Also update content if it was empty before
+            if post_data.get("content") and (not existing_post.content or existing_post.content == "(No content)"):
+                existing_post.content = post_data["content"]
             
-            final_date = pub_date or datetime.now(timezone.utc).replace(tzinfo=None)
-            
+            count += 1 # Count updates as "imports" or activity
+        else:
+            # CREATE new
             new_post = Post(
-                content=post_data["content"],
+                content=post_data["content"] or "(No content)",
                 tweet_id=post_data["tweet_id"],
                 username=username,
                 status="sent",
@@ -85,18 +98,24 @@ async def sync_history(username: str, db: Session = Depends(get_db)):
             )
             db.add(new_post)
             db.flush() # Get ID
-            
-            # Day 0 baseline (current stats as baseline)
-            # Use the historical date for the snapshot so it shows in the chart
-            snapshot = PostMetricSnapshot(
-                post_id=new_post.id,
-                views=new_post.views_count,
-                likes=new_post.likes_count,
-                reposts=new_post.reposts_count,
-                timestamp=final_date
-            )
-            db.add(snapshot)
+            existing_post = new_post
             count += 1
+            
+        # Create metric snapshot (for both new and updated)
+        # Check if recent snapshot exists to avoid duplicates
+        latest_snap = db.query(PostMetricSnapshot).filter(PostMetricSnapshot.post_id == existing_post.id).order_by(PostMetricSnapshot.timestamp.desc()).first()
+        
+        # Simple debounce: only add snapshot if values changed or it's been > 6 hours (simplified)
+        # For now, let's just add it if it's new data
+        if not latest_snap or (latest_snap.views != post_data["views"] or latest_snap.likes != post_data["likes"]):
+             snapshot = PostMetricSnapshot(
+                post_id=existing_post.id,
+                views=post_data["views"],
+                likes=post_data["likes"],
+                reposts=post_data["reposts"],
+                timestamp=datetime.now(timezone.utc).replace(tzinfo=None) # Snapshot time is NOW
+            )
+             db.add(snapshot)
             
     db.commit()
     return {"status": "success", "imported": count, "log": result["log"]}
