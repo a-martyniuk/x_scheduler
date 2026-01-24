@@ -27,6 +27,11 @@ class PostResponse(PostBase):
     likes_count: int = 0
     reposts_count: int = 0
     
+    @field_validator('views_count', 'likes_count', 'reposts_count', mode='before')
+    @classmethod
+    def set_zero_if_none(cls, v):
+        return v or 0
+    
     model_config = ConfigDict(from_attributes=True)
 
 class GlobalStats(BaseModel):
