@@ -212,7 +212,10 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats
                             </div>
                             <div className="flex flex-wrap items-center gap-2 ml-8">
                                 {lastSyncedTime && (
-                                    <div className="flex items-center gap-2 px-2 py-0.5 bg-indigo-500/5 rounded-md border border-indigo-500/10">
+                                    <div
+                                        className="flex items-center gap-2 px-2 py-0.5 bg-indigo-500/5 rounded-md border border-indigo-500/10 cursor-help"
+                                        title="Sincronización total: Actualiza seguidores, imagen de perfil y busca publicaciones nuevas (cada 6 horas)."
+                                    >
                                         <div className="w-1 h-1 rounded-full bg-indigo-500" />
                                         <span className="text-[8px] font-bold text-indigo-600/80 dark:text-indigo-400/80 uppercase tracking-wide">
                                             Perfil: {lastSyncedTime}
@@ -220,7 +223,10 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats
                                     </div>
                                 )}
                                 {lastMetricsRefresh && (
-                                    <div className="flex items-center gap-2 px-2 py-0.5 bg-green-500/5 rounded-md border border-green-500/10">
+                                    <div
+                                        className="flex items-center gap-2 px-2 py-0.5 bg-green-500/5 rounded-md border border-green-500/10 cursor-help"
+                                        title="Carga de datos: Actualiza vistas, likes, guardados y respuestas de tus publicaciones recientes (cada 15 minutos)."
+                                    >
                                         <div className="w-1 h-1 rounded-full bg-green-500 animate-pulse" />
                                         <span className="text-[8px] font-bold text-green-600/80 dark:text-green-400/80 uppercase tracking-wide">
                                             Métricas: {lastMetricsRefresh}
