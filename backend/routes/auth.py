@@ -43,7 +43,7 @@ async def sync_history(username: str, db: Session = Depends(get_db)):
     Triggers a manual sync of account history.
     """
     from worker.publisher import sync_history_task
-    from backend.models import Post, PostMetricSnapshot
+    from backend.models import Post, PostMetricSnapshot, AccountMetricSnapshot
     from datetime import datetime, timezone
     
     logger.info(f"Syncing history for {username}...")
@@ -56,6 +56,22 @@ async def sync_history(username: str, db: Session = Depends(get_db)):
     if not result["success"]:
         raise HTTPException(status_code=500, detail=result["log"])
 
+    # --- SAVE PROFILE STATS ---
+    if "profile" in result and result["profile"]:
+        try:
+            profile = result["profile"]
+            logger.info(f"Saving profile stats: {profile}")
+            if profile.get("followers", 0) > 0:
+                acc_metric = AccountMetricSnapshot(
+                    username=username,
+                    followers_count=profile.get("followers", 0),
+                    following_count=profile.get("following", 0),
+                    timestamp=datetime.now(timezone.utc).replace(tzinfo=None)
+                )
+                db.add(acc_metric)
+        except Exception as e:
+             logger.error(f"Failed to save account metrics: {e}")
+    
     # --- AUTO-HEAL: Bulk restore false positives ---
     # We previously marked posts as deleted if they weren't in the top ~15.
     # We now revert them all to 'sent' to fix the database state.

@@ -478,9 +478,19 @@ async def sync_history_task(username: str):
         logger.info(f"[Worker-Sync] {msg}")
         log_messages.append(msg)
 
+    def parse_number(text):
+        if not text: return 0
+        text = text.replace(",", "").strip().upper()
+        match = re.search(r'([\d\.]+)', text)
+        if not match: return 0
+        num = float(match.group(1))
+        if 'K' in text: num *= 1000
+        elif 'M' in text: num *= 1000000
+        return int(num)
+
     storage_state, temp_cookies_path = await _get_storage_state(username, log)
     if not storage_state:
-        return {"success": False, "log": f"cookies missing for {username}", "posts": []}
+        return {"success": False, "log": f"cookies missing for {username}", "posts": [], "profile": {}}
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
@@ -489,6 +499,8 @@ async def sync_history_task(username: str):
              storage_state=storage_state
         )
         
+        profile_stats = {"followers": 0, "following": 0}
+
         try:
             page = await context.new_page()
             
@@ -508,6 +520,26 @@ async def sync_history_task(username: str):
                 diag_login = os.path.join(SCREENSHOTS_DIR, f"sync_login_wall_{clean_username}.png")
                 await page.screenshot(path=diag_login)
             
+            # --- SCRAPE PROFILE STATS ---
+            try:
+                # Followers
+                # Look for link ending in /verified_followers or /followers
+                follower_links = page.locator(f'a[href*="/{clean_username}/followers"], a[href*="/{clean_username}/verified_followers"]')
+                # Usually there are two links: Following and Followers. 
+                # Followers is usually the second one or distinguished by text.
+                count = await follower_links.count()
+                for i in range(count):
+                    el = follower_links.nth(i)
+                    txt = await el.inner_text() 
+                    if "Followers" in txt or "Seguidores" in txt:
+                        profile_stats["followers"] = parse_number(txt.split('\n')[0])
+                    elif "Following" in txt or "Siguiendo" in txt:
+                        profile_stats["following"] = parse_number(txt.split('\n')[0])
+                
+                log(f"Profile Stats Scraped: {profile_stats}")
+            except Exception as e:
+                log(f"Failed to scrape profile stats: {e}")
+
             # --- DEBUG: Snapshot removed manually by user request ---
             # -----------------------------------
 
@@ -572,16 +604,7 @@ async def sync_history_task(username: str):
                         reposts = 0
 
                         try:
-                            def parse_number(text):
-                                if not text: return 0
-                                text = text.replace(",", "").strip().upper()
-                                match = re.search(r'([\d\.]+)', text)
-                                if not match: return 0
-                                num = float(match.group(1))
-                                if 'K' in text: num *= 1000
-                                elif 'M' in text: num *= 1000000
-                                return int(num)
-
+                            # Use the helper defined at top scope
                             # Likes
                             like_el = article.locator('[data-testid="like"], [data-testid="unlike"]').first
                             if await like_el.count() > 0:
@@ -674,5 +697,6 @@ async def sync_history_task(username: str):
         "success": True, 
         "log": "\n".join(log_messages), 
         "posts": posts_imported,
-        "oldest_scanned_date": min_date.isoformat() if min_date else None
+        "oldest_scanned_date": min_date.isoformat() if min_date else None,
+        "profile": profile_stats
     }

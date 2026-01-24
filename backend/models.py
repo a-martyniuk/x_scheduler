@@ -33,3 +33,12 @@ class PostMetricSnapshot(Base):
     likes = Column(Integer, default=0)
     reposts = Column(Integer, default=0)
     timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+class AccountMetricSnapshot(Base):
+    __tablename__ = "account_metrics"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, index=True)
+    followers_count = Column(Integer, default=0)
+    following_count = Column(Integer, default=0)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
