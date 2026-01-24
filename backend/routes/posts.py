@@ -61,6 +61,32 @@ async def run_immediate_publish(post_id: int):
     finally:
         db.close()
 
+@router.get("/stats", response_model=GlobalStats)
+def get_stats(db: Session = Depends(get_db)):
+    from sqlalchemy import func
+    
+    total_sent = db.query(Post).filter(Post.status == "sent").count()
+    total_failed = db.query(Post).filter(Post.status == "failed").count()
+    total_scheduled = db.query(Post).filter(Post.status == "scheduled").count()
+    total_drafts = db.query(Post).filter(Post.status == "draft").count()
+    
+    # Aggregated metrics for sent posts
+    metrics = db.query(
+        func.sum(Post.views_count).label("views"),
+        func.sum(Post.likes_count).label("likes"),
+        func.sum(Post.reposts_count).label("reposts")
+    ).filter(Post.status == "sent").first()
+    
+    return {
+        "sent": total_sent,
+        "failed": total_failed,
+        "scheduled": total_scheduled,
+        "drafts": total_drafts,
+        "views": int(metrics.views or 0),
+        "likes": int(metrics.likes or 0),
+        "reposts": int(metrics.reposts or 0)
+    }
+
 # CRUD Routes
 @router.post("/", response_model=PostResponse)
 def create_post(post: PostCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
@@ -128,31 +154,7 @@ def update_post(post_id: int, post: PostUpdate, background_tasks: BackgroundTask
         
     return db_post
 
-@router.get("/stats", response_model=GlobalStats)
-def get_stats(db: Session = Depends(get_db)):
-    from sqlalchemy import func
-    
-    total_sent = db.query(Post).filter(Post.status == "sent").count()
-    total_failed = db.query(Post).filter(Post.status == "failed").count()
-    total_scheduled = db.query(Post).filter(Post.status == "scheduled").count()
-    total_drafts = db.query(Post).filter(Post.status == "draft").count()
-    
-    # Aggregated metrics for sent posts
-    metrics = db.query(
-        func.sum(Post.views_count).label("views"),
-        func.sum(Post.likes_count).label("likes"),
-        func.sum(Post.reposts_count).label("reposts")
-    ).filter(Post.status == "sent").first()
-    
-    return {
-        "sent": total_sent,
-        "failed": total_failed,
-        "scheduled": total_scheduled,
-        "drafts": total_drafts,
-        "views": int(metrics.views or 0),
-        "likes": int(metrics.likes or 0),
-        "reposts": int(metrics.reposts or 0)
-    }
+
 
 @router.delete("/{post_id}")
 def delete_post(post_id: int, db: Session = Depends(get_db)):

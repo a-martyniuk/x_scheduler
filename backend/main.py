@@ -65,6 +65,11 @@ app.include_router(analytics.router, prefix="/api/analytics", tags=["analytics"]
 @app.on_event("startup")
 async def startup_event():
     logger.info("Application starting up...")
+    
+    # Run DB Migrations
+    from .migrate import run_migrations
+    run_migrations()
+    
     from .scheduler import start_scheduler
     logger.info("Starting scheduler...")
     start_scheduler()
