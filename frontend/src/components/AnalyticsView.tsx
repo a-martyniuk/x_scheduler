@@ -187,9 +187,19 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats
                     <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
 
                     <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 z-10 w-full gap-6">
-                        <div className="flex items-center gap-4">
-                            <TrendingUp className="text-primary" size={24} />
-                            <h3 className="text-2xl font-black tracking-tight">Evolución de Rendimiento</h3>
+                        <div className="flex flex-col gap-2">
+                            <div className="flex items-center gap-4">
+                                <TrendingUp className="text-primary" size={24} />
+                                <h3 className="text-2xl font-black tracking-tight">Evolución de Rendimiento</h3>
+                            </div>
+                            {lastSyncedTime && (
+                                <div className="flex items-center gap-2 px-3 py-1 bg-green-500/5 rounded-lg border border-green-500/10 w-fit ml-10">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                                    <span className="text-[9px] font-bold text-green-600/80 dark:text-green-400/80 uppercase tracking-wide">
+                                        Sinc: {lastSyncedTime}
+                                    </span>
+                                </div>
+                            )}
                         </div>
 
                         <div className="flex items-center gap-2 p-1 bg-black/5 dark:bg-white/5 rounded-2xl overflow-x-auto max-w-full">
@@ -236,15 +246,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats
                         )}
                     </div>
 
-                    {/* Last Synced Info */}
-                    {lastSyncedTime && (
-                        <div className="absolute top-8 right-20 md:right-auto md:left-72 mb-4 flex items-center gap-2 px-3 py-1.5 bg-green-500/5 rounded-lg border border-green-500/10 w-fit">
-                            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                            <span className="text-[9px] font-bold text-green-600/80 dark:text-green-400/80 uppercase tracking-wide">
-                                Sinc: {lastSyncedTime}
-                            </span>
-                        </div>
-                    )}
+
 
                     <div className="flex-1 w-full min-h-[350px]">
                         <ResponsiveContainer width="100%" height="100%">
