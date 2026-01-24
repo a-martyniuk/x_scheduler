@@ -1,19 +1,22 @@
-from sqlalchemy import text
-from backend.db import engine, SessionLocal
+from sqlalchemy import text, inspect
+from backend.db import engine
 from loguru import logger
 
 def run_migrations():
     """
     Checks for missing columns in the 'posts' table and adds them if necessary.
-    This is a poor man's migration system for SQLite.
+    Database agnostic implementation using SQLAlchemy Inspector.
     """
     logger.info("Checking for database migrations...")
     try:
+        inspector = inspect(engine)
+        if not inspector.has_table("posts"):
+            logger.info("Table 'posts' does not exist yet. Skipping migration (will be created by generic init).")
+            return
+
+        columns = [col["name"] for col in inspector.get_columns("posts")]
+        
         with engine.connect() as conn:
-            # Check existing columns
-            result = conn.execute(text("PRAGMA table_info(posts)"))
-            columns = [row[1] for row in result.fetchall()]
-            
             # 1. Add views_count
             if "views_count" not in columns:
                 logger.info("Migrating: Adding views_count column")
@@ -32,12 +35,12 @@ def run_migrations():
             # 4. Add tweet_id (if missing)
             if "tweet_id" not in columns:
                 logger.info("Migrating: Adding tweet_id column")
-                conn.execute(text("ALTER TABLE posts ADD COLUMN tweet_id VARCHAR"))
+                conn.execute(text("ALTER TABLE posts ADD COLUMN tweet_id VARCHAR(255)"))
                 
             # 5. Add username (if missing)
             if "username" not in columns:
                 logger.info("Migrating: Adding username column")
-                conn.execute(text("ALTER TABLE posts ADD COLUMN username VARCHAR"))
+                conn.execute(text("ALTER TABLE posts ADD COLUMN username VARCHAR(255)"))
 
             conn.commit()
             logger.info("Migrations completed successfully.")
