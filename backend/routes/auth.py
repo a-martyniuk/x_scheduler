@@ -81,6 +81,12 @@ async def sync_history(username: str, db: Session = Depends(get_db)):
             # Update repost status
             existing_post.is_repost = post_data.get("is_repost", False)
             
+            # Fix dates if available (Corrección de fechas históricas)
+            if pub_date:
+                existing_post.updated_at = pub_date
+                # For historical accuracy, we can align created_at too
+                existing_post.created_at = pub_date
+
             # Also update content if it was empty before
             if post_data.get("content") and (not existing_post.content or existing_post.content == "(No content)"):
                 existing_post.content = post_data["content"]
