@@ -29,15 +29,14 @@ async def sync_account_history(username: str, db: Session):
     if "profile" in result and result["profile"]:
         try:
             profile = result["profile"]
-            # Only save if we got valid numbers
-            if profile.get("followers", 0) > 0:
-                acc_metric = AccountMetricSnapshot(
-                    username=username,
-                    followers_count=profile.get("followers", 0),
-                    following_count=profile.get("following", 0),
-                    timestamp=datetime.now(timezone.utc).replace(tzinfo=None)
-                )
-                db.add(acc_metric)
+            # Save snapshot regardless of count to record the sync timestamp
+            acc_metric = AccountMetricSnapshot(
+                username=username,
+                followers_count=profile.get("followers", 0),
+                following_count=profile.get("following", 0),
+                timestamp=datetime.now(timezone.utc).replace(tzinfo=None)
+            )
+            db.add(acc_metric)
         except Exception as e:
              logger.error(f"Failed to save account metrics: {e}")
     
