@@ -5,6 +5,7 @@ import re
 from playwright.async_api import async_playwright
 import random
 from loguru import logger
+from datetime import datetime
 
 # CONFIG
 # CONFIG
@@ -551,22 +552,96 @@ async def sync_history_task(username: str):
                         except:
                             pass
 
+                        # Stats Scraping
+                        views = 0
+                        likes = 0
+                        reposts = 0
+
+                        try:
+                            def parse_number(text):
+                                if not text: return 0
+                                text = text.replace(",", "").strip().upper()
+                                match = re.search(r'([\d\.]+)', text)
+                                if not match: return 0
+                                num = float(match.group(1))
+                                if 'K' in text: num *= 1000
+                                elif 'M' in text: num *= 1000000
+                                return int(num)
+
+                            # Likes
+                            like_el = article.locator('[data-testid="like"], [data-testid="unlike"]').first
+                            if await like_el.count() > 0:
+                                label = await like_el.get_attribute("aria-label") 
+                                if label and "Like" in label: # "123 Likes" or "Like" if 0
+                                    likes = parse_number(label.split("Like")[0])
+
+                            # Reposts
+                            rt_el = article.locator('[data-testid="retweet"], [data-testid="unretweet"]').first
+                            if await rt_el.count() > 0:
+                                label = await rt_el.get_attribute("aria-label")
+                                if label and "Repost" in label:
+                                    reposts = parse_number(label.split("Repost")[0])
+                            
+                            # Views (Impressions) - Usually only author can see this on feed or via analytics button
+                            # Look for the analytics bar icon or aria-label containing "View"
+                            # Common path: [href*="/analytics"] or aria-label="135 Views. View Tweet analytics"
+                            analytics_link = article.locator('a[href*="/analytics"]').first
+                            if await analytics_link.count() > 0:
+                                label = await analytics_link.get_attribute("aria-label")
+                                if label and "View" in label:
+                                    views = parse_number(label.split("View")[0])
+                            else:
+                                # Sometimes it's text next to the bar chart icon not a link
+                                view_stat = article.locator('[data-testid="app-text-transition-container"]', has_text="View").first
+                                if await view_stat.count() == 0:
+                                     # Generic fallback search for number followed by "View" in aria labels
+                                     all_stats = await article.locator('[aria-label*="View"]').all()
+                                     for stat in all_stats:
+                                         lbl = await stat.get_attribute("aria-label")
+                                         if lbl and "View" in lbl:
+                                             views = parse_number(lbl.split("View")[0])
+                                             break
+
+                        except Exception as e:
+                            # log(f"Stats parse error: {e}") # Silent fail to keep going
+                            pass
+
                         posts_imported.append({
                             "tweet_id": tweet_id,
                             "content": content,
-                            "views": 0,
-                            "likes": 0,
-                            "reposts": 0,
+                            "views": views,
+                            "likes": likes,
+                            "reposts": reposts,
                             "published_at": datetime_str,
                             "media_url": media_url
                         })
                 except Exception as e:
                     log(f"Failed to parse a tweet: {e}")
 
-            log(f"Sync complete. Parsed {len(posts_imported)} posts.")
+            # Determine range
+            min_date = None
+            if posts_imported:
+                # Sort by date (assuming imported list might be mixed, though likely chronological)
+                # Actually, feed is usually reverse chron.
+                # Let's find the absolute minimum date we saw.
+                for p in posts_imported:
+                    if p.get("published_at"):
+                        try:
+                            # 2023-10-27T10:00:00.000Z
+                            dt = datetime.fromisoformat(p["published_at"].replace("Z", "+00:00"))
+                            if min_date is None or dt < min_date:
+                                min_date = dt
+                        except: pass
+            
+            log(f"Sync complete. Parsed {len(posts_imported)} posts. Oldest: {min_date}")
         except Exception as e:
             log(f"Sync error: {e}")
         finally:
             await browser.close()
 
-    return {"success": True, "log": "\n".join(log_messages), "posts": posts_imported}
+    return {
+        "success": True, 
+        "log": "\n".join(log_messages), 
+        "posts": posts_imported,
+        "oldest_scanned_date": min_date.isoformat() if min_date else None
+    }

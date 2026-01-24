@@ -3,7 +3,7 @@ export interface Post {
     content: string;
     media_paths?: string;
     scheduled_at?: string; // ISO string
-    status: 'draft' | 'scheduled' | 'sent' | 'failed' | 'processing' | 'deleted';
+    status: 'draft' | 'scheduled' | 'sent' | 'failed' | 'processing' | 'deleted' | 'deleted_on_x';
     created_at?: string;
     updated_at?: string;
     logs?: string;

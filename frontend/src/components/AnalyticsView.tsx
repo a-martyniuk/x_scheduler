@@ -39,7 +39,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats
             setIsSyncing(false);
         }
     };
-    const sentPosts = posts.filter(p => p.status === 'sent' && p.tweet_id);
+    const sentPosts = posts.filter(p => (p.status === 'sent' || p.status === 'deleted_on_x') && p.tweet_id);
 
     const totalViews = globalStats?.views || sentPosts.reduce((acc, p) => acc + (p.views_count || 0), 0);
     const totalLikes = globalStats?.likes || sentPosts.reduce((acc, p) => acc + (p.likes_count || 0), 0);
@@ -317,14 +317,17 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats
                                 {sentPosts.sort((a, b) => (b.views_count || 0) - (a.views_count || 0)).slice(0, 15).map(post => {
                                     const er = getEngagementRate(post);
                                     return (
-                                        <tr key={post.id} className="group hover:bg-primary/5 transition-colors">
+                                        <tr key={post.id} className={cn(
+                                            "group hover:bg-primary/5 transition-colors",
+                                            post.status === 'deleted_on_x' && "opacity-60 bg-red-500/5 hover:bg-red-500/10"
+                                        )}>
                                             <td className="py-5 px-4">
                                                 <div className="flex items-start gap-3">
                                                     {post.media_url ? (
                                                         <img
                                                             src={post.media_url}
                                                             alt="Thumbnail"
-                                                            className="w-10 h-10 rounded-lg object-cover bg-slate-100 dark:bg-white/5 border border-border/20 shrink-0"
+                                                            className={cn("w-10 h-10 rounded-lg object-cover bg-slate-100 dark:bg-white/5 border border-border/20 shrink-0", post.status === 'deleted_on_x' && "grayscale")}
                                                         />
                                                     ) : (
                                                         <div className="w-10 h-10 rounded-lg bg-primary/5 flex items-center justify-center shrink-0">
@@ -332,10 +335,11 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats
                                                         </div>
                                                     )}
                                                     <div>
-                                                        <p className="text-sm font-bold line-clamp-2 max-w-[200px] mb-1">{post.content}</p>
+                                                        <p className={cn("text-sm font-bold line-clamp-2 max-w-[200px] mb-1", post.status === 'deleted_on_x' && "line-through decoration-red-500/50")}>{post.content}</p>
                                                         <div className="flex items-center gap-3">
                                                             <span className="text-[8px] font-black text-muted-foreground/50 uppercase">{new Date(post.updated_at!).toLocaleDateString()}</span>
                                                             {(post.media_paths || post.media_url) && !post.media_url && <span className="text-[8px] font-black text-primary uppercase bg-primary/10 px-1.5 rounded-sm">Media</span>}
+                                                            {post.status === 'deleted_on_x' && <span className="text-[8px] font-black text-white bg-red-500 px-1.5 rounded-sm uppercase tracking-wider">Deleted on X</span>}
                                                         </div>
                                                     </div>
                                                 </div>
