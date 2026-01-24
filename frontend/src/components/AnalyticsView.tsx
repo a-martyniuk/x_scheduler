@@ -27,6 +27,66 @@ interface AnalyticsViewProps {
 export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats, accounts, onSync }) => {
     const { growthData, bestTimes, performanceData, latestPost, isLoadingLatestPost, accountGrowth } = useAnalytics();
     const [isSyncing, setIsSyncing] = React.useState(false);
+    const [selectedMetric, setSelectedMetric] = React.useState<'views' | 'likes' | 'followers' | 'posts'>('views');
+
+    // Mapeo de colores para la métrica activa
+    const metricColors = {
+        views: '#6366F1',
+        likes: '#F43F5E',
+        followers: '#10B981',
+        posts: '#3B82F6'
+    };
+    const ACTIVE_METRIC_COLOR = metricColors[selectedMetric];
+
+    // Merge growthData (posts metrics) and accountGrowth (followers history)
+    const mergedChartData = React.useMemo(() => {
+        const dataMap = new Map<string, any>();
+
+        // 1. Process Growth Data (Post Metrics)
+        growthData.forEach(d => {
+            // d.date is "YYYY-MM-DD" or similar string from backend
+            // Ensure it matches format of accountGrowth if different.
+            // Both seem to return YYYY-MM-DD keys or ISO strings.
+            // Standardize to YYYY-MM-DD for the map key.
+            const dateObj = new Date(d.date);
+            const key = dateObj.toISOString().split('T')[0];
+
+            if (!dataMap.has(key)) dataMap.set(key, { dateStr: key });
+            const entry = dataMap.get(key);
+            entry.views = d.views;
+            entry.likes = d.likes;
+            entry.posts = d.posts;
+        });
+
+        // 2. Process Account Growth (Followers)
+        if (accountGrowth) {
+            accountGrowth.forEach(d => {
+                const dateObj = new Date(d.date); // d.date is ISO
+                const key = dateObj.toISOString().split('T')[0];
+
+                if (!dataMap.has(key)) dataMap.set(key, { dateStr: key });
+                const entry = dataMap.get(key);
+                entry.followers = d.followers;
+            });
+        }
+
+        // 3. Convert to array and sort
+        const result = Array.from(dataMap.values()).sort((a, b) =>
+            new Date(a.dateStr).getTime() - new Date(b.dateStr).getTime()
+        );
+
+        // Fill gaps if needed (optional, for now let's just use what we have)
+        // Ensure all metrics exist to avoid graph breaking
+        return result.map(r => ({
+            ...r,
+            views: r.views || 0,
+            likes: r.likes || 0,
+            posts: r.posts || 0,
+            // For followers, we might want to carry over previous value if missing (step line), 
+            // but for now let's leave as undefined so the line breaks or is interpolated by Recharts
+            followers: r.followers
+        }));
+    }, [growthData, accountGrowth]);
 
     const handleSync = async () => {
         if (!onSync) return;
@@ -118,51 +178,102 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats
 
             {/* Main Charts area */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Growth & Volume Chart */}
+                {/* Unified Performance Chart */}
                 <motion.div
                     variants={item}
-                    className="lg:col-span-2 bg-white/60 dark:bg-gray-900/80 p-8 rounded-[3rem] border border-white/80 dark:border-white/10 shadow-xl"
+                    className="lg:col-span-3 bg-white/60 dark:bg-gray-900/80 p-8 rounded-[3rem] border border-white/80 dark:border-white/10 shadow-xl flex flex-col relative overflow-hidden group min-h-[500px]"
                 >
-                    <div className="flex items-center justify-between mb-8">
+                    {/* Background Pattern */}
+                    <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
+
+                    <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 z-10 w-full gap-6">
                         <div className="flex items-center gap-4">
-                            <div className="w-1.5 h-6 bg-primary rounded-full" />
-                            <h3 className="text-xl font-black tracking-tight">Tendencia y Actividad</h3>
+                            <TrendingUp className="text-primary" size={24} />
+                            <h3 className="text-2xl font-black tracking-tight">Evolución de Rendimiento</h3>
                         </div>
-                        <div className="flex items-center gap-4">
-                            <div className="flex items-center gap-2">
-                                <div className="w-3 h-3 rounded-full bg-primary" />
-                                <span className="text-[10px] font-bold opacity-60">Engagement</span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <div className="w-3 h-3 rounded-full bg-emerald-500/30" />
-                                <span className="text-[10px] font-bold opacity-60">Volumen</span>
-                            </div>
+
+                        <div className="flex items-center gap-2 p-1 bg-black/5 dark:bg-white/5 rounded-2xl overflow-x-auto max-w-full">
+                            {[
+                                { id: 'views', label: 'Alcance', icon: Eye, color: '#6366F1' },
+                                { id: 'likes', label: 'Likes', icon: Heart, color: '#F43F5E' },
+                                { id: 'followers', label: 'Seguidores', icon: TrendingUp, color: '#10B981' },
+                                { id: 'posts', label: 'Posts', icon: Layers, color: '#3B82F6' },
+                            ].map((m) => {
+                                const isActive = (selectedMetric || 'views') === m.id;
+                                return (
+                                    <button
+                                        key={m.id}
+                                        onClick={() => setSelectedMetric(m.id as any)}
+                                        className={cn(
+                                            "flex items-center gap-2 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap",
+                                            isActive
+                                                ? "bg-white dark:bg-white/10 text-primary shadow-sm"
+                                                : "text-muted-foreground hover:bg-black/5 dark:hover:bg-white/5"
+                                        )}
+                                        style={{ color: isActive ? m.color : undefined }}
+                                    >
+                                        <m.icon size={12} />
+                                        {m.label}
+                                    </button>
+                                );
+                            })}
                         </div>
+
+                        {/* Sync Button */}
+                        {onSync && (
+                            <button
+                                onClick={handleSync}
+                                disabled={isSyncing}
+                                className={cn(
+                                    "p-3 bg-primary/10 text-primary rounded-2xl hover:bg-primary hover:text-white transition-all active:scale-95 flex items-center gap-2 self-end md:self-auto",
+                                    isSyncing && "animate-spin opacity-50 cursor-not-allowed"
+                                )}
+                                title="Sincronizar Historial"
+                            >
+                                <RefreshCcw size={16} />
+                                <span className="text-[10px] font-black uppercase tracking-widest md:hidden">Sincronizar</span>
+                            </button>
+                        )}
                     </div>
 
-                    <div className="h-[300px] w-full mt-4">
+                    {/* Last Synced Info */}
+                    {lastSyncedTime && (
+                        <div className="absolute top-8 right-20 md:right-auto md:left-72 mb-4 flex items-center gap-2 px-3 py-1.5 bg-green-500/5 rounded-lg border border-green-500/10 w-fit">
+                            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                            <span className="text-[9px] font-bold text-green-600/80 dark:text-green-400/80 uppercase tracking-wide">
+                                Sinc: {lastSyncedTime}
+                            </span>
+                        </div>
+                    )}
+
+                    <div className="flex-1 w-full min-h-[350px]">
                         <ResponsiveContainer width="100%" height="100%">
-                            <AreaChart data={growthData}>
+                            <AreaChart data={mergedChartData}>
                                 <defs>
-                                    <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#6366F1" stopOpacity={0.3} />
-                                        <stop offset="95%" stopColor="#6366F1" stopOpacity={0} />
+                                    <linearGradient id="colorMetric" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor={ACTIVE_METRIC_COLOR} stopOpacity={0.3} />
+                                        <stop offset="95%" stopColor={ACTIVE_METRIC_COLOR} stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
                                 <XAxis
-                                    dataKey="date"
+                                    dataKey="dateStr"
                                     axisLine={false}
                                     tickLine={false}
                                     tick={{ fontSize: 10, fontWeight: 700 }}
                                     dy={10}
                                     tickFormatter={(str) => {
+                                        if (!str) return '';
                                         const date = new Date(str);
-                                        return date.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric' });
+                                        return date.toLocaleDateString('es-ES', { month: 'short', day: 'numeric' });
                                     }}
                                 />
-                                <YAxis hide yAxisId="left" />
-                                <YAxis hide yAxisId="right" orientation="right" />
+                                <YAxis
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tick={{ fontSize: 10, fontWeight: 700 }}
+                                    domain={['auto', 'auto']}
+                                />
                                 <Tooltip
                                     contentStyle={{
                                         borderRadius: '20px',
@@ -171,126 +282,20 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats
                                         backgroundColor: 'rgba(255,255,255,0.95)',
                                         color: '#000'
                                     }}
-                                    itemStyle={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase' }}
+                                    itemStyle={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', color: ACTIVE_METRIC_COLOR }}
                                 />
                                 <Area
-                                    yAxisId="right"
-                                    type="stepAfter"
-                                    dataKey="posts"
-                                    stroke="transparent"
-                                    fill="#10b981"
-                                    fillOpacity={0.1}
-                                    name="Posts x Día"
-                                />
-                                <Area
-                                    yAxisId="left"
                                     type="monotone"
-                                    dataKey="engagement"
-                                    stroke="#6366F1"
+                                    dataKey={selectedMetric || 'views'}
+                                    stroke={ACTIVE_METRIC_COLOR}
                                     strokeWidth={4}
                                     fillOpacity={1}
-                                    fill="url(#colorViews)"
-                                    name="Engagement"
+                                    fill="url(#colorMetric)"
+                                    name={selectedMetric?.toUpperCase() || 'METRICA'}
+                                    animationDuration={1000}
                                 />
                             </AreaChart>
                         </ResponsiveContainer>
-                    </div>
-                </motion.div>
-
-                {/* Account Growth Chart */}
-                <motion.div
-                    variants={item}
-                    className="bg-white/60 dark:bg-gray-900/80 p-8 rounded-[3rem] border border-white/80 dark:border-white/10 shadow-xl flex flex-col relative overflow-hidden group"
-                >
-                    {/* Background Pattern */}
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full blur-3xl pointer-events-none" />
-
-                    <div className="flex items-center justify-between mb-8 z-10 w-full">
-                        <div className="flex items-center gap-4">
-                            <TrendingUp className="text-emerald-500" size={24} />
-                            <h3 className="text-xl font-black tracking-tight">Crecimiento</h3>
-                        </div>
-
-                        {/* Sync Button MOVED Here */}
-                        {onSync && (
-                            <button
-                                onClick={handleSync}
-                                disabled={isSyncing}
-                                className={cn(
-                                    "p-2 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 rounded-xl hover:bg-emerald-500 hover:text-white transition-all active:scale-95",
-                                    isSyncing && "animate-spin opacity-50 cursor-not-allowed"
-                                )}
-                                title="Sincronizar Historial"
-                            >
-                                <RefreshCcw size={14} />
-                            </button>
-                        )}
-                    </div>
-
-                    {/* Last Synced Info */}
-                    {lastSyncedTime && (
-                        <div className="mb-4 flex items-center gap-2 px-3 py-1.5 bg-emerald-500/5 rounded-lg border border-emerald-500/10 w-fit">
-                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                            <span className="text-[9px] font-bold text-emerald-600/80 dark:text-emerald-400/80 uppercase tracking-wide">
-                                Sinc: {lastSyncedTime}
-                            </span>
-                        </div>
-                    )}
-
-                    <div className="h-[200px] w-full mt-auto">
-                        {accountGrowth && accountGrowth.length > 0 ? (
-                            <ResponsiveContainer width="100%" height="100%">
-                                <AreaChart data={accountGrowth}>
-                                    <defs>
-                                        <linearGradient id="colorFollowers" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                                            <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                                        </linearGradient>
-                                    </defs>
-                                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
-                                    <XAxis
-                                        dataKey="date"
-                                        axisLine={false}
-                                        tickLine={false}
-                                        tick={{ fontSize: 10, fontWeight: 700 }}
-                                        dy={10}
-                                        tickFormatter={(str) => {
-                                            const date = new Date(str);
-                                            return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
-                                        }}
-                                    />
-                                    <YAxis
-                                        axisLine={false}
-                                        tickLine={false}
-                                        tick={{ fontSize: 10, fontWeight: 700 }}
-                                        domain={['auto', 'auto']}
-                                    />
-                                    <Tooltip
-                                        contentStyle={{
-                                            borderRadius: '20px',
-                                            border: 'none',
-                                            boxShadow: '0 20px 40px rgba(0,0,0,0.1)',
-                                            backgroundColor: 'rgba(255,255,255,0.95)',
-                                            color: '#000'
-                                        }}
-                                        itemStyle={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase' }}
-                                    />
-                                    <Area
-                                        type="monotone"
-                                        dataKey="followers"
-                                        stroke="#10b981"
-                                        strokeWidth={4}
-                                        fillOpacity={1}
-                                        fill="url(#colorFollowers)"
-                                        name="Seguidores"
-                                    />
-                                </AreaChart>
-                            </ResponsiveContainer>
-                        ) : (
-                            <div className="flex-1 flex items-center justify-center opacity-30 text-[10px] font-black uppercase tracking-widest italic h-full">
-                                Sincroniza para ver historial de seguidores...
-                            </div>
-                        )}
                     </div>
                 </motion.div>
 
