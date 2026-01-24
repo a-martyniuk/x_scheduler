@@ -39,7 +39,9 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats
             setIsSyncing(false);
         }
     };
-    const sentPosts = posts.filter(p => (p.status === 'sent' || p.status === 'deleted_on_x') && p.tweet_id);
+    // Filter out retweets from the main table if requested, or keep them separate.
+    // User request: remove reposts from top performance because stats are confusing
+    const sentPosts = posts.filter(p => (p.status === 'sent' || p.status === 'deleted_on_x') && p.tweet_id && !p.is_repost);
 
     // Filter out retweets for aggregate stats
     const originalPosts = sentPosts.filter(p => !p.is_repost);
