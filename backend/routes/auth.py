@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from backend.db import get_db
 from worker.publisher import login_to_x
 from loguru import logger
-from backend.main import verify_token
+from backend.dependencies import verify_token
 
 router = APIRouter()
 

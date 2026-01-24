@@ -55,24 +55,7 @@ async def log_requests(request: Request, call_next):
     logger.info(f"Response status: {response.status_code}")
     return response
 
-async def verify_token(request: Request, x_admin_token: str = Header(None)):
-    # allow OPTIONS for CORS
-    if request.method == "OPTIONS":
-        return x_admin_token
-    
-    # Safe check
-    server_token = settings.ADMIN_TOKEN
-    
-    if server_token and server_token.strip():
-        server_token = server_token.strip()
-        client_token = x_admin_token.strip() if x_admin_token else ""
-        
-        if client_token != server_token:
-            masked_client = client_token[:2] + "***" if len(client_token) > 2 else "***"
-            masked_server = server_token[:2] + "***" if len(server_token) > 2 else "***"
-            logger.warning(f"Auth Failed. Client sent: '{masked_client}', Server expects: '{masked_server}'")
-            raise HTTPException(status_code=401, detail="Invalid token")
-    return x_admin_token
+from .dependencies import verify_token
 
 app.include_router(posts.router, prefix="/api/posts", tags=["posts"], dependencies=[Depends(verify_token)])
 app.include_router(upload.router, prefix="/api/upload", tags=["upload"], dependencies=[Depends(verify_token)])
