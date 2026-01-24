@@ -55,6 +55,16 @@ async def sync_history(username: str, db: Session = Depends(get_db)):
     
     if not result["success"]:
         raise HTTPException(status_code=500, detail=result["log"])
+
+    # --- AUTO-HEAL: Bulk restore false positives ---
+    # We previously marked posts as deleted if they weren't in the top ~15.
+    # We now revert them all to 'sent' to fix the database state.
+    healed_count = db.query(Post).filter(
+        Post.username == username, 
+        Post.status == "deleted_on_x"
+    ).update({"status": "sent"})
+    if healed_count > 0:
+        logger.info(f"Restored {healed_count} posts from 'deleted_on_x' to 'sent' status.")
     
     count = 0
     for post_data in result["posts"]:
