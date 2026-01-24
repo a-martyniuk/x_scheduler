@@ -151,7 +151,18 @@ export const api = {
             mode: 'cors',
             credentials: 'omit'
         });
-        if (!res.ok) throw new Error('Invalid token');
+        if (!res.ok) {
+            let errorMessage = 'Invalid token';
+            try {
+                const errorData = await res.json();
+                if (errorData.detail) errorMessage = errorData.detail;
+            } catch (e) {
+                // If JSON parse fails, maybe it's text
+                const text = await res.text();
+                if (text) errorMessage = text;
+            }
+            throw new Error(errorMessage);
+        }
         return true;
     },
 
