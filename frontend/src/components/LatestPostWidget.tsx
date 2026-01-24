@@ -58,11 +58,16 @@ export const LatestPostWidget: React.FC<LatestPostWidgetProps> = ({ post, isLoad
                     </div>
 
                     <div className="relative aspect-video lg:aspect-square w-full rounded-[2.5rem] overflow-hidden bg-slate-100 dark:bg-slate-800 border border-border/40 shadow-inner group/media">
-                        {post.media_paths ? (
+                        {(post.media_url || post.media_paths) ? (
                             <img
-                                src={`${BASE_URL}/uploads/${post.media_paths.split(',')[0].split(/[\\/]/).pop()}`}
+                                src={post.media_url ? post.media_url : `${BASE_URL}/uploads/${post.media_paths!.split(',')[0].split(/[\\/]/).pop()}`}
                                 className="w-full h-full object-cover transition-transform duration-700 group-hover/media:scale-110"
                                 alt=""
+                                onError={(e) => {
+                                    // Fallback if image fails
+                                    e.currentTarget.style.display = 'none';
+                                    e.currentTarget.parentElement?.classList.add('image-error');
+                                }}
                             />
                         ) : (
                             <div className="w-full h-full flex items-center justify-center p-8 bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-800 dark:to-slate-900">
