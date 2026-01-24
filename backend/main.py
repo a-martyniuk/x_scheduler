@@ -40,8 +40,8 @@ app.mount("/uploads", StaticFiles(directory=UPLOAD_PATH), name="uploads")
 # 1. CORS Middleware - MUST BE FIRST
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=".*", # Allow all domains via regex
-    allow_credentials=True, # Enable credentials support
+    allow_origins=["*"], # Allow ALL origins
+    allow_credentials=False, # Disable cookies (we use Header auth)
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["*"]
