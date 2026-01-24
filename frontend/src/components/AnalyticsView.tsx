@@ -141,14 +141,14 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats
         show: { opacity: 1, y: 0 }
     };
 
-    const lastSyncedTime = accounts?.[0]?.last_synced ? new Date(accounts[0].last_synced).toLocaleString() : null;
+    const lastSyncedTime = accounts?.[0]?.last_synced ? new Date(accounts[0].last_synced).toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' }) : null;
 
     return (
         <motion.div
             variants={container}
             initial="hidden"
             animate="show"
-            className="space-y-12"
+            className="space-y-8"
         >
             {/* Latest Post Widget (Hero Section) */}
             <motion.div variants={item}>
@@ -156,27 +156,27 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats
             </motion.div>
 
             {/* Header Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
                     { label: 'Alcance Total', val: totalViews, icon: Eye, color: 'text-slate-500' },
                     { label: 'Likes Totales', val: totalLikes, icon: Heart, color: 'text-rose-500' },
-                    { label: 'Volumen de Posts', val: totalSent, icon: Layers, color: 'text-emerald-500', suffix: 'posts enviados' },
-                    { label: 'Engagement Avg', val: averageEngagement, icon: TrendingUp, color: 'text-primary', suffix: 'per post' },
+                    { label: 'Volumen', val: totalSent, icon: Layers, color: 'text-emerald-500', suffix: 'posts' },
+                    { label: 'Engagement', val: averageEngagement, icon: TrendingUp, color: 'text-primary', suffix: '%' },
                 ].map((stat, i) => (
                     <motion.div
                         key={i}
                         variants={item}
-                        className="p-8 rounded-[2.5rem] bg-white/60 dark:bg-white/5 border border-border/50 hover-lift group relative overflow-hidden"
+                        className="p-6 rounded-[2rem] bg-white/60 dark:bg-white/5 border border-border/50 hover-lift group relative overflow-hidden"
                     >
-                        <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">
-                            <stat.icon size={48} className={stat.color} />
+                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+                            <stat.icon size={32} className={stat.color} />
                         </div>
-                        <p className="text-[10px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-4">{stat.label}</p>
-                        <div className="flex items-end gap-3">
-                            <span className={cn("text-4xl font-black tracking-tighter tabular-nums", stat.color)}>
+                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.2em] mb-2">{stat.label}</p>
+                        <div className="flex items-end gap-2">
+                            <span className={cn("text-2xl font-black tracking-tighter tabular-nums", stat.color)}>
                                 {typeof stat.val === 'number' ? stat.val.toLocaleString() : stat.val}
                             </span>
-                            {stat.suffix && <span className="text-[10px] font-bold opacity-60 mb-1 leading-tight ml-1">{stat.suffix}</span>}
+                            {stat.suffix && <span className="text-[9px] font-bold opacity-60 mb-1 leading-tight">{stat.suffix}</span>}
                         </div>
                     </motion.div>
                 ))}
@@ -187,22 +187,22 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats
                 {/* Unified Performance Chart */}
                 <motion.div
                     variants={item}
-                    className="lg:col-span-3 bg-white/60 dark:bg-gray-900/80 p-8 rounded-[3rem] border border-white/80 dark:border-white/10 shadow-xl flex flex-col relative overflow-hidden group min-h-[500px]"
+                    className="lg:col-span-3 bg-white/60 dark:bg-gray-900/80 p-6 rounded-[2.5rem] border border-white/80 dark:border-white/10 shadow-xl flex flex-col relative overflow-hidden group min-h-[450px]"
                 >
                     {/* Background Pattern */}
                     <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
 
-                    <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 z-10 w-full gap-6">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 z-10 w-full gap-4">
                         <div className="flex flex-col gap-2">
-                            <div className="flex items-center gap-4">
-                                <TrendingUp className="text-primary" size={24} />
-                                <h3 className="text-2xl font-black tracking-tight">Evolución de Rendimiento</h3>
+                            <div className="flex items-center gap-3">
+                                <TrendingUp className="text-primary" size={20} />
+                                <h3 className="text-lg font-black tracking-tight whitespace-nowrap">Evolución de Rendimiento</h3>
                             </div>
                             {lastSyncedTime && (
-                                <div className="flex items-center gap-2 px-3 py-1 bg-green-500/5 rounded-lg border border-green-500/10 w-fit ml-10">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                                    <span className="text-[9px] font-bold text-green-600/80 dark:text-green-400/80 uppercase tracking-wide">
-                                        Sinc: {lastSyncedTime}
+                                <div className="flex items-center gap-2 px-2 py-0.5 bg-green-500/5 rounded-md border border-green-500/10 w-fit ml-8">
+                                    <div className="w-1 h-1 rounded-full bg-green-500 animate-pulse" />
+                                    <span className="text-[8px] font-bold text-green-600/80 dark:text-green-400/80 uppercase tracking-wide">
+                                        {lastSyncedTime}
                                     </span>
                                 </div>
                             )}
