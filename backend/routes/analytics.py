@@ -117,7 +117,7 @@ def get_best_times(db: Session = Depends(get_db)):
 @router.get("/account-growth")
 def get_account_growth(db: Session = Depends(get_db)):
     """
-    Returns follower count history.
+    Returns follower count history aggregated by day (taking the latest snapshot of each day).
     """
     # Get all snapshots ordered by date
     snapshots = db.query(
@@ -126,10 +126,16 @@ def get_account_growth(db: Session = Depends(get_db)):
         AccountMetricSnapshot.following_count
     ).order_by(AccountMetricSnapshot.timestamp).all()
     
-    return [
-        {
-            "date": s.timestamp.isoformat(),
+    # Aggregate by day in Python
+    daily_stats = {}
+    for s in snapshots:
+        # Key by date (YYYY-MM-DD)
+        date_key = s.timestamp.strftime("%Y-%m-%d")
+        # Since we iterate ordered by timestamp, this effectively keeps the latest for each day
+        daily_stats[date_key] = {
+            "date": s.timestamp.isoformat(), # Keep full timestamp of the specific snapshot
             "followers": s.followers_count,
             "following": s.following_count
-        } for s in snapshots
-    ]
+        }
+        
+    return list(daily_stats.values())
