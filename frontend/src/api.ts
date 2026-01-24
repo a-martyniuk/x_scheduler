@@ -1,12 +1,7 @@
 import type { Post, GrowthData, BestTimesData, PerformanceData } from './types';
 
 const getBaseUrl = () => {
-    // 0. Si estamos en Vercel, usamos rutas relativas para aprovechar el Proxy (Bypass de CORS)
-    if (window.location.hostname.includes('vercel.app')) {
-        return '';
-    }
-
-    // 1. Prioridad: Variable de entorno variable definida en el build (Local con Railway)
+    // 1. Prioridad: Variable de entorno definida en el build 
     let url = import.meta.env.VITE_API_URL;
     if (url) {
         url = url.replace(/\/$/, '');
