@@ -2,6 +2,8 @@ export interface Account {
     username: string;
     profile_image_url?: string;
     is_active: boolean;
+    last_synced?: string;
+    last_metrics_refresh?: string;
 }
 
 export interface Post {

@@ -20,7 +20,11 @@ interface AnalyticsViewProps {
         likes: number;
         reposts: number;
     };
-    accounts?: { username: string; last_synced?: string }[];
+    accounts?: {
+        username: string;
+        last_synced?: string;
+        last_metrics_refresh?: string;
+    }[];
     onSync?: () => Promise<{ imported: number; log: string; debug_screenshot?: string }>;
 }
 
@@ -149,6 +153,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats
     };
 
     const lastSyncedTime = getLastSynced(accounts?.[0]?.last_synced);
+    const lastMetricsRefresh = getLastSynced(accounts?.[0]?.last_metrics_refresh);
 
     return (
         <motion.div
@@ -205,14 +210,24 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats
                                 <TrendingUp className="text-primary" size={20} />
                                 <h3 className="text-lg font-black tracking-tight whitespace-nowrap">Evolución de Rendimiento</h3>
                             </div>
-                            {lastSyncedTime && (
-                                <div className="flex items-center gap-2 px-2 py-0.5 bg-green-500/5 rounded-md border border-green-500/10 w-fit ml-8">
-                                    <div className="w-1 h-1 rounded-full bg-green-500 animate-pulse" />
-                                    <span className="text-[8px] font-bold text-green-600/80 dark:text-green-400/80 uppercase tracking-wide">
-                                        {lastSyncedTime}
-                                    </span>
-                                </div>
-                            )}
+                            <div className="flex flex-wrap items-center gap-2 ml-8">
+                                {lastSyncedTime && (
+                                    <div className="flex items-center gap-2 px-2 py-0.5 bg-indigo-500/5 rounded-md border border-indigo-500/10">
+                                        <div className="w-1 h-1 rounded-full bg-indigo-500" />
+                                        <span className="text-[8px] font-bold text-indigo-600/80 dark:text-indigo-400/80 uppercase tracking-wide">
+                                            Perfil: {lastSyncedTime}
+                                        </span>
+                                    </div>
+                                )}
+                                {lastMetricsRefresh && (
+                                    <div className="flex items-center gap-2 px-2 py-0.5 bg-green-500/5 rounded-md border border-green-500/10">
+                                        <div className="w-1 h-1 rounded-full bg-green-500 animate-pulse" />
+                                        <span className="text-[8px] font-bold text-green-600/80 dark:text-green-400/80 uppercase tracking-wide">
+                                            Métricas: {lastMetricsRefresh}
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         <div className="flex items-center gap-2 p-1 bg-black/5 dark:bg-white/5 rounded-2xl overflow-x-auto max-w-full">

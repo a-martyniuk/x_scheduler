@@ -72,6 +72,20 @@ async def get_status(db: Session = Depends(get_db)):
             pass
         return None
 
+    def get_last_metrics_refresh(username: str) -> str | None:
+        try:
+            from backend.models import Post, PostMetricSnapshot
+            # Find the latest snapshot for any post belonging to this user
+            snapshot = db.query(PostMetricSnapshot)\
+                .join(Post)\
+                .filter(Post.username == username)\
+                .order_by(PostMetricSnapshot.timestamp.desc()).first()
+            if snapshot and snapshot.timestamp:
+                return snapshot.timestamp.isoformat()
+        except Exception as e:
+            logger.error(f"Error fetching last metrics refresh: {e}")
+        return None
+
     if os.path.exists(accounts_dir):
         for username in os.listdir(accounts_dir):
             user_dir = os.path.join(accounts_dir, username)
@@ -86,12 +100,13 @@ async def get_status(db: Session = Depends(get_db)):
                     with open(user_info_path, 'r', encoding='utf-8') as f:
                         data = json.load(f)
                         is_cookies_valid = os.path.exists(cookies_path) and os.path.getsize(cookies_path) > 2
-                        accounts.append({
-                            "username": username,
-                            "connected": is_cookies_valid,
-                            "last_connected": data.get("connected_at"),
-                            "last_synced": get_last_synced(username)
-                        })
+                    accounts.append({
+                        "username": username,
+                        "connected": is_cookies_valid,
+                        "last_connected": data.get("connected_at"),
+                        "last_synced": get_last_synced(username),
+                        "last_metrics_refresh": get_last_metrics_refresh(username)
+                    })
                 except Exception as e:
                     logger.error(f"Failed to load {username} info: {e}")
     
@@ -117,7 +132,8 @@ async def get_status(db: Session = Depends(get_db)):
                 "connected": True,
                 "last_connected": last_connected,
                 "is_legacy": True,
-                "last_synced": get_last_synced(username)
+                "last_synced": get_last_synced(username),
+                "last_metrics_refresh": get_last_metrics_refresh(username)
             })
     
     # Check for environment variable cookies (Railway deployment)
@@ -135,7 +151,8 @@ async def get_status(db: Session = Depends(get_db)):
                     "connected": True,
                     "last_connected": None,
                     "is_legacy": False,
-                    "last_synced": get_last_synced(env_username)
+                    "last_synced": get_last_synced(env_username),
+                    "last_metrics_refresh": get_last_metrics_refresh(env_username)
                 })
                 logger.info(f"Detected environment variable cookies for {env_username}")
         except json.JSONDecodeError:
