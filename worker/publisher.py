@@ -678,7 +678,9 @@ async def sync_history_task(username: str):
                                     await human_delay(2, 3)
                                     
                                     # Save screenshot for debugging
-                                    # await analytics_page.screenshot(path=os.path.join(SCREENSHOTS_DIR, f"analytics_{tweet_id}.png"))
+                                    screenshot_path = os.path.join(SCREENSHOTS_DIR, f"analytics_{tweet_id}.png")
+                                    await analytics_page.screenshot(path=screenshot_path)
+                                    log(f"Saved analytics screenshot to {screenshot_path}")
                                     
                                     # Strategy: Find metric labels and get their associated numbers
                                     # X shows metrics in a grid with number above label
@@ -716,6 +718,9 @@ async def sync_history_task(username: str):
                                         try:
                                             all_text = await analytics_page.locator('body').inner_text()
                                             
+                                            # Debug: Log a sample of the text
+                                            log(f"Analytics page text sample (first 500 chars): {all_text[:500]}")
+                                            
                                             # More flexible regex - look for number anywhere near the text
                                             # Pattern: number (possibly with separators) followed eventually by text
                                             link_pattern = r'(\d[\d,]*)\s*[^\d\w]*\s*(?:Link clicks?)'
@@ -725,14 +730,23 @@ async def sync_history_task(username: str):
                                             link_match = re.search(link_pattern, all_text, re.IGNORECASE | re.DOTALL)
                                             if link_match:
                                                 url_link_clicks = int(link_match.group(1).replace(',', ''))
+                                                log(f"Found link clicks via regex: {url_link_clicks}")
+                                            else:
+                                                log("Link clicks pattern not found in text")
                                             
                                             profile_match = re.search(profile_pattern, all_text, re.IGNORECASE | re.DOTALL)
                                             if profile_match:
                                                 user_profile_clicks = int(profile_match.group(1).replace(',', ''))
+                                                log(f"Found profile visits via regex: {user_profile_clicks}")
+                                            else:
+                                                log("Profile visits pattern not found in text")
                                             
                                             detail_match = re.search(detail_pattern, all_text, re.IGNORECASE | re.DOTALL)
                                             if detail_match:
                                                 detail_expands = int(detail_match.group(1).replace(',', ''))
+                                                log(f"Found detail expands via regex: {detail_expands}")
+                                            else:
+                                                log("Detail expands pattern not found in text")
                                         except Exception as e:
                                             log(f"Strategy 2 failed: {e}")
                                     
