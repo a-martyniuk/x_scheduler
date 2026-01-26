@@ -529,15 +529,35 @@ async def sync_history_task(username: str):
             except Exception as e:
                 log(f"Failed to scrape profile stats: {e}")
 
-            # Scroll to get more history (Increased depth to capture more tweets)
+            # Scroll dynamically until no more new tweets load
             log("Scrolling timeline to load more tweets...")
-            for i in range(20):
-                await page.evaluate("window.scrollBy(0, 2000)")
-                await asyncio.sleep(2)  # Increased wait time for X to load content
-                if i % 5 == 0:
-                    log(f"Scroll progress: {i+1}/20...")
-            log("Finished scrolling timeline. Waiting for content to render...")
-            await asyncio.sleep(3)  # Extra wait for final content to load
+            previous_count = 0
+            max_iterations = 50  # Safety limit
+            no_change_count = 0
+            
+            for i in range(max_iterations):
+                await page.evaluate("window.scrollBy(0, 3000)")
+                await asyncio.sleep(3)  # Wait for content to load
+                
+                # Count current articles
+                current_count = await page.locator('article').count()
+                
+                if i % 3 == 0:
+                    log(f"Scroll {i+1}/{max_iterations}: Found {current_count} articles")
+                
+                # Check if new content loaded
+                if current_count == previous_count:
+                    no_change_count += 1
+                    if no_change_count >= 3:  # No new content after 3 scrolls
+                        log(f"No new tweets after {no_change_count} scrolls. Stopping at {current_count} articles.")
+                        break
+                else:
+                    no_change_count = 0  # Reset counter
+                
+                previous_count = current_count
+            
+            log(f"Finished scrolling. Found {current_count} total articles. Waiting for final render...")
+            await asyncio.sleep(5)  # Extra wait for final content to load
             
             # DEBUG: Take screenshot to see what's on the page
             try:
