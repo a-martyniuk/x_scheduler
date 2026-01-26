@@ -95,7 +95,7 @@ async def sync_account_history(username: str, db: Session):
     if healed_count > 0:
         logger.info(f"Restored {healed_count} posts from 'deleted_on_x' to 'sent' status.")
     
-    # 4. Upsert Posts
+    # 5. Upsert Posts
     count = 0
     for post_data in result["posts"]:
         existing_post = db.query(Post).filter(Post.tweet_id == post_data["tweet_id"]).first()
@@ -113,11 +113,12 @@ async def sync_account_history(username: str, db: Session):
         final_date = pub_date or datetime.now(timezone.utc).replace(tzinfo=None)
 
         if existing_post:
-            # UPDATE
+            # UPDATE existing record
             if existing_post.status == "deleted_on_x":
                 existing_post.status = "sent"
                 existing_post.logs = (existing_post.logs or "") + "\n[Sync] Restored from deleted_on_x (Found in scan)"
 
+            # Update real-time metrics
             existing_post.views_count = post_data["views"]
             existing_post.likes_count = post_data["likes"]
             existing_post.reposts_count = post_data["reposts"]
@@ -128,16 +129,22 @@ async def sync_account_history(username: str, db: Session):
                 existing_post.media_url = post_data["media_url"]
             existing_post.is_repost = post_data.get("is_repost", False)
             
+            # CRITICAL: Only overwrite dates if worker provided a VALID pub_date
             if pub_date:
                 existing_post.updated_at = pub_date
                 existing_post.created_at = pub_date
+            else:
+                 logger.warning(f"Sync: No date found for existing post {existing_post.id}. Preserving original date.")
 
             if post_data.get("content") and (not existing_post.content or existing_post.content == "(No content)"):
                 existing_post.content = post_data["content"]
             
             count += 1 
         else:
-            # CREATE
+            # CREATE new record
+            if not pub_date:
+                 logger.error(f"Sync: Creating NEW post {post_data['tweet_id']} without a valid date. Defaulting to now.")
+
             new_post = Post(
                 content=post_data["content"] or "(No content)",
                 tweet_id=post_data["tweet_id"],
@@ -149,7 +156,7 @@ async def sync_account_history(username: str, db: Session):
                 bookmarks_count=post_data.get("bookmarks", 0),
                 replies_count=post_data.get("replies", 0),
                 updated_at=final_date,
-                created_at=final_date, # Sync creation time too
+                created_at=final_date,
                 media_url=post_data.get("media_url"),
                 is_repost=post_data.get("is_repost", False)
             )

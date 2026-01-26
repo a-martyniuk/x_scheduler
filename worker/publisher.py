@@ -550,11 +550,25 @@ async def sync_history_task(username: str):
                     tweet_id = None
                     
                     if await time_tag.count() > 0:
-                        # Wait small buffer for dynamic data to hydrate
+                        # Wait for hydration
                         try:
-                            await time_tag.wait_for(state="visible", timeout=2000)
+                            await time_tag.first.wait_for(state="attached", timeout=3000)
                         except: pass
-                        datetime_str = await time_tag.get_attribute('datetime')
+                        
+                        datetime_str = await time_tag.first.get_attribute('datetime')
+                        if not datetime_str:
+                             # Fallback to title attribute or aria-label
+                             datetime_str = await time_tag.first.get_attribute('title')
+                             if not datetime_str:
+                                 datetime_str = await time_tag.first.get_attribute('aria-label')
+                        
+                        if datetime_str:
+                             # If we got a string but not ISO, we might need parsing, 
+                             # but usually 'datetime' is a clean ISO string.
+                             pass
+                        else:
+                             log(f"Warning: Could not extract datetime/title from time tag for article.")
+
                         link_el = article.locator('a[href*="/status/"]').first
                         if await link_el.count() > 0:
                             href = await link_el.get_attribute('href')
