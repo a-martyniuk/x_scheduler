@@ -197,27 +197,27 @@ export const PostModal: React.FC<PostModalProps> = ({ isOpen, onClose, onSave, p
                                 <div className="space-y-2">
                                     <label className="text-[11px] font-black text-muted-foreground uppercase tracking-widest ml-1">Cuenta</label>
                                     <select
-                                        className="w-full px-5 py-4 border border-border/60 rounded-2xl bg-background text-sm font-bold outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all appearance-none cursor-pointer"
+                                        className="w-full px-5 py-4 border border-border/60 rounded-2xl bg-background text-sm font-bold outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all appearance-none cursor-pointer dark:bg-slate-950"
                                         value={username}
                                         onChange={(e) => setUsername(e.target.value)}
                                         required
                                     >
-                                        <option value="" disabled>Seleccionar</option>
+                                        <option value="" disabled className="dark:bg-slate-950">Seleccionar</option>
                                         {accounts.map(acc => (
-                                            <option key={acc.username} value={acc.username}>@{acc.username}</option>
+                                            <option key={acc.username} value={acc.username} className="dark:bg-slate-950">@{acc.username}</option>
                                         ))}
                                     </select>
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[11px] font-black text-muted-foreground uppercase tracking-widest ml-1">Padre (Hilo)</label>
                                     <select
-                                        className="w-full px-5 py-4 border border-border/60 rounded-2xl bg-background text-sm font-bold outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all appearance-none cursor-pointer"
+                                        className="w-full px-5 py-4 border border-border/60 rounded-2xl bg-background text-sm font-bold outline-none focus:ring-4 focus:ring-primary/10 focus:border-primary transition-all appearance-none cursor-pointer dark:bg-slate-950"
                                         value={parentId || ''}
                                         onChange={(e) => setParentId(e.target.value ? Number(e.target.value) : undefined)}
                                     >
-                                        <option value="">Independiente</option>
+                                        <option value="" className="dark:bg-slate-950">Independiente</option>
                                         {posts.filter(p => p.id !== post?.id).slice(0, 10).map(p => (
-                                            <option key={p.id} value={p.id}>{p.content.substring(0, 30)}...</option>
+                                            <option key={p.id} value={p.id} className="dark:bg-slate-950">{p.content.substring(0, 30)}...</option>
                                         ))}
                                     </select>
                                 </div>
