@@ -30,7 +30,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     const calendarEvents = useMemo(() => posts.filter(p => p.status !== 'draft').map(p => ({
         id: String(p.id),
         title: p.content,
-        start: p.scheduled_at || p.updated_at,
+        // Prioritize original creation date for sent posts to avoid shifting on sync updates
+        start: p.scheduled_at || p.created_at || p.updated_at,
         extendedProps: p,
         className: cn(
             'premium-event',

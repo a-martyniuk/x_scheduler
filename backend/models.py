@@ -11,7 +11,7 @@ class Post(Base):
     scheduled_at = Column(DateTime, nullable=True)
     status = Column(String, default="draft")  # draft, scheduled, sent, failed
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     logs = Column(Text, nullable=True) # Simple text log for now
     screenshot_path = Column(String, nullable=True)
     retry_count = Column(Integer, default=0)

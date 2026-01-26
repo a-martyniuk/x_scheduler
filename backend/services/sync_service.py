@@ -129,11 +129,12 @@ async def sync_account_history(username: str, db: Session):
                 existing_post.media_url = post_data["media_url"]
             existing_post.is_repost = post_data.get("is_repost", False)
             
-            # CRITICAL: Only overwrite dates if worker provided a VALID pub_date
+            # CRITICAL: Always overwrite dates if worker provided a VALID pub_date from Snowflake
             if pub_date:
-                existing_post.updated_at = pub_date
                 existing_post.created_at = pub_date
+                existing_post.updated_at = pub_date # Keep them in sync for historical accuracy
             else:
+                 # Only warn, do NOT touch the dates if we failed to get a new one
                  logger.warning(f"Sync: No date found for existing post {existing_post.id}. Preserving original date.")
 
             if post_data.get("content") and (not existing_post.content or existing_post.content == "(No content)"):
