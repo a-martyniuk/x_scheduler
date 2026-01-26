@@ -540,9 +540,10 @@ async def sync_history_task(username: str):
             
             # Clean username for URL
             clean_username = username.lstrip('@')
-            # Navigate to /with_replies to ensure we see ALL posts in chronological order
-            url = f"https://x.com/{clean_username}/with_replies"
-            log(f"Navigating to profile: {url}")
+            # Use Search (Latest) to get strict chronological order of ALL tweets (posts + replies)
+            # bypassing Pinned tweets and "Top" algorithm of main profile.
+            url = f"https://x.com/search?q=from%3A{clean_username}&src=typed_query&f=live"
+            log(f"Navigating to search (Latest): {url}")
             
             await page.goto(url, timeout=60000, wait_until="networkidle")
             await human_delay(3, 5)
