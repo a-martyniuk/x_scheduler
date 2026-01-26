@@ -547,20 +547,23 @@ async def sync_history_task(username: str):
             except Exception as e:
                 log(f"DEBUG: Failed to save timeline screenshot: {e}")
             
-            # Extract recent tweets
-            articles = await page.locator(XSelectors.TWEET_ARTICLE).all()
-            log(f"Found {len(articles)} tweet articles on feed.")
+            # Extract recent tweets - use ALL articles, not just data-testid="tweet"
+            # This captures pinned tweets, regular tweets, and replies
+            all_articles = await page.locator('article').all()
+            log(f"Found {len(all_articles)} total article elements on page.")
             
-            # DEBUG: Log page URL and some HTML to verify we're on the right page
+            # Filter to only articles that contain a valid tweet link (/status/)
+            articles = []
+            for article in all_articles:
+                status_link = article.locator('a[href*="/status/"]')
+                if await status_link.count() > 0:
+                    articles.append(article)
+            
+            log(f"Filtered to {len(articles)} articles with valid tweet links.")
+            
+            # DEBUG: Log page URL
             current_url = page.url
             log(f"DEBUG: Current URL: {current_url}")
-            
-            # DEBUG: Count all article elements on page
-            try:
-                all_articles_count = await page.locator('article').count()
-                log(f"DEBUG: Total <article> elements found: {all_articles_count}")
-            except Exception as e:
-                log(f"DEBUG: Failed to count articles: {e}")
             
             # ... (debug logging ok) ...
 
