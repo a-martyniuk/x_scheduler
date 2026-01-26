@@ -73,6 +73,21 @@ def run_migrations():
                 logger.info("Migrating: Adding tags column")
                 conn.execute(text("ALTER TABLE posts ADD COLUMN tags VARCHAR(500)"))
 
+            # 11. Add url_link_clicks
+            if "url_link_clicks" not in columns:
+                logger.info("Migrating: Adding url_link_clicks column")
+                conn.execute(text("ALTER TABLE posts ADD COLUMN url_link_clicks INTEGER DEFAULT 0"))
+
+            # 12. Add user_profile_clicks
+            if "user_profile_clicks" not in columns:
+                logger.info("Migrating: Adding user_profile_clicks column")
+                conn.execute(text("ALTER TABLE posts ADD COLUMN user_profile_clicks INTEGER DEFAULT 0"))
+
+            # 13. Add detail_expands
+            if "detail_expands" not in columns:
+                logger.info("Migrating: Adding detail_expands column")
+                conn.execute(text("ALTER TABLE posts ADD COLUMN detail_expands INTEGER DEFAULT 0"))
+
             # --- Check post_metrics_snapshots table ---
             if inspector.has_table("post_metrics_snapshots"):
                 snap_columns = [col["name"] for col in inspector.get_columns("post_metrics_snapshots")]
@@ -84,6 +99,18 @@ def run_migrations():
                 if "replies" not in snap_columns:
                     logger.info("Migrating: Adding replies column to post_metrics_snapshots")
                     conn.execute(text("ALTER TABLE post_metrics_snapshots ADD COLUMN replies INTEGER DEFAULT 0"))
+
+                if "url_link_clicks" not in snap_columns:
+                    logger.info("Migrating: Adding url_link_clicks column to post_metrics_snapshots")
+                    conn.execute(text("ALTER TABLE post_metrics_snapshots ADD COLUMN url_link_clicks INTEGER DEFAULT 0"))
+
+                if "user_profile_clicks" not in snap_columns:
+                    logger.info("Migrating: Adding user_profile_clicks column to post_metrics_snapshots")
+                    conn.execute(text("ALTER TABLE post_metrics_snapshots ADD COLUMN user_profile_clicks INTEGER DEFAULT 0"))
+
+                if "detail_expands" not in snap_columns:
+                    logger.info("Migrating: Adding detail_expands column to post_metrics_snapshots")
+                    conn.execute(text("ALTER TABLE post_metrics_snapshots ADD COLUMN detail_expands INTEGER DEFAULT 0"))
 
             # 6. Sanitize Legacy Data (Fix 500 Errors)
             logger.info("Migrating: Sanitizing legacy data...")
