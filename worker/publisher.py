@@ -538,9 +538,28 @@ async def sync_history_task(username: str):
             log("Finished scrolling timeline. Waiting for content to render...")
             await asyncio.sleep(3)  # Extra wait for final content to load
             
+            # DEBUG: Take screenshot to see what's on the page
+            try:
+                screenshot_path = "/app/worker/screenshots/timeline_after_scroll.png"
+                await page.screenshot(path=screenshot_path, full_page=True)
+                log(f"DEBUG: Saved timeline screenshot to {screenshot_path}")
+            except Exception as e:
+                log(f"DEBUG: Failed to save timeline screenshot: {e}")
+            
             # Extract recent tweets
             articles = await page.locator(XSelectors.TWEET_ARTICLE).all()
             log(f"Found {len(articles)} tweet articles on feed.")
+            
+            # DEBUG: Log page URL and some HTML to verify we're on the right page
+            current_url = page.url
+            log(f"DEBUG: Current URL: {current_url}")
+            
+            # DEBUG: Count all article elements on page
+            try:
+                all_articles_count = await page.locator('article').count()
+                log(f"DEBUG: Total <article> elements found: {all_articles_count}")
+            except Exception as e:
+                log(f"DEBUG: Failed to count articles: {e}")
             
             # ... (debug logging ok) ...
 
