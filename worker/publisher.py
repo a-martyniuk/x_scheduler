@@ -604,12 +604,15 @@ async def sync_history_task(username: str):
                         except Exception as e:
                             pass
 
-                        # Stats Scraping
+                        # Stats Scraping from Timeline
                         views = 0
                         likes = 0
                         reposts = 0
                         replies = 0
                         bookmarks = 0
+                        url_link_clicks = 0
+                        user_profile_clicks = 0
+                        detail_expands = 0
 
                         try:
                             # Likes
@@ -661,6 +664,55 @@ async def sync_history_task(username: str):
                                          if lbl and "View" in lbl:
                                              views = parse_number(lbl.split("View")[0])
                                              break
+                            
+                            # --- DEEP ANALYTICS SCRAPING ---
+                            # Navigate to analytics to get link clicks, profile visits, detail expands
+                            try:
+                                log(f"Fetching detailed analytics for tweet {tweet_id}...")
+                                analytics_url = f"https://x.com/{clean_username}/status/{tweet_id}/analytics"
+                                
+                                # Open in new tab to avoid losing the timeline
+                                analytics_page = await context.new_page()
+                                try:
+                                    await analytics_page.goto(analytics_url, timeout=20000)
+                                    await human_delay(2, 3)
+                                    
+                                    # Scrape the analytics page
+                                    # Look for specific metrics by text content
+                                    page_content = await analytics_page.content()
+                                    
+                                    # Strategy: Find elements containing the metric names
+                                    # "Link clicks", "Profile visits", "Detail expands"
+                                    
+                                    # Try to find metrics by looking for text patterns
+                                    all_text = await analytics_page.locator('span, div').all_text_contents()
+                                    full_text = ' '.join(all_text)
+                                    
+                                    # Link clicks
+                                    link_clicks_matches = re.findall(r'(\d+)\s*(?:Link clicks?|Link click)', full_text, re.IGNORECASE)
+                                    if link_clicks_matches:
+                                        url_link_clicks = int(link_clicks_matches[0])
+                                    
+                                    # Profile visits
+                                    profile_visits_matches = re.findall(r'(\d+)\s*(?:Profile visits?|Profile visit)', full_text, re.IGNORECASE)
+                                    if profile_visits_matches:
+                                        user_profile_clicks = int(profile_visits_matches[0])
+                                    
+                                    # Detail expands
+                                    detail_expands_matches = re.findall(r'(\d+)\s*(?:Detail expands?|Detail expand)', full_text, re.IGNORECASE)
+                                    if detail_expands_matches:
+                                        detail_expands = int(detail_expands_matches[0])
+                                    
+                                    log(f"Analytics: link_clicks={url_link_clicks}, profile_visits={user_profile_clicks}, detail_expands={detail_expands}")
+                                    
+                                except Exception as e:
+                                    log(f"Failed to fetch analytics for {tweet_id}: {e}")
+                                finally:
+                                    await analytics_page.close()
+                                    await human_delay(0.5, 1)  # Brief pause between tweets
+                                    
+                            except Exception as e:
+                                log(f"Analytics navigation failed for {tweet_id}: {e}")
 
                         except Exception as e:
                             pass
@@ -684,6 +736,9 @@ async def sync_history_task(username: str):
                             "reposts": reposts,
                             "replies": replies,
                             "bookmarks": bookmarks,
+                            "url_link_clicks": url_link_clicks,
+                            "user_profile_clicks": user_profile_clicks,
+                            "detail_expands": detail_expands,
                             "published_at": datetime_str,
                             "media_url": media_url,
                             "is_repost": is_repost
