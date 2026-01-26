@@ -15,6 +15,21 @@ async def sync_account_history(username: str, db: Session):
     """
     logger.info(f"Syncing history for {username}...")
     
+    # 0. One-time Cleanup of Instagram Orphans (to handle the cloud DB)
+    try:
+        query = db.query(Post).filter(Post.content.like("%New Story Update!%"))
+        ig_posts = query.all()
+        if ig_posts:
+            logger.info(f"Cleanup: Found {len(ig_posts)} orphaned Instagram posts in cloud DB. Purging...")
+            for post in ig_posts:
+                db.query(PostMetricSnapshot).filter(PostMetricSnapshot.post_id == post.id).delete()
+                db.delete(post)
+            db.commit()
+            logger.info("Instagram cleanup successful.")
+    except Exception as e:
+        logger.error(f"One-time cleanup failed: {e}")
+        db.rollback()
+
     # 1. Call Worker
     try:
         result = await sync_history_task(username)
