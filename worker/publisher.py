@@ -545,25 +545,22 @@ async def sync_history_task(username: str):
                 try:
                     # ... (Time/ID extraction logic remains similar as it uses generic HTML tags 'time', 'a') ...
                     # ID / Time extraction logic
-                    time_tag = article.locator('time')
-                    datetime_str = None
                     tweet_id = None
+                    datetime_str = None
+                    time_tag = article.locator('time')
                     
-                    if await time_tag.count() > 0:
-                        # Wait for hydration
-                        try:
-                            await time_tag.first.wait_for(state="attached", timeout=3000)
-                        except: pass
-                        
-                        datetime_str = await time_tag.first.get_attribute('datetime')
-                        if not datetime_str:
-                             # Fallback to title attribute or aria-label
-                             datetime_str = await time_tag.first.get_attribute('title')
-                             if not datetime_str:
-                                 datetime_str = await time_tag.first.get_attribute('aria-label')
+                    # 1. Extract Tweet ID First (Critical for precision)
+                    link_el = article.locator('a[href*="/status/"]').first
+                    if await link_el.count() > 0:
+                        href = await link_el.get_attribute('href')
+                        if href:
+                            match = re.search(r'status/(\d+)', href)
+                            tweet_id = match.group(1) if match else None
                     
-                    # SNOWFLAKE FALLBACK (Ultra-reliable)
-                    # If we have a tweet_id, we can ALWAYS calculate the exact UTC creation date.
+                    # 2. Extract / Calculate Date
+                    datetime_str = None
+                    
+                    # Try Snowflake ID calculation (Best Precision)
                     if tweet_id:
                         try:
                             # Snowflake formula: (id >> 22) + 1288834974657
@@ -571,17 +568,19 @@ async def sync_history_task(username: str):
                             # Ensure it ends with Z to signify UTC for the ISO string
                             datetime_str = datetime.utcfromtimestamp(timestamp_ms / 1000.0).isoformat() + "Z"
                         except Exception as e:
-                            log(f"Snowflake date calculation failed for {tweet_id}: {e}")
+                            log(f"Snowflake formula error for {tweet_id}: {e}")
+
+                    # Fallback to HTML Tags (if Snowflake failed or we want to compare)
+                    if not datetime_str and await time_tag.count() > 0:
+                        try:
+                            await time_tag.first.wait_for(state="attached", timeout=1000)
+                            datetime_str = await time_tag.first.get_attribute('datetime')
+                            if not datetime_str:
+                                 datetime_str = await time_tag.first.get_attribute('title') or await time_tag.first.get_attribute('aria-label')
+                        except: pass
 
                     if not datetime_str:
-                         log(f"Warning: Could not extract datetime/title from time tag for article.")
-
-                    link_el = article.locator('a[href*="/status/"]').first
-                    if await link_el.count() > 0:
-                        href = await link_el.get_attribute('href')
-                        if href:
-                            match = re.search(r'status/(\d+)', href)
-                            tweet_id = match.group(1) if match else None
+                         log(f"Warning: No valid date found for article (Tweet ID: {tweet_id})")
 
                     if tweet_id:
                         # Content
