@@ -186,7 +186,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats
                 {/* Unified Performance Chart */}
                 <motion.div
                     variants={item}
-                    className="lg:col-span-3 bg-white/60 dark:bg-gray-900/80 p-6 rounded-[2.5rem] border border-white/80 dark:border-white/10 shadow-xl flex flex-col relative overflow-hidden group min-h-[450px]"
+                    className="lg:col-span-2 bg-white/60 dark:bg-gray-900/80 p-6 rounded-[2.5rem] border border-white/80 dark:border-white/10 shadow-xl flex flex-col relative overflow-hidden group min-h-[450px]"
                 >
                     {/* Background Pattern */}
                     <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl pointer-events-none" />
@@ -312,7 +312,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats
                 {/* Performance Breakdown */}
                 <motion.div
                     variants={item}
-                    className="bg-white/60 dark:bg-gray-900/80 p-8 rounded-[3rem] border border-white/80 dark:border-white/10 shadow-xl flex flex-col h-full"
+                    className="lg:col-span-1 bg-white/60 dark:bg-gray-900/80 p-8 rounded-[3rem] border border-white/80 dark:border-white/10 shadow-xl flex flex-col h-full"
                 >
                     <div className="flex items-center gap-4 mb-8">
                         <BarChart2 className="text-primary" size={24} />
