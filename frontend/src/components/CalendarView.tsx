@@ -65,6 +65,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     initialView="dayGridMonth"
                     timeZone={userTimezone}
                     themeSystem="standard"
+                    defaultTimedEventDuration="00:15:00"
+                    forceEventDuration={true}
                     headerToolbar={isMobile ? {
                         left: 'prev,next',
                         center: 'title',
