@@ -58,8 +58,24 @@ export const PostModal: React.FC<PostModalProps> = ({ isOpen, onClose, onSave, p
             setUsername(accounts[0]?.username || '');
 
             const date = initialDate || new Date();
-            if (!initialDate) date.setMinutes(date.getMinutes() + 60);
-            setScheduledAt(utcToLocal(date.toISOString()).slice(0, 16));
+            // If selecting from calendar, it comes as local date at 00:00 or similar
+            // We want to set default time to 09:00 or current time if it is today
+            if (initialDate) {
+                // Clone to avoid mutation
+                const localDate = new Date(initialDate);
+                // Set to current hour if today, else 09:00
+                const now = new Date();
+                if (localDate.toDateString() === now.toDateString()) {
+                    localDate.setHours(now.getHours(), now.getMinutes());
+                } else {
+                    localDate.setHours(9, 0);
+                }
+                // Convert to local ISO string for input
+                setScheduledAt(utcToLocal(localDate.toISOString()).slice(0, 16));
+            } else {
+                date.setMinutes(date.getMinutes() + 60);
+                setScheduledAt(utcToLocal(date.toISOString()).slice(0, 16));
+            }
         }
     }, [post, initialDate, accounts, isOpen]);
 

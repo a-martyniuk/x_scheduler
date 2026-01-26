@@ -4,7 +4,6 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import { motion } from 'framer-motion';
-import { RefreshCcw } from 'lucide-react';
 import { cn } from '../lib/utils';
 import type { Post } from '../types';
 
@@ -14,8 +13,7 @@ interface CalendarViewProps {
     isMobile: boolean;
     onDateClick: (arg: any) => void;
     onEventClick: (arg: any) => void;
-    onRefresh: () => void;
-    isLoading: boolean;
+    // isLoading and onRefresh removed
 }
 
 export const CalendarView: React.FC<CalendarViewProps> = ({
@@ -23,9 +21,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     userTimezone,
     isMobile,
     onDateClick,
-    onEventClick,
-    onRefresh,
-    isLoading
+    onEventClick
 }) => {
     const calendarEvents = useMemo(() => posts.filter(p => p.status !== 'draft').map(p => ({
         id: String(p.id),
@@ -49,14 +45,12 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             exit={{ opacity: 0, y: -20 }}
             className="bg-white/60 dark:bg-gray-900/80 p-6 md:p-10 rounded-[3.5rem] border border-white/80 dark:border-white/10 backdrop-blur-3xl shadow-2xl shadow-indigo-500/5 min-h-[700px]"
         >
-            <div className="flex items-center justify-between mb-12">
+            <div className="flex items-center justify-between mb-8">
                 <div className="flex items-center gap-4">
                     <div className="w-2 h-8 bg-primary rounded-full shadow-[0_0_15px_rgba(99,102,241,0.5)]" />
                     <h3 className="text-2xl font-black tracking-tight">Calendario Editorial</h3>
                 </div>
-                <button onClick={onRefresh} className="p-3 rounded-2xl hover:bg-primary/10 hover:text-primary transition-all duration-500 text-muted-foreground group">
-                    <RefreshCcw size={20} className={isLoading ? "animate-spin" : "group-hover:rotate-180 transition-transform duration-700"} />
-                </button>
+                {/* Refresh button moved to Sidebar */}
             </div>
 
             <div className="calendar-container">

@@ -7,7 +7,8 @@ import {
     ImageIcon,
     Plus,
     LogOut,
-    Zap
+    Zap,
+    RefreshCcw
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import type { Post, Account } from '../types';
@@ -22,6 +23,7 @@ interface SidebarProps {
     onOpenPostModal: (post: Post | null) => void;
     onOpenLoginModal: () => void;
     onLogout: () => void;
+    onRefresh: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -33,7 +35,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     accounts,
     onOpenPostModal,
     onOpenLoginModal,
-    onLogout
+    onLogout,
+    onRefresh
 }) => {
     const sentCount = globalStats?.sent || 0;
     const queuedCount = globalStats?.scheduled || 0;
@@ -51,7 +54,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </div>
                 </div>
 
-                <nav className="space-y-2 mb-10">
+                <nav className="space-y-2 mb-6">
                     {[
                         { id: 'calendar', label: 'Cronograma', icon: CalendarIcon },
                         { id: 'analytics', label: 'Analíticas', icon: BarChart3 },
@@ -72,6 +75,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         </button>
                     ))}
                 </nav>
+
+                <div className="mb-10 px-2">
+                    <button
+                        onClick={onRefresh}
+                        className="w-full flex items-center justify-center gap-2 py-2.5 bg-secondary/50 text-secondary-foreground hover:bg-secondary hover:text-primary rounded-xl transition-all duration-300 text-[10px] font-black uppercase tracking-widest border border-border/50 group relative"
+                        title="Recargar datos locales (No sincroniza con X)"
+                    >
+                        <RefreshCcw size={14} className="group-hover:rotate-180 transition-transform duration-700" />
+                        <span>Actualizar Datos</span>
+                    </button>
+                </div>
 
                 <div className="space-y-10">
                     <div>

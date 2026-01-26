@@ -239,6 +239,7 @@ function App() {
           onOpenPostModal={(post) => { setSelectedPost(post); setIsPostModalOpen(true); }}
           onOpenLoginModal={() => setIsLoginModalOpen(true)}
           onLogout={handleLogout}
+          onRefresh={handleGlobalRefresh}
         />
       </aside>
 
@@ -298,6 +299,7 @@ function App() {
               onOpenPostModal={(post) => { setSelectedPost(post); setIsPostModalOpen(true); }}
               onOpenLoginModal={() => setIsLoginModalOpen(true)}
               onLogout={handleLogout}
+              onRefresh={handleGlobalRefresh}
             />
           </motion.aside>
         )}
@@ -362,8 +364,6 @@ function App() {
               isMobile={isMobile}
               onDateClick={handleDateClick}
               onEventClick={handleEventClick}
-              onRefresh={handleGlobalRefresh}
-              isLoading={isLoadingStats || isLoadingPosts}
             />
           ) : (
             <motion.div
