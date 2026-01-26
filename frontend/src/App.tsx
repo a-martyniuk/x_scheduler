@@ -108,7 +108,12 @@ function App() {
 
   const handleDateClick = (arg: any) => {
     setSelectedPost(null);
-    setSelectedDate(arg.date);
+    // Create local date from dateStr to avoid UTC shift
+    // arg.dateStr comes as "YYYY-MM-DD"
+    const [year, month, day] = arg.dateStr.split('-').map(Number);
+    const localDate = new Date(year, month - 1, day);
+
+    setSelectedDate(localDate);
     setIsPostModalOpen(true);
   };
 
