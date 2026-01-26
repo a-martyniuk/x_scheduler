@@ -561,15 +561,22 @@ async def sync_history_task(username: str):
                              datetime_str = await time_tag.first.get_attribute('title')
                              if not datetime_str:
                                  datetime_str = await time_tag.first.get_attribute('aria-label')
-                        
-                        if datetime_str:
-                             # If we got a string but not ISO, we might need parsing, 
-                             # but usually 'datetime' is a clean ISO string.
-                             pass
-                        else:
-                             log(f"Warning: Could not extract datetime/title from time tag for article.")
+                    
+                    # SNOWFLAKE FALLBACK (Ultra-reliable)
+                    # If we have a tweet_id, we can ALWAYS calculate the exact UTC creation date.
+                    if tweet_id:
+                        try:
+                            # Snowflake formula: (id >> 22) + 1288834974657
+                            timestamp_ms = (int(tweet_id) >> 22) + 1288834974657
+                            # Ensure it ends with Z to signify UTC for the ISO string
+                            datetime_str = datetime.utcfromtimestamp(timestamp_ms / 1000.0).isoformat() + "Z"
+                        except Exception as e:
+                            log(f"Snowflake date calculation failed for {tweet_id}: {e}")
 
-                        link_el = article.locator('a[href*="/status/"]').first
+                    if not datetime_str:
+                         log(f"Warning: Could not extract datetime/title from time tag for article.")
+
+                    link_el = article.locator('a[href*="/status/"]').first
                         if await link_el.count() > 0:
                             href = await link_el.get_attribute('href')
                             if href:
