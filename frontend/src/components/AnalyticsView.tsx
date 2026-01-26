@@ -1,5 +1,5 @@
 import React from 'react';
-import { Eye, Heart, TrendingUp, ArrowUpRight, Clock, Zap, Info, BarChart2, Layers, RefreshCcw, Share2, Bookmark, MessageCircle } from 'lucide-react';
+import { Eye, Heart, TrendingUp, ArrowUpRight, Clock, Zap, Info, BarChart2, Layers, Share2, Bookmark, MessageCircle } from 'lucide-react';
 import type { Post } from '../types';
 import { motion } from 'framer-motion';
 import {
@@ -30,7 +30,6 @@ interface AnalyticsViewProps {
 
 export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats, accounts, onSync }) => {
     const { growthData, bestTimes, performanceData, latestPost, isLoadingLatestPost, accountGrowth } = useAnalytics();
-    const [isSyncing, setIsSyncing] = React.useState(false);
     const [selectedMetric, setSelectedMetric] = React.useState<'views' | 'likes' | 'followers' | 'posts' | 'bookmarks' | 'replies'>('views');
 
     // Mapeo de colores para la métrica activa
@@ -98,18 +97,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats
         }));
     }, [growthData, accountGrowth]);
 
-    const handleSync = async () => {
-        if (!onSync) return;
-        setIsSyncing(true);
-        try {
-            const result = await onSync();
-            alert(`Sincronización completada.\nPosts importados: ${result.imported}`);
-        } catch (error: any) {
-            alert(`Error al sincronizar: ${error.message}`);
-        } finally {
-            setIsSyncing(false);
-        }
-    };
+
     // Filter out retweets from the main table if requested, or keep them separate.
     // User request: remove reposts from top performance because stats are confusing
     const sentPosts = posts.filter(p => (p.status === 'sent' || p.status === 'deleted_on_x') && p.tweet_id && !p.is_repost);
@@ -267,127 +255,124 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats
 
                     </div>
 
-                    {/* Sync Button Removed (Moved to Sidebar) */}
-            </div>
 
 
-
-            <div className="flex-1 w-full min-h-[350px]">
-                <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={mergedChartData}>
-                        <defs>
-                            <linearGradient id="colorMetric" x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor={ACTIVE_METRIC_COLOR} stopOpacity={0.3} />
-                                <stop offset="95%" stopColor={ACTIVE_METRIC_COLOR} stopOpacity={0} />
-                            </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
-                        <XAxis
-                            dataKey="dateStr"
-                            axisLine={false}
-                            tickLine={false}
-                            tick={{ fontSize: 10, fontWeight: 700 }}
-                            dy={10}
-                            tickFormatter={(str) => {
-                                if (!str) return '';
-                                const date = new Date(str);
-                                return date.toLocaleDateString('es-ES', { month: 'short', day: 'numeric' });
-                            }}
-                        />
-                        <YAxis
-                            axisLine={false}
-                            tickLine={false}
-                            tick={{ fontSize: 10, fontWeight: 700 }}
-                            domain={['auto', 'auto']}
-                        />
-                        <Tooltip
-                            contentStyle={{
-                                borderRadius: '20px',
-                                border: 'none',
-                                boxShadow: '0 20px 40px rgba(0,0,0,0.1)',
-                                backgroundColor: 'rgba(255,255,255,0.95)',
-                                color: '#000'
-                            }}
-                            itemStyle={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', color: ACTIVE_METRIC_COLOR }}
-                        />
-                        <Area
-                            type="monotone"
-                            dataKey={selectedMetric || 'views'}
-                            stroke={ACTIVE_METRIC_COLOR}
-                            strokeWidth={4}
-                            fillOpacity={1}
-                            fill="url(#colorMetric)"
-                            name={selectedMetric?.toUpperCase() || 'METRICA'}
-                            animationDuration={1000}
-                        />
-                    </AreaChart>
-                </ResponsiveContainer>
-            </div>
-        </motion.div>
-
-                {/* Performance Breakdown */ }
-    <motion.div
-        variants={item}
-        className="bg-white/60 dark:bg-gray-900/80 p-8 rounded-[3rem] border border-white/80 dark:border-white/10 shadow-xl flex flex-col h-full"
-    >
-        <div className="flex items-center gap-4 mb-8">
-            <BarChart2 className="text-primary" size={24} />
-            <h3 className="text-xl font-black tracking-tight">Efectividad</h3>
-        </div>
-
-        <div className="space-y-6 flex-1">
-            {performanceData ? (
-                <div className="space-y-6">
-                    {[
-                        { label: 'Multimedia', data: performanceData.media, color: 'bg-primary' },
-                        { label: 'Solo Texto', data: performanceData.text, color: 'bg-slate-400' }
-                    ].map((type) => (
-                        <div key={type.label} className="space-y-2">
-                            <div className="flex justify-between items-center px-1">
-                                <span className="text-[10px] font-black uppercase tracking-widest">{type.label}</span>
-                                <span className="text-[10px] font-bold text-primary">{type.data.engagement_rate.toFixed(1)}% ER</span>
-                            </div>
-                            <div className="h-3 w-full bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
-                                <motion.div
-                                    initial={{ width: 0 }}
-                                    animate={{ width: `${Math.min(type.data.engagement_rate * 10, 100)}%` }}
-                                    className={cn("h-full rounded-full", type.color)}
+                    <div className="flex-1 w-full min-h-[350px]">
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={mergedChartData}>
+                                <defs>
+                                    <linearGradient id="colorMetric" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor={ACTIVE_METRIC_COLOR} stopOpacity={0.3} />
+                                        <stop offset="95%" stopColor={ACTIVE_METRIC_COLOR} stopOpacity={0} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                                <XAxis
+                                    dataKey="dateStr"
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tick={{ fontSize: 10, fontWeight: 700 }}
+                                    dy={10}
+                                    tickFormatter={(str) => {
+                                        if (!str) return '';
+                                        const date = new Date(str);
+                                        return date.toLocaleDateString('es-ES', { month: 'short', day: 'numeric' });
+                                    }}
                                 />
+                                <YAxis
+                                    axisLine={false}
+                                    tickLine={false}
+                                    tick={{ fontSize: 10, fontWeight: 700 }}
+                                    domain={['auto', 'auto']}
+                                />
+                                <Tooltip
+                                    contentStyle={{
+                                        borderRadius: '20px',
+                                        border: 'none',
+                                        boxShadow: '0 20px 40px rgba(0,0,0,0.1)',
+                                        backgroundColor: 'rgba(255,255,255,0.95)',
+                                        color: '#000'
+                                    }}
+                                    itemStyle={{ fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', color: ACTIVE_METRIC_COLOR }}
+                                />
+                                <Area
+                                    type="monotone"
+                                    dataKey={selectedMetric || 'views'}
+                                    stroke={ACTIVE_METRIC_COLOR}
+                                    strokeWidth={4}
+                                    fillOpacity={1}
+                                    fill="url(#colorMetric)"
+                                    name={selectedMetric?.toUpperCase() || 'METRICA'}
+                                    animationDuration={1000}
+                                />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </div>
+                </motion.div>
+
+                {/* Performance Breakdown */}
+                <motion.div
+                    variants={item}
+                    className="bg-white/60 dark:bg-gray-900/80 p-8 rounded-[3rem] border border-white/80 dark:border-white/10 shadow-xl flex flex-col h-full"
+                >
+                    <div className="flex items-center gap-4 mb-8">
+                        <BarChart2 className="text-primary" size={24} />
+                        <h3 className="text-xl font-black tracking-tight">Efectividad</h3>
+                    </div>
+
+                    <div className="space-y-6 flex-1">
+                        {performanceData ? (
+                            <div className="space-y-6">
+                                {[
+                                    { label: 'Multimedia', data: performanceData.media, color: 'bg-primary' },
+                                    { label: 'Solo Texto', data: performanceData.text, color: 'bg-slate-400' }
+                                ].map((type) => (
+                                    <div key={type.label} className="space-y-2">
+                                        <div className="flex justify-between items-center px-1">
+                                            <span className="text-[10px] font-black uppercase tracking-widest">{type.label}</span>
+                                            <span className="text-[10px] font-bold text-primary">{type.data.engagement_rate.toFixed(1)}% ER</span>
+                                        </div>
+                                        <div className="h-3 w-full bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
+                                            <motion.div
+                                                initial={{ width: 0 }}
+                                                animate={{ width: `${Math.min(type.data.engagement_rate * 10, 100)}%` }}
+                                                className={cn("h-full rounded-full", type.color)}
+                                            />
+                                        </div>
+                                        <div className="flex justify-between text-[8px] font-bold opacity-50 uppercase tracking-tighter">
+                                            <span>{type.data.count} posts</span>
+                                            <span>~{(type.data.avg_engagement).toFixed(1)} eng/post</span>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
-                            <div className="flex justify-between text-[8px] font-bold opacity-50 uppercase tracking-tighter">
-                                <span>{type.data.count} posts</span>
-                                <span>~{(type.data.avg_engagement).toFixed(1)} eng/post</span>
+                        ) : (
+                            <div className="flex-1 flex items-center justify-center opacity-30 text-[10px] font-black uppercase tracking-widest italic">
+                                Cargando datos de rendimiento...
+                            </div>
+                        )}
+
+                        <div className="mt-auto p-5 rounded-2xl bg-primary/5 border border-primary/10">
+                            <div className="flex gap-3">
+                                <Zap className="text-primary shrink-0" size={16} />
+                                <p className="text-[10px] font-bold leading-relaxed">
+                                    {performanceData && performanceData.media.engagement_rate > performanceData.text.engagement_rate
+                                        ? "Tus posts con multimedia tienen un % mayor de engagement. ¡Sigue así!"
+                                        : "Tus posts de texto están rindiendo excepcionalmente bien."}
+                                </p>
                             </div>
                         </div>
-                    ))}
-                </div>
-            ) : (
-                <div className="flex-1 flex items-center justify-center opacity-30 text-[10px] font-black uppercase tracking-widest italic">
-                    Cargando datos de rendimiento...
-                </div>
-            )}
-
-            <div className="mt-auto p-5 rounded-2xl bg-primary/5 border border-primary/10">
-                <div className="flex gap-3">
-                    <Zap className="text-primary shrink-0" size={16} />
-                    <p className="text-[10px] font-bold leading-relaxed">
-                        {performanceData && performanceData.media.engagement_rate > performanceData.text.engagement_rate
-                            ? "Tus posts con multimedia tienen un % mayor de engagement. ¡Sigue así!"
-                            : "Tus posts de texto están rindiendo excepcionalmente bien."}
-                    </p>
-                </div>
-            </div>
-        </div>
-    </motion.div>
+                    </div>
+                </motion.div>
             </div >
 
-    {/* Insights & Table */ }
-    < div className = "grid grid-cols-1 lg:grid-cols-2 gap-8" >
-        {/* Best Times Insights */ }
-        < motion.div
-variants = { item }
-className = "bg-primary/5 dark:bg-primary/10 p-8 rounded-[3rem] border border-primary/20 shadow-xl flex flex-col h-full"
-    >
+            {/* Insights & Table */}
+            < div className="grid grid-cols-1 lg:grid-cols-2 gap-8" >
+                {/* Best Times Insights */}
+                < motion.div
+                    variants={item}
+                    className="bg-primary/5 dark:bg-primary/10 p-8 rounded-[3rem] border border-primary/20 shadow-xl flex flex-col h-full"
+                >
                     <div className="flex items-center gap-4 mb-8">
                         <Clock className="text-primary" size={24} />
                         <h3 className="text-xl font-black tracking-tight">Mejores Horarios</h3>
@@ -416,11 +401,11 @@ className = "bg-primary/5 dark:bg-primary/10 p-8 rounded-[3rem] border border-pr
 
             </div >
 
-    {/* Top Posts Table */ }
-    < motion.div
-variants = { item }
-className = "bg-white/60 dark:bg-gray-900/80 p-10 rounded-[3.5rem] border border-white/80 dark:border-white/10 shadow-2xl overflow-hidden"
-    >
+            {/* Top Posts Table */}
+            < motion.div
+                variants={item}
+                className="bg-white/60 dark:bg-gray-900/80 p-10 rounded-[3.5rem] border border-white/80 dark:border-white/10 shadow-2xl overflow-hidden"
+            >
                 <div className="flex items-center justify-between mb-8 px-2">
                     <div className="flex items-center gap-4">
                         <div className="w-2 h-8 bg-primary rounded-full shadow-[0_0_15px_rgba(99,102,241,0.5)]" />
@@ -505,7 +490,7 @@ className = "bg-white/60 dark:bg-gray-900/80 p-10 rounded-[3.5rem] border border
                     </table>
                 </div>
             </motion.div >
-    {/* Debug Screenshot Modal */ }
+            {/* Debug Screenshot Modal */}
         </motion.div >
     );
 };
