@@ -16,6 +16,11 @@ class XSelectors:
     HOME_LINK = '[data-testid="AppTabBar_Home_Link"]'
     ACCOUNT_SWITCHER = '[data-testid="SideNav_AccountSwitcher_Button"]'
     
+    # Login Wall / Logged out indicators
+    LOGGED_OUT_SIGN_UP = '[data-testid="signup"]'
+    LOGGED_OUT_LOGIN = '[data-testid="login"]'
+
+    
     # --- POSTING ---
     COMPOSE_BOX_HOME = '[data-testid="tweetTextarea_0"]'
     FILE_INPUT = '[data-testid="fileInput"]'

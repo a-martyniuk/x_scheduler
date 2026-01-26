@@ -68,6 +68,44 @@ async def _get_storage_state(username: str, log_func):
     log_func(f"No cookies found for {username or 'default'}")
     return None, None
 
+async def verify_session(page, log_func) -> bool:
+    """
+    Checks if the current session is valid (logged in) or if we hit a login wall.
+    Returns True if valid session, False if logged out/login wall.
+    """
+    try:
+        # Check for logged-in indicators (Home link, Account Switcher)
+        # We wait a bit just in case, but usually this is called after navigation
+        try:
+            await page.wait_for_selector(f'{XSelectors.HOME_LINK}, {XSelectors.ACCOUNT_SWITCHER}', timeout=5000)
+            log_func("Session verification: ACTIVE (Found account indicators)")
+            return True
+        except:
+            pass
+
+        # Check for logged-out indicators (Sign in text, login buttons)
+        # Using specific selectors from config, plus generic text search
+        if await page.locator(XSelectors.LOGGED_OUT_LOGIN).count() > 0 or \
+           await page.locator(XSelectors.LOGGED_OUT_SIGN_UP).count() > 0:
+            log_func("Session verification: FAILED (Found login buttons)")
+            return False
+
+        # Fallback text check
+        body_text = await page.inner_text("body")
+        if "Sign in to X" in body_text or "Log in" in body_text:
+            log_func("Session verification: FAILED (Found 'Sign in' text)")
+            return False
+            
+        # If neither found (ambiguous state), we might be on a public profile but not logged in.
+        # But if we were logged in, we SHOULD see the Home/Account indicators.
+        # So assuming False is safer to prevent limited scraping.
+        log_func("Session verification: AMBIGUOUS (No clear indicators). Assuming invalid.")
+        return False
+        
+    except Exception as e:
+        log_func(f"Session verification error: {e}")
+        return False
+
 async def publish_post_task(content: str, media_paths: str = None, reply_to_id: str = None, username: str = None, dry_run: bool = False):
     """
     Publishes a post to X using Playwright.
@@ -103,6 +141,11 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
                 log("Session state loaded successfully.")
             else:
                 log("No session state found. Proceeding as guest/fresh.")
+
+            # --- VERIFY SESSION ---
+            if not await verify_session(page, log):
+                return {"success": False, "log": "Authentication failed: Session invalid or expired. Please update cookies.", "screenshot_path": None, "tweet_id": None}
+
         except Exception as e:
             await browser.close()
             # Clean up temp file if it was created
@@ -504,13 +547,13 @@ async def sync_history_task(username: str):
             await page.goto(url, timeout=60000, wait_until="networkidle")
             await human_delay(3, 5)
 
-            # Check for Login Wall
-            body_text = await page.inner_text("body")
-            if "Sign in to X" in body_text or "Log in" in body_text:
-                log("WARNING: Detected login wall. Cookies might be invalid or expired.")
-                # Save screenshot for debug
+            # --- VERIFY SESSION ---
+            if not await verify_session(page, log):
+                 # Save screenshot for debug
                 diag_login = os.path.join(SCREENSHOTS_DIR, f"sync_login_wall_{clean_username}.png")
                 await page.screenshot(path=diag_login)
+                log("ERROR: Session verification failed during sync. Cookies might be invalid or expired.")
+                return {"success": False, "log": "Session verification failed. Please update cookies.", "posts": [], "profile": {}}
             
             # --- SCRAPE PROFILE STATS ---
             try:
