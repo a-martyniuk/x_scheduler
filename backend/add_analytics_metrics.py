@@ -4,31 +4,38 @@ Adds url_link_clicks, user_profile_clicks, and detail_expands columns
 to both posts and post_metrics_snapshots tables.
 """
 from sqlalchemy import create_engine, text
-from backend.config import DATABASE_URL
+from backend.config import settings
 from loguru import logger
 
 def run_migration():
     """Run the migration to add new analytics metrics columns"""
-    engine = create_engine(DATABASE_URL)
+    engine = create_engine(settings.DATABASE_URL)
     
-    migrations = [
-        # Add columns to posts table
-        "ALTER TABLE posts ADD COLUMN IF NOT EXISTS url_link_clicks INTEGER DEFAULT 0",
-        "ALTER TABLE posts ADD COLUMN IF NOT EXISTS user_profile_clicks INTEGER DEFAULT 0",
-        "ALTER TABLE posts ADD COLUMN IF NOT EXISTS detail_expands INTEGER DEFAULT 0",
-        
-        # Add columns to post_metrics_snapshots table
-        "ALTER TABLE post_metrics_snapshots ADD COLUMN IF NOT EXISTS url_link_clicks INTEGER DEFAULT 0",
-        "ALTER TABLE post_metrics_snapshots ADD COLUMN IF NOT EXISTS user_profile_clicks INTEGER DEFAULT 0",
-        "ALTER TABLE post_metrics_snapshots ADD COLUMN IF NOT EXISTS detail_expands INTEGER DEFAULT 0",
+    new_columns = [
+        ('posts', 'url_link_clicks'),
+        ('posts', 'user_profile_clicks'),
+        ('posts', 'detail_expands'),
+        ('post_metrics_snapshots', 'url_link_clicks'),
+        ('post_metrics_snapshots', 'user_profile_clicks'),
+        ('post_metrics_snapshots', 'detail_expands'),
     ]
     
     try:
         with engine.connect() as conn:
-            for migration_sql in migrations:
-                logger.info(f"Executing: {migration_sql}")
-                conn.execute(text(migration_sql))
-                conn.commit()
+            for table_name, column_name in new_columns:
+                # Check if column already exists
+                check_query = text(f"PRAGMA table_info({table_name})")
+                result = conn.execute(check_query)
+                columns = [row[1] for row in result]
+                
+                if column_name not in columns:
+                    logger.info(f"Adding column {column_name} to {table_name}...")
+                    alter_query = text(f"ALTER TABLE {table_name} ADD COLUMN {column_name} INTEGER DEFAULT 0")
+                    conn.execute(alter_query)
+                    conn.commit()
+                    logger.success(f"✅ Added {column_name} to {table_name}")
+                else:
+                    logger.info(f"⏭️  Column {column_name} already exists in {table_name}, skipping")
         
         logger.success("✅ Migration completed successfully!")
         logger.info("New columns added:")
