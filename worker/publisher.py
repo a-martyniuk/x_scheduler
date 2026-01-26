@@ -497,8 +497,8 @@ async def sync_history_task(username: str):
             
             # Clean username for URL
             clean_username = username.lstrip('@')
-            # Navigate to /with_replies to ensure we see ALL posts in chronological order
-            url = f"https://x.com/{clean_username}/with_replies"
+            # Navigate to main profile page (not /with_replies)
+            url = f"https://x.com/{clean_username}"
             log(f"Navigating to profile: {url}")
             
             await page.goto(url, timeout=60000, wait_until="networkidle")
