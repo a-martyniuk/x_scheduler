@@ -532,10 +532,11 @@ async def sync_history_task(username: str):
             log("Scrolling timeline to load more tweets...")
             for i in range(20):
                 await page.evaluate("window.scrollBy(0, 2000)")
-                await asyncio.sleep(1) # Faster scroll feedback
-                # Check if we still see new tweets or reached the end
-                # (This should capture ~100-200 tweets)
-            log("Finished scrolling timeline...")
+                await asyncio.sleep(2)  # Increased wait time for X to load content
+                if i % 5 == 0:
+                    log(f"Scroll progress: {i+1}/20...")
+            log("Finished scrolling timeline. Waiting for content to render...")
+            await asyncio.sleep(3)  # Extra wait for final content to load
             
             # Extract recent tweets
             articles = await page.locator(XSelectors.TWEET_ARTICLE).all()
