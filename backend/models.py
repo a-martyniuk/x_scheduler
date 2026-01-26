@@ -22,6 +22,9 @@ class Post(Base):
     reposts_count = Column(Integer, default=0)
     bookmarks_count = Column(Integer, default=0)
     replies_count = Column(Integer, default=0)
+    url_link_clicks = Column(Integer, default=0)
+    user_profile_clicks = Column(Integer, default=0)
+    detail_expands = Column(Integer, default=0)
     username = Column(String, nullable=True) # Account to post from
     media_url = Column(String, nullable=True) # URL of the first image/video thumbnail
     is_repost = Column(Boolean, default=False)
@@ -37,6 +40,9 @@ class PostMetricSnapshot(Base):
     reposts = Column(Integer, default=0)
     bookmarks = Column(Integer, default=0)
     replies = Column(Integer, default=0)
+    url_link_clicks = Column(Integer, default=0)
+    user_profile_clicks = Column(Integer, default=0)
+    detail_expands = Column(Integer, default=0)
     timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 class AccountMetricSnapshot(Base):

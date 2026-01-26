@@ -124,6 +124,9 @@ async def sync_account_history(username: str, db: Session):
             existing_post.reposts_count = post_data["reposts"]
             existing_post.bookmarks_count = post_data.get("bookmarks", 0)
             existing_post.replies_count = post_data.get("replies", 0)
+            existing_post.url_link_clicks = post_data.get("url_link_clicks", 0)
+            existing_post.user_profile_clicks = post_data.get("user_profile_clicks",0)
+            existing_post.detail_expands = post_data.get("detail_expands", 0)
 
             if post_data.get("media_url"):
                 existing_post.media_url = post_data["media_url"]
@@ -156,6 +159,9 @@ async def sync_account_history(username: str, db: Session):
                 reposts_count=post_data["reposts"],
                 bookmarks_count=post_data.get("bookmarks", 0),
                 replies_count=post_data.get("replies", 0),
+                url_link_clicks=post_data.get("url_link_clicks", 0),
+                user_profile_clicks=post_data.get("user_profile_clicks", 0),
+                detail_expands=post_data.get("detail_expands", 0),
                 updated_at=final_date,
                 created_at=final_date,
                 media_url=post_data.get("media_url"),
@@ -175,7 +181,10 @@ async def sync_account_history(username: str, db: Session):
             latest_snap.likes != post_data["likes"] or 
             latest_snap.reposts != post_data["reposts"] or
             latest_snap.bookmarks != post_data.get("bookmarks", 0) or
-            latest_snap.replies != post_data.get("replies", 0)
+            latest_snap.replies != post_data.get("replies", 0) or
+            latest_snap.url_link_clicks != post_data.get("url_link_clicks", 0) or
+            latest_snap.user_profile_clicks != post_data.get("user_profile_clicks", 0) or
+            latest_snap.detail_expands != post_data.get("detail_expands", 0)
         )
 
         if has_changes:
@@ -186,6 +195,9 @@ async def sync_account_history(username: str, db: Session):
                 reposts=post_data["reposts"],
                 bookmarks=post_data.get("bookmarks", 0),
                 replies=post_data.get("replies", 0),
+                url_link_clicks=post_data.get("url_link_clicks", 0),
+                user_profile_clicks=post_data.get("user_profile_clicks", 0),
+                detail_expands=post_data.get("detail_expands", 0),
                 timestamp=datetime.now(timezone.utc).replace(tzinfo=None)
             )
              db.add(snapshot)

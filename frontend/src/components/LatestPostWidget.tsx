@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Eye, Heart, BarChart3, ArrowUpRight, Share2, Clock, CheckCircle2 } from 'lucide-react';
+import { Eye, Heart, BarChart3, ArrowUpRight, Share2, Clock, CheckCircle2, Link, User, Maximize2 } from 'lucide-react';
 import type { Post } from '../types';
 import { BASE_URL } from '../api';
 import { cn } from '../lib/utils';
@@ -77,16 +77,18 @@ export const LatestPostWidget: React.FC<LatestPostWidgetProps> = ({ post, isLoad
                             </div>
                         )}
 
-                        <div className="absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover/media:opacity-100 transition-opacity">
-                            <a
-                                href={`https://x.com/i/status/${post.tweet_id}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="w-full py-3 bg-white text-black rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-primary hover:text-white transition-colors"
-                            >
-                                <ArrowUpRight size={14} /> Ver en X.com
-                            </a>
-                        </div>
+                        {(post.tweet_id || post.username) && (
+                            <div className="absolute inset-x-0 bottom-0 p-6 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover/media:opacity-100 transition-opacity">
+                                <a
+                                    href={post.tweet_id ? `https://x.com/i/status/${post.tweet_id}` : `https://x.com/${post.username}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="w-full py-3 bg-white text-black rounded-xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-primary hover:text-white transition-colors"
+                                >
+                                    <ArrowUpRight size={14} /> {post.tweet_id ? 'Ver en X.com' : 'Ver Perfil en X'}
+                                </a>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -113,6 +115,9 @@ export const LatestPostWidget: React.FC<LatestPostWidgetProps> = ({ post, isLoad
                             { label: 'Likes', val: post.likes_count || 0, icon: Heart, color: 'text-rose-500', bg: 'bg-rose-500/5' },
                             { label: 'Reposts', val: post.reposts_count || 0, icon: Share2, color: 'text-emerald-500', bg: 'bg-emerald-500/5' },
                             { label: 'Ratio', val: `${er}%`, icon: TrendingUpIcon, color: 'text-primary', bg: 'bg-primary/5' },
+                            { label: 'Link Clicks', val: post.url_link_clicks || 0, icon: LinkIcon, color: 'text-blue-500', bg: 'bg-blue-500/5' },
+                            { label: 'Profile Visits', val: post.user_profile_clicks || 0, icon: UserIcon, color: 'text-purple-500', bg: 'bg-purple-500/5' },
+                            { label: 'Detail Expands', val: post.detail_expands || 0, icon: ExpandIcon, color: 'text-amber-500', bg: 'bg-amber-500/5' },
                         ].map((metric, i) => (
                             <div key={i} className={cn("p-5 rounded-[1.5rem] border border-border/40 hover-lift flex flex-col gap-2 transition-all group/metric", metric.bg)}>
                                 <div className="flex items-center justify-between">
@@ -149,3 +154,8 @@ const TrendingUpIcon = ({ size, className }: { size: number, className: string }
         <polyline points="17 6 23 6 23 12" />
     </svg>
 );
+
+const LinkIcon = Link;
+const UserIcon = User;
+const ExpandIcon = Maximize2;
+

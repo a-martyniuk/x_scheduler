@@ -23,6 +23,9 @@ export interface Post {
     reposts_count?: number;
     bookmarks_count?: number;
     replies_count?: number;
+    url_link_clicks?: number;
+    user_profile_clicks?: number;
+    detail_expands?: number;
     username?: string;
     media_url?: string;
     is_repost?: boolean;

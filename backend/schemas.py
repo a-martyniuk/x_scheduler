@@ -29,9 +29,14 @@ class PostResponse(PostBase):
     likes_count: int = 0
 
     reposts_count: int = 0
+    bookmarks_count: int = 0
+    replies_count: int = 0
+    url_link_clicks: int = 0
+    user_profile_clicks: int = 0
+    detail_expands: int = 0
     is_repost: bool = False
     
-    @field_validator('views_count', 'likes_count', 'reposts_count', mode='before')
+    @field_validator('views_count', 'likes_count', 'reposts_count', 'bookmarks_count', 'replies_count', 'url_link_clicks', 'user_profile_clicks', 'detail_expands', mode='before')
     @classmethod
     def set_zero_if_none(cls, v):
         return v or 0
