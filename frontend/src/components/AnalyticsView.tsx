@@ -366,11 +366,11 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats
             </div >
 
             {/* Insights & Table */}
-            < div className="grid grid-cols-1 lg:grid-cols-2 gap-8" >
+            < div className="grid grid-cols-1 lg:grid-cols-3 gap-8" >
                 {/* Best Times Insights */}
                 < motion.div
                     variants={item}
-                    className="bg-primary/5 dark:bg-primary/10 p-8 rounded-[3rem] border border-primary/20 shadow-xl flex flex-col h-full"
+                    className="lg:col-span-1 bg-primary/5 dark:bg-primary/10 p-8 rounded-[3rem] border border-primary/20 shadow-xl flex flex-col h-full"
                 >
                     <div className="flex items-center gap-4 mb-8">
                         <Clock className="text-primary" size={24} />
@@ -398,98 +398,96 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats
                     </div>
                 </motion.div >
 
-            </div >
-
-            {/* Top Posts Table */}
-            < motion.div
-                variants={item}
-                className="bg-white/60 dark:bg-gray-900/80 p-10 rounded-[3.5rem] border border-white/80 dark:border-white/10 shadow-2xl overflow-hidden"
-            >
-                <div className="flex items-center justify-between mb-8 px-2">
-                    <div className="flex items-center gap-4">
-                        <div className="w-2 h-8 bg-primary rounded-full shadow-[0_0_15px_rgba(99,102,241,0.5)]" />
-                        <h3 className="text-2xl font-black tracking-tight">Top Performance</h3>
+                {/* Top Posts Table */}
+                < motion.div
+                    variants={item}
+                    className="lg:col-span-2 bg-white/60 dark:bg-gray-900/80 p-10 rounded-[3.5rem] border border-white/80 dark:border-white/10 shadow-2xl overflow-hidden"
+                >
+                    <div className="flex items-center justify-between mb-8 px-2">
+                        <div className="flex items-center gap-4">
+                            <div className="w-2 h-8 bg-primary rounded-full shadow-[0_0_15px_rgba(99,102,241,0.5)]" />
+                            <h3 className="text-2xl font-black tracking-tight">Top Performance</h3>
+                        </div>
                     </div>
-                </div>
 
-                <div className="overflow-x-auto h-[400px] custom-scrollbar">
-                    <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className="border-b border-border/40 sticky top-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md z-10">
-                                <th className="pb-6 text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground px-4">Contenido</th>
-                                <th className="pb-6 text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground px-4 text-center">Vistas</th>
-                                <th className="pb-6 text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground px-4 text-center">ER%</th>
-                                <th className="pb-6 text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground px-4 text-center">X</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-border/10">
-                            {sentPosts.sort((a, b) => (b.views_count || 0) - (a.views_count || 0)).slice(0, 15).map(post => {
-                                const er = getEngagementRate(post);
-                                return (
-                                    <tr key={post.id} className={cn(
-                                        "group hover:bg-primary/5 transition-colors",
-                                        post.status === 'deleted_on_x' && "opacity-60 bg-red-500/5 hover:bg-red-500/10"
-                                    )}>
-                                        <td className="py-5 px-4">
-                                            <div className="flex items-start gap-3">
-                                                {post.media_url ? (
-                                                    <img
-                                                        src={post.media_url}
-                                                        alt="Thumbnail"
-                                                        className={cn("w-10 h-10 rounded-lg object-cover bg-slate-100 dark:bg-white/5 border border-border/20 shrink-0", post.status === 'deleted_on_x' && "grayscale")}
-                                                    />
-                                                ) : (
-                                                    <div className="w-10 h-10 rounded-lg bg-primary/5 flex items-center justify-center shrink-0">
-                                                        <div className="w-2 h-2 rounded-full bg-primary/20" />
-                                                    </div>
-                                                )}
-                                                <div>
-                                                    <p className={cn("text-sm font-bold line-clamp-2 max-w-[200px] mb-1", post.status === 'deleted_on_x' && "line-through decoration-red-500/50")}>{post.content}</p>
-                                                    <div className="flex items-center gap-3">
-                                                        <span className="text-[8px] font-black text-muted-foreground/50 uppercase">{new Date(post.updated_at!).toLocaleDateString()}</span>
-                                                        {(post.media_paths || post.media_url) && !post.media_url && <span className="text-[8px] font-black text-primary uppercase bg-primary/10 px-1.5 rounded-sm">Media</span>}
-                                                        {post.status === 'deleted_on_x' && <span className="text-[8px] font-black text-white bg-red-500 px-1.5 rounded-sm uppercase tracking-wider">Deleted on X</span>}
-                                                        {post.is_repost && <span className="text-[8px] font-black text-indigo-500 bg-indigo-500/10 px-1.5 rounded-sm uppercase tracking-wider flex items-center gap-1"><Share2 size={8} /> Repost</span>}
+                    <div className="overflow-x-auto h-[400px] custom-scrollbar">
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="border-b border-border/40 sticky top-0 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md z-10">
+                                    <th className="pb-6 text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground px-4">Contenido</th>
+                                    <th className="pb-6 text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground px-4 text-center">Vistas</th>
+                                    <th className="pb-6 text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground px-4 text-center">ER%</th>
+                                    <th className="pb-6 text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground px-4 text-center">X</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-border/10">
+                                {sentPosts.sort((a, b) => (b.views_count || 0) - (a.views_count || 0)).slice(0, 15).map(post => {
+                                    const er = getEngagementRate(post);
+                                    return (
+                                        <tr key={post.id} className={cn(
+                                            "group hover:bg-primary/5 transition-colors",
+                                            post.status === 'deleted_on_x' && "opacity-60 bg-red-500/5 hover:bg-red-500/10"
+                                        )}>
+                                            <td className="py-5 px-4">
+                                                <div className="flex items-start gap-3">
+                                                    {post.media_url ? (
+                                                        <img
+                                                            src={post.media_url}
+                                                            alt="Thumbnail"
+                                                            className={cn("w-10 h-10 rounded-lg object-cover bg-slate-100 dark:bg-white/5 border border-border/20 shrink-0", post.status === 'deleted_on_x' && "grayscale")}
+                                                        />
+                                                    ) : (
+                                                        <div className="w-10 h-10 rounded-lg bg-primary/5 flex items-center justify-center shrink-0">
+                                                            <div className="w-2 h-2 rounded-full bg-primary/20" />
+                                                        </div>
+                                                    )}
+                                                    <div>
+                                                        <p className={cn("text-sm font-bold line-clamp-2 max-w-[200px] mb-1", post.status === 'deleted_on_x' && "line-through decoration-red-500/50")}>{post.content}</p>
+                                                        <div className="flex items-center gap-3">
+                                                            <span className="text-[8px] font-black text-muted-foreground/50 uppercase">{new Date(post.updated_at!).toLocaleDateString()}</span>
+                                                            {(post.media_paths || post.media_url) && !post.media_url && <span className="text-[8px] font-black text-primary uppercase bg-primary/10 px-1.5 rounded-sm">Media</span>}
+                                                            {post.status === 'deleted_on_x' && <span className="text-[8px] font-black text-white bg-red-500 px-1.5 rounded-sm uppercase tracking-wider">Deleted on X</span>}
+                                                            {post.is_repost && <span className="text-[8px] font-black text-indigo-500 bg-indigo-500/10 px-1.5 rounded-sm uppercase tracking-wider flex items-center gap-1"><Share2 size={8} /> Repost</span>}
+                                                        </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        </td>
-                                        <td className="py-5 px-4 text-center">
-                                            <span className="text-sm font-black tabular-nums">{post.views_count?.toLocaleString() || 0}</span>
-                                        </td>
-                                        <td className="py-5 px-4 text-center">
-                                            <div className="flex flex-col items-center">
-                                                <span className={cn(
-                                                    "text-sm font-black tabular-nums",
-                                                    er > 5 ? "text-emerald-500" : er > 2 ? "text-primary" : "text-slate-500"
-                                                )}>{er.toFixed(1)}%</span>
-                                            </div>
-                                        </td>
-                                        <td className="py-5 px-4 text-center">
-                                            <a
-                                                href={`https://x.com/i/status/${post.tweet_id}`}
-                                                target="_blank"
-                                                rel="noreferrer"
-                                                className="inline-flex items-center justify-center w-8 h-8 bg-primary/5 text-primary rounded-xl hover:bg-primary hover:text-white transition-all transform group-hover:scale-110"
-                                            >
-                                                <ArrowUpRight size={14} />
-                                            </a>
+                                            </td>
+                                            <td className="py-5 px-4 text-center">
+                                                <span className="text-sm font-black tabular-nums">{post.views_count?.toLocaleString() || 0}</span>
+                                            </td>
+                                            <td className="py-5 px-4 text-center">
+                                                <div className="flex flex-col items-center">
+                                                    <span className={cn(
+                                                        "text-sm font-black tabular-nums",
+                                                        er > 5 ? "text-emerald-500" : er > 2 ? "text-primary" : "text-slate-500"
+                                                    )}>{er.toFixed(1)}%</span>
+                                                </div>
+                                            </td>
+                                            <td className="py-5 px-4 text-center">
+                                                <a
+                                                    href={`https://x.com/i/status/${post.tweet_id}`}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="inline-flex items-center justify-center w-8 h-8 bg-primary/5 text-primary rounded-xl hover:bg-primary hover:text-white transition-all transform group-hover:scale-110"
+                                                >
+                                                    <ArrowUpRight size={14} />
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                                {sentPosts.length === 0 && (
+                                    <tr>
+                                        <td colSpan={4} className="py-20 text-center opacity-30 text-[10px] font-black uppercase tracking-widest italic">
+                                            Esperando datos de publicaciones enviadas...
                                         </td>
                                     </tr>
-                                );
-                            })}
-                            {sentPosts.length === 0 && (
-                                <tr>
-                                    <td colSpan={4} className="py-20 text-center opacity-30 text-[10px] font-black uppercase tracking-widest italic">
-                                        Esperando datos de publicaciones enviadas...
-                                    </td>
-                                </tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </motion.div >
-            {/* Debug Screenshot Modal */}
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </motion.div >
+            </div>
         </motion.div >
     );
 };
