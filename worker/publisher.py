@@ -537,16 +537,22 @@ async def sync_history_task(username: str):
 
         try:
             page = await context.new_page()
-            
-            # Clean username for URL
-            clean_username = username.lstrip('@')
-            # Use Search (Latest) to get strict chronological order of ALL tweets (posts + replies)
-            # bypassing Pinned tweets and "Top" algorithm of main profile.
-            url = f"https://x.com/search?q=from%3A{clean_username}&src=typed_query&f=live"
-            log(f"Navigating to search (Latest): {url}")
+            # Navigate to main profile to match user's view
+            url = f"https://x.com/{clean_username}"
+            log(f"Navigating to profile: {url}")
             
             await page.goto(url, timeout=60000, wait_until="networkidle")
             await human_delay(3, 5)
+
+            # Dump HTML for debugging
+            try:
+                html_content = await page.content()
+                debug_html_path = os.path.join(WORKER_DIR, f"debug_profile_{clean_username}.html")
+                with open(debug_html_path, "w", encoding="utf-8") as f:
+                    f.write(html_content)
+                log(f"DEBUG: Saved raw HTML to {debug_html_path}")
+            except Exception as e:
+                log(f"DEBUG: Failed to save HTML: {e}")
 
             # --- VERIFY SESSION ---
             if not await verify_session(page, log):
