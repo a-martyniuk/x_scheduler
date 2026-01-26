@@ -136,6 +136,16 @@ function App() {
     }
   };
 
+  const handleSync = async () => {
+    const username = accounts[0]?.username;
+    if (username) {
+      const res = await api.syncHistory(username);
+      await handleGlobalRefresh();
+      return res;
+    }
+    return { imported: 0, log: "No hay cuenta activa" };
+  };
+
   if (!isAuthenticated) {
     return <LoginScreen onLogin={handleLogin} />;
   }
@@ -240,6 +250,7 @@ function App() {
           onOpenLoginModal={() => setIsLoginModalOpen(true)}
           onLogout={handleLogout}
           onRefresh={handleGlobalRefresh}
+          onSync={handleSync}
         />
       </aside>
 
@@ -300,6 +311,7 @@ function App() {
               onOpenLoginModal={() => setIsLoginModalOpen(true)}
               onLogout={handleLogout}
               onRefresh={handleGlobalRefresh}
+              onSync={handleSync}
             />
           </motion.aside>
         )}
@@ -376,15 +388,7 @@ function App() {
                 posts={posts}
                 globalStats={globalStats}
                 accounts={accounts}
-                onSync={async () => {
-                  const username = accounts[0]?.username;
-                  if (username) {
-                    const res = await api.syncHistory(username);
-                    await handleGlobalRefresh();
-                    return res;
-                  }
-                  return { imported: 0, log: "No hay cuenta activa" };
-                }}
+                onSync={undefined} // Handled by Sidebar now, but I will remove the button from AnalyticsView
               />
             </motion.div>
           )}

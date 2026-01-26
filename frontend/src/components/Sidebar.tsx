@@ -24,6 +24,7 @@ interface SidebarProps {
     onOpenLoginModal: () => void;
     onLogout: () => void;
     onRefresh: () => void;
+    onSync: () => Promise<any>;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -36,10 +37,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onOpenPostModal,
     onOpenLoginModal,
     onLogout,
-    onRefresh
+    onRefresh,
+    onSync
 }) => {
     const sentCount = globalStats?.sent || 0;
     const queuedCount = globalStats?.scheduled || 0;
+    const [isSyncing, setIsSyncing] = React.useState(false);
+
+    const handleSyncClick = async () => {
+        setIsSyncing(true);
+        try {
+            const result = await onSync();
+            alert(`Sincronización completada.\nPosts importados: ${result.imported}`);
+        } catch (error: any) {
+            alert(`Error al sincronizar: ${error.message}`);
+        } finally {
+            setIsSyncing(false);
+        }
+    };
 
     return (
         <div className="flex flex-col h-full overflow-y-auto custom-scrollbar">
@@ -76,14 +91,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     ))}
                 </nav>
 
-                <div className="mb-10 px-2">
+                <div className="mb-10 px-2 flex gap-2">
                     <button
                         onClick={onRefresh}
-                        className="w-full flex items-center justify-center gap-2 py-2.5 bg-secondary/50 text-secondary-foreground hover:bg-secondary hover:text-primary rounded-xl transition-all duration-300 text-[10px] font-black uppercase tracking-widest border border-border/50 group relative"
+                        className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-secondary/50 text-secondary-foreground hover:bg-secondary hover:text-primary rounded-xl transition-all duration-300 text-[10px] font-black uppercase tracking-widest border border-border/50 group relative"
                         title="Recargar datos locales (No sincroniza con X)"
                     >
                         <RefreshCcw size={14} className="group-hover:rotate-180 transition-transform duration-700" />
-                        <span>Actualizar Datos</span>
+                        <span className="hidden sm:inline">Datos</span>
+                    </button>
+                    <button
+                        onClick={handleSyncClick}
+                        className={cn(
+                            "flex-1 flex items-center justify-center gap-2 py-2.5 bg-indigo-500/10 text-indigo-500 hover:bg-indigo-500 hover:text-white rounded-xl transition-all duration-300 text-[10px] font-black uppercase tracking-widest border border-indigo-500/20 group relative",
+                            isSyncing && "opacity-70 cursor-not-allowed"
+                        )}
+                        disabled={isSyncing}
+                        title="Sincronizar con X (Descarga info real)"
+                    >
+                        <RefreshCcw size={14} className={cn("group-hover:rotate-180 transition-transform duration-700", isSyncing && "animate-spin")} />
+                        <span className="hidden sm:inline">{isSyncing ? "..." : "Sync X"}</span>
                     </button>
                 </div>
 
