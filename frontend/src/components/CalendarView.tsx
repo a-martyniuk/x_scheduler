@@ -81,12 +81,12 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                         const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
                         return (
-                            <div className="p-3 rounded-xl border border-border/50 bg-card/50 backdrop-blur-sm transition-all hover:scale-[1.02] overflow-hidden">
-                                <div className="flex items-center justify-between mb-1">
-                                    <span className="font-black text-[9px] opacity-60 tabular-nums">{timeStr}</span>
-                                    <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: arg.event.backgroundColor }} />
+                            <div className="p-3 rounded-xl border border-border/80 bg-card dark:bg-slate-800 shadow-md hover:shadow-lg transition-all hover:scale-[1.02] overflow-hidden group">
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <span className="font-black text-[10px] opacity-90 tabular-nums text-foreground/80 group-hover:text-primary transition-colors">{timeStr}</span>
+                                    <div className="w-2 h-2 rounded-full ring-2 ring-white/10" style={{ backgroundColor: arg.event.backgroundColor }} />
                                 </div>
-                                <div className="font-bold text-[11px] line-clamp-1 leading-tight">{arg.event.title}</div>
+                                <div className="font-extrabold text-[12px] line-clamp-2 leading-tight text-foreground/90">{arg.event.title}</div>
                             </div>
                         );
                     }}
