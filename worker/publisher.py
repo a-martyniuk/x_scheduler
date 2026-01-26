@@ -528,12 +528,14 @@ async def sync_history_task(username: str):
             except Exception as e:
                 log(f"Failed to scrape profile stats: {e}")
 
-            # Scroll to get more history (Increased depth to detect deeper deletions)
-            for i in range(10):
+            # Scroll to get more history (Increased depth to capture more tweets)
+            log("Scrolling timeline to load more tweets...")
+            for i in range(20):
                 await page.evaluate("window.scrollBy(0, 2000)")
                 await asyncio.sleep(1) # Faster scroll feedback
                 # Check if we still see new tweets or reached the end
-                # (Simple scroll is usually enough for recent 50-100 tweets)
+                # (This should capture ~100-200 tweets)
+            log("Finished scrolling timeline...")
             
             # Extract recent tweets
             articles = await page.locator(XSelectors.TWEET_ARTICLE).all()
