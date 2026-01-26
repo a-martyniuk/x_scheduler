@@ -3,6 +3,8 @@ import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
+import type { DateClickArg } from '@fullcalendar/interaction';
+import type { EventClickArg } from '@fullcalendar/core';
 import { motion } from 'framer-motion';
 import { cn } from '../lib/utils';
 import type { Post } from '../types';
@@ -11,8 +13,8 @@ interface CalendarViewProps {
     posts: Post[];
     userTimezone: string;
     isMobile: boolean;
-    onDateClick: (arg: any) => void;
-    onEventClick: (arg: any) => void;
+    onDateClick: (arg: DateClickArg) => void;
+    onEventClick: (arg: EventClickArg) => void;
     // isLoading and onRefresh removed
 }
 
@@ -55,8 +57,9 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
             <div className="calendar-container">
                 <FullCalendar
+                    key={isMobile ? 'mobile' : 'desktop'}
                     plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
-                    initialView="dayGridMonth"
+                    initialView={isMobile ? "timeGridDay" : "dayGridMonth"}
                     timeZone={userTimezone}
                     themeSystem="standard"
                     defaultTimedEventDuration="00:15:00"
@@ -64,7 +67,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     headerToolbar={isMobile ? {
                         left: 'prev,next',
                         center: 'title',
-                        right: 'dayGridMonth,timeGridWeek'
+                        right: 'today'
                     } : {
                         left: 'prev,next today',
                         center: 'title',

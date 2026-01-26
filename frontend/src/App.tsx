@@ -415,30 +415,7 @@ function App() {
         onClose={() => setIsLoginModalOpen(false)}
       />
 
-      {/* CSS Overrides for Premium Feel */}
-      <style dangerouslySetInnerHTML={{
-        __html: `
-        .fc-theme-standard td, .fc-theme-standard th { border-color: var(--border) !important; opacity: 1 !important; }
-        .fc-theme-standard .fc-scrollgrid { border: 1px solid var(--border) !important; border-radius: 1.5rem; overflow: hidden; }
-        .fc-header-toolbar { margin-bottom: 2.5rem !important; flex-wrap: wrap; gap: 1rem; }
-        .fc-toolbar-title { font-weight: 900 !important; letter-spacing: -0.05em !important; font-size: 1.5rem !important; }
-        .fc-button { background: hsl(var(--primary)) !important; border: none !important; border-radius: 1rem !important; font-weight: 800 !important; text-transform: uppercase !important; font-size: 10px !important; letter-spacing: 0.1em !important; padding: 0.8rem 1.2rem !important; box-shadow: 0 4px 12px hsla(var(--primary), 0.3); }
-        .fc-button-primary:not(:disabled).fc-button-active, .fc-button-primary:not(:disabled):active { background: hsl(var(--primary)) !important; opacity: 1; box-shadow: inset 0 2px 4px rgba(0,0,0,0.1); }
-        
-        .fc-daygrid-day-frame { padding: 4px !important; }
-        .fc-daygrid-day-number { font-size: 0.9rem !important; font-weight: 700 !important; padding: 8px !important; opacity: 0.8; }
-        .fc-col-header-cell-cushion { font-size: 0.8rem !important; opacity: 1 !important; padding-bottom: 1rem !important; }
-        
-        @media (max-width: 768px) {
-          .fc-header-toolbar { flex-direction: column; align-items: center; gap: 0.75rem; margin-bottom: 1.5rem !important; }
-          .fc-toolbar-chunk { display: flex; justify-content: center; width: 100%; }
-          .fc-button { padding: 0.6rem 1rem !important; font-size: 9px !important; }
-          .fc-toolbar-title { font-size: 1.25rem !important; text-align: center; }
-        }
-        .sidebar-active { background: linear-gradient(135deg, hsl(var(--primary)) 0%, #3b82f6 100%); color: white !important; box-shadow: 0 10px 25px -5px hsla(var(--primary), 0.4); }
-        .sidebar-inactive { color: hsl(var(--muted-foreground)) !important; }
-        .sidebar-inactive:hover { background: hsla(var(--primary), 0.05); color: hsl(var(--foreground)) !important; }
-      `}} />
+      {/* CSS Overrides are now in index.css */}
     </div>
   );
 }
