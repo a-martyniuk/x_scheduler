@@ -388,7 +388,6 @@ function App() {
                 posts={posts}
                 globalStats={globalStats}
                 accounts={accounts}
-                onSync={undefined} // Handled by Sidebar now, but I will remove the button from AnalyticsView
               />
             </motion.div>
           )}

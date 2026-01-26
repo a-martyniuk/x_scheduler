@@ -25,10 +25,9 @@ interface AnalyticsViewProps {
         last_synced?: string;
         last_metrics_refresh?: string;
     }[];
-    onSync?: () => Promise<{ imported: number; log: string; debug_screenshot?: string }>;
 }
 
-export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats, accounts, onSync }) => {
+export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ posts, globalStats, accounts }) => {
     const { growthData, bestTimes, performanceData, latestPost, isLoadingLatestPost, accountGrowth } = useAnalytics();
     const [selectedMetric, setSelectedMetric] = React.useState<'views' | 'likes' | 'followers' | 'posts' | 'bookmarks' | 'replies'>('views');
 
