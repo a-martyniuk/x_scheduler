@@ -40,7 +40,39 @@ async def sync_account_history(username: str, db: Session):
         except Exception as e:
              logger.error(f"Failed to save account metrics: {e}")
     
-    # 3. Auto-Heal False Positives
+    # 3. Detect Deletions (Reverse Sync)
+    # If a post was 'sent' in our DB, has a tweet_id, and is older than the oldest scanned date,
+    # but wasn't found in current 'result["posts"]', it might be deleted.
+    if "oldest_scanned_date" in result and result["oldest_scanned_date"]:
+        try:
+            oldest_date = datetime.fromisoformat(result["oldest_scanned_date"]).replace(tzinfo=None)
+            
+            # Find all 'sent' posts that should have been in the scanned range
+            scanned_tweet_ids = {p["tweet_id"] for p in result["posts"]}
+            
+            # We only check posts that are NEWER than the oldest scanned date.
+            # If a post is newer than oldest_date but NOT in scanned_tweet_ids, it was deleted.
+            orphans = db.query(Post).filter(
+                Post.username == username,
+                Post.status == "sent",
+                Post.tweet_id.isnot(None),
+                Post.created_at >= oldest_date
+            ).all()
+            
+            deleted_count = 0
+            for post in orphans:
+                if post.tweet_id not in scanned_tweet_ids:
+                    logger.warning(f"Post {post.id} (tweet_id: {post.tweet_id}) not found in X scan. Marking as deleted.")
+                    post.status = "deleted_on_x"
+                    post.logs = (post.logs or "") + f"\n[Sync] {datetime.now().isoformat()} - Post not found on X profile. Marked as deleted."
+                    deleted_count += 1
+            
+            if deleted_count > 0:
+                logger.info(f"Marked {deleted_count} posts as deleted_on_x.")
+        except Exception as e:
+            logger.error(f"Failed during deletion detection: {e}")
+
+    # 4. Auto-Heal False Positives
     healed_count = db.query(Post).filter(
         Post.username == username, 
         Post.status == "deleted_on_x"
