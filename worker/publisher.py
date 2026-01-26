@@ -577,11 +577,11 @@ async def sync_history_task(username: str):
                          log(f"Warning: Could not extract datetime/title from time tag for article.")
 
                     link_el = article.locator('a[href*="/status/"]').first
-                        if await link_el.count() > 0:
-                            href = await link_el.get_attribute('href')
-                            if href:
-                                match = re.search(r'status/(\d+)', href)
-                                tweet_id = match.group(1) if match else None
+                    if await link_el.count() > 0:
+                        href = await link_el.get_attribute('href')
+                        if href:
+                            match = re.search(r'status/(\d+)', href)
+                            tweet_id = match.group(1) if match else None
 
                     if tweet_id:
                         # Content
