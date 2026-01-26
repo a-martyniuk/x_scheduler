@@ -106,7 +106,10 @@ async def sync_account_history(username: str, db: Session):
             try:
                 pub_date = datetime.fromisoformat(post_data["published_at"].replace("Z", "+00:00")).replace(tzinfo=None)
             except:
-                pass
+                logger.warning(f"Failed to parse date for tweet {post_data['tweet_id']}: {post_data['published_at']}")
+        
+        # Determine the date to use for snapshots or new records
+        # If pub_date is missing, we use 'now' only as a last resort for NEW posts
         final_date = pub_date or datetime.now(timezone.utc).replace(tzinfo=None)
 
         if existing_post:

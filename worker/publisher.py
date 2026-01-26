@@ -544,11 +544,16 @@ async def sync_history_task(username: str):
             for article in articles:
                 try:
                     # ... (Time/ID extraction logic remains similar as it uses generic HTML tags 'time', 'a') ...
+                    # ID / Time extraction logic
                     time_tag = article.locator('time')
                     datetime_str = None
                     tweet_id = None
-                    # ... (keep ID extraction logic) ...
+                    
                     if await time_tag.count() > 0:
+                        # Wait small buffer for dynamic data to hydrate
+                        try:
+                            await time_tag.wait_for(state="visible", timeout=2000)
+                        except: pass
                         datetime_str = await time_tag.get_attribute('datetime')
                         link_el = article.locator('a[href*="/status/"]').first
                         if await link_el.count() > 0:
