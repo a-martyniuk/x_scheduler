@@ -243,60 +243,64 @@ export const PostModal: React.FC<PostModalProps> = ({ isOpen, onClose, onSave, p
                                 </div>
                             </div>
 
-                            <div className="space-y-4">
-                                <label className="text-[11px] font-black text-muted-foreground uppercase tracking-widest ml-1">Multimedia</label>
-                                <div className="flex flex-wrap gap-4">
-                                    <label className="w-24 h-24 flex flex-col items-center justify-center rounded-[1.5rem] border-2 border-dashed border-border/60 hover:border-primary hover:bg-primary/5 transition-all cursor-pointer group">
-                                        <Upload size={20} className="text-muted-foreground group-hover:text-primary transition-colors" />
-                                        <span className="text-[8px] font-black uppercase mt-1 text-muted-foreground group-hover:text-primary transition-colors">Galería</span>
-                                        <input type="file" className="hidden" accept="image/*,video/*" multiple onChange={handleFileChange} />
-                                    </label>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="space-y-4">
+                                    <label className="text-[11px] font-black text-muted-foreground uppercase tracking-widest ml-1">Multimedia</label>
+                                    <div className="flex flex-wrap gap-4">
+                                        <label className="w-24 h-24 flex flex-col items-center justify-center rounded-[1.5rem] border-2 border-dashed border-border/60 hover:border-primary hover:bg-primary/5 transition-all cursor-pointer group">
+                                            <Upload size={20} className="text-muted-foreground group-hover:text-primary transition-colors" />
+                                            <span className="text-[8px] font-black uppercase mt-1 text-muted-foreground group-hover:text-primary transition-colors">Galería</span>
+                                            <input type="file" className="hidden" accept="image/*,video/*" multiple onChange={handleFileChange} />
+                                        </label>
 
-                                    <label className="w-24 h-24 flex flex-col items-center justify-center rounded-[1.5rem] border-2 border-dashed border-border/60 hover:border-primary hover:bg-primary/5 transition-all cursor-pointer group md:hidden">
-                                        <Camera size={20} className="text-muted-foreground group-hover:text-primary transition-colors" />
-                                        <span className="text-[8px] font-black uppercase mt-1 text-muted-foreground group-hover:text-primary transition-colors">Cámara</span>
-                                        <input type="file" className="hidden" accept="image/*" capture="environment" onChange={handleFileChange} />
-                                    </label>
+                                        <label className="w-24 h-24 flex flex-col items-center justify-center rounded-[1.5rem] border-2 border-dashed border-border/60 hover:border-primary hover:bg-primary/5 transition-all cursor-pointer group md:hidden">
+                                            <Camera size={20} className="text-muted-foreground group-hover:text-primary transition-colors" />
+                                            <span className="text-[8px] font-black uppercase mt-1 text-muted-foreground group-hover:text-primary transition-colors">Cámara</span>
+                                            <input type="file" className="hidden" accept="image/*" capture="environment" onChange={handleFileChange} />
+                                        </label>
 
-                                    {mediaPaths.split(',').filter(Boolean).map((path, idx) => {
-                                        // Handle both Windows and Linux paths from backend
-                                        const filename = path.split(/[\\/]/).pop();
-                                        const displayUrl = `${BASE_URL}/uploads/${filename}`;
+                                        {mediaPaths.split(',').filter(Boolean).map((path, idx) => {
+                                            // Handle both Windows and Linux paths from backend
+                                            const filename = path.split(/[\\/]/).pop();
+                                            const displayUrl = `${BASE_URL}/uploads/${filename}`;
 
-                                        return (
-                                            <div key={idx} className="relative group w-24 h-24">
-                                                <img
-                                                    src={displayUrl}
-                                                    className="w-full h-full object-cover rounded-[1.5rem] border-2 border-border/50 bg-slate-100 dark:bg-slate-800"
-                                                    alt=""
-                                                    onError={(e) => {
-                                                        const target = e.target as HTMLImageElement;
-                                                        target.src = 'https://via.placeholder.com/150?text=Error';
-                                                    }}
-                                                />
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setMediaPaths(mediaPaths.split(',').filter((_, i) => i !== idx).join(','))}
-                                                    className="absolute -top-2 -right-2 bg-red-500 text-white p-1.5 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10"
-                                                >
-                                                    <X size={10} />
-                                                </button>
-                                            </div>
-                                        );
-                                    })}
+                                            return (
+                                                <div key={idx} className="relative group w-24 h-24">
+                                                    <img
+                                                        src={displayUrl}
+                                                        className="w-full h-full object-cover rounded-[1.5rem] border-2 border-border/50 bg-slate-100 dark:bg-slate-800"
+                                                        alt=""
+                                                        onError={(e) => {
+                                                            const target = e.target as HTMLImageElement;
+                                                            target.src = 'https://via.placeholder.com/150?text=Error';
+                                                        }}
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setMediaPaths(mediaPaths.split(',').filter((_, i) => i !== idx).join(','))}
+                                                        className="absolute -top-2 -right-2 bg-red-500 text-white p-1.5 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                                                    >
+                                                        <X size={10} />
+                                                    </button>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
-                            </div>
 
-                            <div className="space-y-2">
-                                <label className="text-[11px] font-black text-muted-foreground uppercase tracking-widest ml-1 flex items-center gap-2">
-                                    <CalendarIcon size={14} className="text-primary" /> Programación
-                                </label>
-                                <input
-                                    type="datetime-local"
-                                    className="w-full px-5 py-4 bg-slate-100 dark:bg-white/5 border-none rounded-2xl outline-none font-black text-sm"
-                                    value={scheduledAt}
-                                    onChange={(e) => setScheduledAt(e.target.value)}
-                                />
+                                <div className="space-y-2">
+                                    <label className="text-[11px] font-black text-muted-foreground uppercase tracking-widest ml-1 flex items-center gap-2">
+                                        <CalendarIcon size={14} className="text-primary" /> Programación
+                                    </label>
+                                    <div className="h-24 flex items-center">
+                                        <input
+                                            type="datetime-local"
+                                            className="w-full px-5 py-4 bg-slate-100 dark:bg-white/5 border-none rounded-2xl outline-none font-black text-sm"
+                                            value={scheduledAt}
+                                            onChange={(e) => setScheduledAt(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
                             </div>
 
                             {/* Activity Logs (Debug section) */}
