@@ -677,31 +677,64 @@ async def sync_history_task(username: str):
                                     await analytics_page.goto(analytics_url, timeout=20000)
                                     await human_delay(2, 3)
                                     
-                                    # Scrape the analytics page
-                                    # Look for specific metrics by text content
-                                    page_content = await analytics_page.content()
+                                    # Save screenshot for debugging
+                                    # await analytics_page.screenshot(path=os.path.join(SCREENSHOTS_DIR, f"analytics_{tweet_id}.png"))
                                     
-                                    # Strategy: Find elements containing the metric names
-                                    # "Link clicks", "Profile visits", "Detail expands"
+                                    # Strategy: Find metric labels and get their associated numbers
+                                    # X shows metrics in a grid with number above label
                                     
-                                    # Try to find metrics by looking for text patterns
-                                    all_text = await analytics_page.locator('span, div').all_text_contents()
-                                    full_text = ' '.join(all_text)
+                                    # Get all text content
+                                    page_text = await analytics_page.content()
                                     
-                                    # Link clicks
-                                    link_clicks_matches = re.findall(r'(\d+)\s*(?:Link clicks?|Link click)', full_text, re.IGNORECASE)
-                                    if link_clicks_matches:
-                                        url_link_clicks = int(link_clicks_matches[0])
+                                    # Try multiple strategies
                                     
-                                    # Profile visits
-                                    profile_visits_matches = re.findall(r'(\d+)\s*(?:Profile visits?|Profile visit)', full_text, re.IGNORECASE)
-                                    if profile_visits_matches:
-                                        user_profile_clicks = int(profile_visits_matches[0])
+                                    # Strategy 1: Look for aria-labels or data-testids
+                                    try:
+                                        # Find all divs/spans that might contain metrics
+                                        metric_containers = await analytics_page.locator('[aria-label], [data-testid]').all()
+                                        for container in metric_containers:
+                                            aria_label = await container.get_attribute('aria-label')
+                                            if aria_label:
+                                                # Check if it contains our metrics
+                                                if 'link click' in aria_label.lower():
+                                                    match = re.search(r'(\d+)', aria_label)
+                                                    if match:
+                                                        url_link_clicks = int(match.group(1))
+                                                elif 'profile visit' in aria_label.lower():
+                                                    match = re.search(r'(\d+)', aria_label)
+                                                    if match:
+                                                        user_profile_clicks = int(match.group(1))
+                                                elif 'detail expand' in aria_label.lower():
+                                                    match = re.search(r'(\d+)', aria_label)
+                                                    if match:
+                                                        detail_expands = int(match.group(1))
+                                    except Exception as e:
+                                        log(f"Strategy 1 failed: {e}")
                                     
-                                    # Detail expands
-                                    detail_expands_matches = re.findall(r'(\d+)\s*(?:Detail expands?|Detail expand)', full_text, re.IGNORECASE)
-                                    if detail_expands_matches:
-                                        detail_expands = int(detail_expands_matches[0])
+                                    # Strategy 2: Look for text patterns with flexible spacing
+                                    if url_link_clicks == 0 and user_profile_clicks == 0 and detail_expands == 0:
+                                        try:
+                                            all_text = await analytics_page.locator('body').inner_text()
+                                            
+                                            # More flexible regex - look for number anywhere near the text
+                                            # Pattern: number (possibly with separators) followed eventually by text
+                                            link_pattern = r'(\d[\d,]*)\s*[^\d\w]*\s*(?:Link clicks?)'
+                                            profile_pattern = r'(\d[\d,]*)\s*[^\d\w]*\s*(?:Profile visits?)'
+                                            detail_pattern = r'(\d[\d,]*)\s*[^\d\w]*\s*(?:Detail expands?)'
+                                            
+                                            link_match = re.search(link_pattern, all_text, re.IGNORECASE | re.DOTALL)
+                                            if link_match:
+                                                url_link_clicks = int(link_match.group(1).replace(',', ''))
+                                            
+                                            profile_match = re.search(profile_pattern, all_text, re.IGNORECASE | re.DOTALL)
+                                            if profile_match:
+                                                user_profile_clicks = int(profile_match.group(1).replace(',', ''))
+                                            
+                                            detail_match = re.search(detail_pattern, all_text, re.IGNORECASE | re.DOTALL)
+                                            if detail_match:
+                                                detail_expands = int(detail_match.group(1).replace(',', ''))
+                                        except Exception as e:
+                                            log(f"Strategy 2 failed: {e}")
                                     
                                     log(f"Analytics: link_clicks={url_link_clicks}, profile_visits={user_profile_clicks}, detail_expands={detail_expands}")
                                     
