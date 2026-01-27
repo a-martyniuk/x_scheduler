@@ -128,7 +128,7 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
     success = False
     tweet_id = None
     is_video = False
-    VERSION = "v1.1-media-fix"
+    VERSION = "v1.2-media-diag"
 
     def log(msg):
         logger.info(f"[Worker] [{VERSION}] {msg}")
@@ -287,17 +287,35 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
                             log("Error: Media preview container NOT DETECTED within 30s. Upload might have failed.")
                         
                         if is_video:
-                            log("Video detected. Waiting extra time for processing (up to 180s)...")
-                            # We don't just sleep, we will wait for the button later
+                            log("Video detected. Waiting for attachment/processing (up to 180s)...")
+                            # We will rely on button enablement + a small safety buffer
+                            await human_delay(5, 10)
                         else:
                             await human_delay(3, 6)
                     else:
                         if local_paths:
+                            # Diagnostic: check parent directory
+                            try:
+                                upload_dir = os.path.dirname(local_paths[0])
+                                log(f"CRITICAL Warning: Local media NOT FOUND. Checking parent dir {upload_dir}...")
+                                if os.path.exists(upload_dir):
+                                    log(f"Parent dir exists. Contents: {os.listdir(upload_dir)[:10]}")
+                                else:
+                                    log(f"Parent dir DOES NOT EXIST: {upload_dir}")
+                            except: pass
                             log(f"CRITICAL Warning: Local media paths provided but files NOT FOUND on disk: {local_paths}")
                         elif not remote_paths:
                             log("No valid media paths found to upload.")
 
                 
+                # --- FINAL STATE DIAGNOSTIC ---
+                try:
+                    state_shot = os.path.join(settings.DATA_DIR, "screenshots", f"compose_state_{int(asyncio.get_event_loop().time())}.png")
+                    os.makedirs(os.path.dirname(state_shot), exist_ok=True)
+                    await page.screenshot(path=state_shot)
+                    log(f"Composer state screenshot saved: {state_shot}")
+                except: pass
+
                 # --- SEND ---
 
                 if not dry_run:
