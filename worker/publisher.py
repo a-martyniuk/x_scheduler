@@ -713,13 +713,19 @@ async def scrape_tweet_from_article(article, context, clean_username, log_func=N
                 # Enhanced keywords for Spanish/English
                 repost_keywords = [
                     "repost", "retweet", "reposte", "comparti", 
-                    "you reposted", "reposteaste", "reposteó"
+                    "you reposted", "reposteaste", "reposteó", "retuiteó"
                 ]
                 if any(x in header_text for x in repost_keywords):
                     is_repost = True
             
-            # STRATEGY 3 (ROBUST): Compare Author Handle
-            # If the handle in the tweet header is NOT the username we are syncing, it IS a retweet.
+            # STRATEGY 3: Check "Replying to" (Spanish: "En respuesta a")
+            if not is_repost:
+                # Looking for the text "Replying to" or "En respuesta a" in the body
+                reply_indicator = article.locator('div:has-text("Replying to"), div:has-text("En respuesta a")').first
+                if await reply_indicator.count() > 0:
+                    is_repost = True # Treat replies as noise for "Clean Policy"
+            
+            # STRATEGY 4 (ROBUST): Compare Author Handle
             if not is_repost and clean_username:
                 try:
                     # Find the user link in the header. Usually the first link in User-Name.
@@ -746,17 +752,17 @@ async def scrape_tweet_from_article(article, context, clean_username, log_func=N
                 except Exception as e:
                     pass
 
-            # STRATEGY 4: Detect Quote Tweets (User has 0 followers but viral stats -> likely scraping the quoted tweet)
+            # STRATEGY 5: Detect Quote Tweets (User has 0 followers but viral stats -> likely scraping the quoted tweet)
             # Quote Tweets usually have TWO User-Name elements or TWO Avatars visible within the article context
             # (One for the poster, one for the quoted user).
             if not is_repost:
                 try:
                     # Count avatars. If > 1, it is likely a Quote Tweet (or Thread, but Threads usually look different)
                     # Use a generic selector for avatar containers
-                    avatars = article.locator('[data-testid^="User-Avatar-Container"]').all()
-                    if len(await avatars) > 1:
+                    avatars = await article.locator('[data-testid^="User-Avatar-Container"]').all()
+                    if len(avatars) > 1:
                         is_repost = True
-                        # log_func(f"Detected Quote Tweet (Multiple Avatars): {len(await avatars)}")
+                        # log_func(f"Detected Quote Tweet (Multiple Avatars): {len(avatars)}")
                 except:
                     pass
         except Exception as e:
