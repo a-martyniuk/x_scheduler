@@ -142,12 +142,16 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
             else:
                 log("No session state found. Proceeding as guest/fresh.")
 
+            # Create page BEFORE verifying session
+            page = await context.new_page()
+
             # --- VERIFY SESSION ---
             if not await verify_session(page, log):
                 return {"success": False, "log": "Authentication failed: Session invalid or expired. Please update cookies.", "screenshot_path": None, "tweet_id": None}
 
         except Exception as e:
-            await browser.close()
+            if 'browser' in locals():
+                await browser.close()
             # Clean up temp file if it was created
             if temp_cookies_path and os.path.exists(temp_cookies_path):
                 try:
@@ -157,7 +161,7 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
             return {"success": False, "log": f"Failed to initialize context with session: {e}", "screenshot_path": None, "tweet_id": None}
 
 
-        page = await context.new_page()
+
 
         try:
             # --- NAVIGATION / SETUP ---
@@ -218,19 +222,28 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
 
                 if not dry_run:
                     tweet_button = page.locator(XSelectors.BTN_TWEET_INLINE)
-                    # Determine correct button (Modal uses 'tweetButton', inline uses 'tweetButtonInline' usually)
-                    # Actually, for replies it might be 'tweetButton' inside the modal.
-                    # Let's try to find *any* enabled tweet button in the active context
                     if not await tweet_button.is_visible():
                          tweet_button = page.locator(XSelectors.BTN_TWEET_MODAL)
                     
+                    # Wait for button to be enabled (upload processing)
+                    log("Waiting for Tweet button to be enabled...")
+                    try:
+                        await tweet_button.wait_for(state="attached", timeout=60000)
+                        # Wait specifically for enabled state
+                        for _ in range(30): # 30 seconds more
+                            if await tweet_button.is_enabled():
+                                break
+                            await asyncio.sleep(1)
+                    except:
+                        pass
+
                     if await tweet_button.is_enabled():
                         await tweet_button.click()
                         log("Clicked Post/Reply button.")
                         await human_delay(4, 7) # Wait for network
                         success = True
                     else:
-                         log("Button disabled. Content empty or upload stuck?")
+                         log("Button disabled after 60s. Upload might have failed or content is invalid.")
                 else:
                     log("DRY RUN: Skipping send.")
                     success = True
