@@ -701,11 +701,26 @@ async def scrape_tweet_from_article(article, context, clean_username, log_func=N
         # Check if Repost
         is_repost = False
         try:
+            # 1. Check strict selector
             header = article.locator(XSelectors.METRIC_SOCIAL_CONTEXT).first
+            
+            # 2. Check fallback generic social context if strict fails
+            if await header.count() == 0:
+                 header = article.locator('[data-testid="socialContext"]').first
+
             if await header.count() > 0:
                 header_text = (await header.inner_text()).lower()
-                if any(x in header_text for x in ["repost", "retweet", "reposte", "comparti"]):
+                # Enhanced keywords for Spanish/English
+                repost_keywords = [
+                    "repost", "retweet", "reposte", "comparti", 
+                    "you reposted", "reposteaste", "reposteó"
+                ]
+                if any(x in header_text for x in repost_keywords):
                     is_repost = True
+                
+                # Also treat "pinned" as NOT a repost, but "liked" ? No, liked doesn't appear on profile timeline usually unless in a specific tab.
+                # But sometimes "You might like" appears.
+                # If it says "reposted", it IS a repost.
         except Exception as e:
             pass
 
