@@ -1,4 +1,5 @@
 import asyncio
+import time
 import os
 import json
 import re
@@ -74,17 +75,21 @@ async def verify_session(page, log_func) -> bool:
     Returns True if valid session, False if logged out/login wall.
     """
     try:
-        # Check for logged-in indicators (Home link, Account Switcher)
-        # We wait a bit just in case, but usually this is called after navigation
+        log_func(f"Verifying session on {page.url}...")
         try:
+            # Home or Account switcher means logged in
             await page.wait_for_selector(f'{XSelectors.HOME_LINK}, {XSelectors.ACCOUNT_SWITCHER}', timeout=5000)
             log_func("Session verification: ACTIVE (Found account indicators)")
             return True
-        except:
+        except Exception as inner_e:
+            log_func(f"Missing indicators (Home/Account): {inner_e}")
             pass
 
+        # Take a look at the page
+        current_url = page.url
+        log_func(f"Current page URL: {current_url}")
+
         # Check for logged-out indicators (Sign in text, login buttons)
-        # Using specific selectors from config, plus generic text search
         if await page.locator(XSelectors.LOGGED_OUT_LOGIN).count() > 0 or \
            await page.locator(XSelectors.LOGGED_OUT_SIGN_UP).count() > 0:
             log_func("Session verification: FAILED (Found login buttons)")
@@ -92,18 +97,24 @@ async def verify_session(page, log_func) -> bool:
 
         # Fallback text check
         body_text = await page.inner_text("body")
-        if "Sign in to X" in body_text or "Log in" in body_text:
+        if "Sign in to X" in body_text or "Log in to X" in body_text:
             log_func("Session verification: FAILED (Found 'Sign in' text)")
             return False
+
+        # Check for error pages
+        if "Something went wrong" in body_text:
+            log_func("Session verification: ERROR (Found 'Something went wrong' text)")
             
-        # If neither found (ambiguous state), we might be on a public profile but not logged in.
-        # But if we were logged in, we SHOULD see the Home/Account indicators.
-        # So assuming False is safer to prevent limited scraping.
-        log_func("Session verification: AMBIGUOUS (No clear indicators). Assuming invalid.")
+        # Ambiguous state
+        log_func("Session verification: AMBIGUOUS. Taking screenshot for diagnosis.")
+        diag_path = os.path.join(SCREENSHOTS_DIR, f"auth_diag_{int(time.time())}.png")
+        await page.screenshot(path=diag_path)
+        log_func(f"Diagnostic screenshot: {diag_path}")
+        
         return False
         
     except Exception as e:
-        log_func(f"Session verification error: {e}")
+        log_func(f"Session verification CRITICAL error: {e}")
         return False
 
 async def publish_post_task(content: str, media_paths: str = None, reply_to_id: str = None, username: str = None, dry_run: bool = False):
