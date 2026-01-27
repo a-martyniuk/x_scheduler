@@ -67,11 +67,13 @@ async def sync_account_history(username: str, db: Session):
             
             # We only check posts that are NEWER than the oldest scanned date.
             # If a post is newer than oldest_date but NOT in scanned_tweet_ids, it was deleted.
+            # EXCEPTION: Do not mark Reposts as deleted, as they are often elusive in scrapes.
             orphans = db.query(Post).filter(
                 Post.username == username,
                 Post.status == "sent",
                 Post.tweet_id.isnot(None),
-                Post.created_at >= oldest_date
+                Post.created_at >= oldest_date,
+                Post.is_repost.is_(False) # Ignore known reposts from deletion check
             ).all()
             
             deleted_count = 0
