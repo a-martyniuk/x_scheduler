@@ -107,6 +107,7 @@ async def sync_account_history(username: str, db: Session):
         "2007355606806798455", # "Toda latinoamerica..." (Persistent Quote Tweet - Fixed Typo 806)
         "2007929193334738952", # "Domingo en el gym..."
         "2007327615070392726", # "PENTAGON PIZZA..."
+        "2007332245871415556", # "La civilización avanza..." (James Clear)
     }
     
     # --- PHASE 0: PRE-SYNC CLEANUP (Force Delete Blacklisted IDs) ---
