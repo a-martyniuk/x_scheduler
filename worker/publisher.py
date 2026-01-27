@@ -128,7 +128,7 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
     success = False
     tweet_id = None
     is_video = False
-    VERSION = "v1.3-advanced-media"
+    VERSION = "v1.3.1-media-debug"
 
     def log(msg):
         logger.info(f"[Worker] [{VERSION}] {msg}")
@@ -224,6 +224,7 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
 
                 # Upload media (multiple support)
                 if media_paths:
+                    log(f"Media paths received (raw): {repr(media_paths)}")
                     # Attempt to parse as JSON first (common for imported posts)
                     try:
                         path_list = json.loads(media_paths)
@@ -231,7 +232,7 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
                             path_list = [p.strip() for p in path_list.split(',') if p.strip()]
                     except:
                         # Fallback to comma-separated
-                        path_list = [p.strip() for p in media_paths.split(',') if p.strip()]
+                        path_list = [p.strip() for p in str(media_paths).split(',') if p.strip()]
                     
                     # Log normalized paths
                     log(f"Parsed media paths: {path_list}")

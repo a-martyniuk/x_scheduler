@@ -39,7 +39,23 @@ export const PostModal: React.FC<PostModalProps> = ({ isOpen, onClose, onSave, p
         return sequence;
     }, [parentId, post?.parent_id, posts]);
 
+    // We use a ref to track which post is currently loaded in the modal
+    // to avoid resetting state if unrelated props (like accounts list) update.
+    const lastPostIdRef = React.useRef<number | string | null | undefined>(undefined);
+
     useEffect(() => {
+        if (!isOpen) {
+            lastPostIdRef.current = undefined;
+            return;
+        }
+
+        // Only reset state if the selected post ID or initialDate changed, 
+        // OR if it's the first time we open the modal (lastPostIdRef is undefined)
+        const currentId = post?.id || 'new-' + (initialDate?.getTime() || 'none');
+        if (lastPostIdRef.current === currentId) return;
+
+        lastPostIdRef.current = currentId;
+
         if (post) {
             setContent(post.content);
             setMediaPaths(post.media_paths || '');
@@ -58,26 +74,21 @@ export const PostModal: React.FC<PostModalProps> = ({ isOpen, onClose, onSave, p
             setUsername(accounts[0]?.username || '');
 
             const date = initialDate || new Date();
-            // If selecting from calendar, it comes as local date at 00:00 or similar
-            // We want to set default time to 09:00 or current time if it is today
             if (initialDate) {
-                // Clone to avoid mutation
                 const localDate = new Date(initialDate);
-                // Set to current hour if today, else 09:00
                 const now = new Date();
                 if (localDate.toDateString() === now.toDateString()) {
                     localDate.setHours(now.getHours(), now.getMinutes());
                 } else {
                     localDate.setHours(9, 0);
                 }
-                // Convert to local ISO string for input
                 setScheduledAt(utcToLocal(localDate.toISOString()).slice(0, 16));
             } else {
                 date.setMinutes(date.getMinutes() + 60);
                 setScheduledAt(utcToLocal(date.toISOString()).slice(0, 16));
             }
         }
-    }, [post, initialDate, accounts, isOpen]);
+    }, [post, initialDate, isOpen, accounts.length]); // Only reset if accounts COUNT changes or other core props
 
     if (!isOpen) return null;
 
