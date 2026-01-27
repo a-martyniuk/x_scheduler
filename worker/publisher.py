@@ -739,7 +739,7 @@ async def scrape_tweet_from_article(article, context, clean_username, log_func=N
                             
                             if tweet_author != current_user:
                                 is_repost = True
-                                log_func(f"Detected Repost by Handle Mismatch: {tweet_author} != {current_user}")
+                                # log_func(f"Detected Repost by Handle Mismatch: {tweet_author} != {current_user}")
                     else:
                          # No handle found, likely ad or odd element
                          pass
@@ -756,7 +756,7 @@ async def scrape_tweet_from_article(article, context, clean_username, log_func=N
                     avatars = article.locator('[data-testid^="User-Avatar-Container"]').all()
                     if len(await avatars) > 1:
                         is_repost = True
-                        log_func(f"Detected Quote Tweet (Multiple Avatars): {len(await avatars)}")
+                        # log_func(f"Detected Quote Tweet (Multiple Avatars): {len(await avatars)}")
                 except:
                     pass
         except Exception as e:
@@ -818,16 +818,15 @@ async def sync_history_task(username: str):
             await page.goto(url, timeout=60000, wait_until="networkidle")
             await human_delay(3, 5)
 
-            # Dump HTML for debugging
-            try:
-                html_content = await page.content()
-                debug_html_path = os.path.join(WORKER_DIR, f"debug_profile_{clean_username}.html")
-                with open(debug_html_path, "w", encoding="utf-8") as f:
-                    f.write(html_content)
-                log(f"DEBUG: Saved raw HTML to {debug_html_path}")
-                
-            except Exception as e:
-                log(f"DEBUG: Failed to save/analyze HTML: {e}")
+            # Debug HTML dump removed for production cleanup
+            # try:
+            #     html_content = await page.content()
+            #     debug_html_path = os.path.join(WORKER_DIR, f"debug_profile_{clean_username}.html")
+            #     with open(debug_html_path, "w", encoding="utf-8") as f:
+            #         f.write(html_content)
+            #     log(f"DEBUG: Saved raw HTML to {debug_html_path}")
+            # except Exception as e:
+            #     log(f"DEBUG: Failed to save/analyze HTML: {e}")
 
             # --- VERIFY SESSION ---
             if not await verify_session(page, log):
@@ -893,7 +892,7 @@ async def sync_history_task(username: str):
                                 
                             seen_tweet_ids.add(real_tid)
                             posts_imported.append(tweet_data)
-                            log(f"Scraped Tweet: {real_tid} | {tweet_data['content'][:30]}...")
+                            # log(f"Scraped Tweet: {real_tid} | {tweet_data['content'][:30]}...")
                             new_in_batch += 1
                             
                             # Reset no-change counter if we found something

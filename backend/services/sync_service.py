@@ -15,20 +15,7 @@ async def sync_account_history(username: str, db: Session):
     """
     logger.info(f"Syncing history for {username}...")
     
-    # 0. One-time Cleanup of Instagram Orphans (to handle the cloud DB)
-    try:
-        query = db.query(Post).filter(Post.content.like("%New Story Update!%"))
-        ig_posts = query.all()
-        if ig_posts:
-            logger.info(f"Cleanup: Found {len(ig_posts)} orphaned Instagram posts in cloud DB. Purging...")
-            for post in ig_posts:
-                db.query(PostMetricSnapshot).filter(PostMetricSnapshot.post_id == post.id).delete()
-                db.delete(post)
-            db.commit()
-            logger.info("Instagram cleanup successful.")
-    except Exception as e:
-        logger.error(f"One-time cleanup failed: {e}")
-        db.rollback()
+    # 0. One-time Cleanup: Removed (Legacy)
 
     # 1. Call Worker
     try:
@@ -133,15 +120,15 @@ async def sync_account_history(username: str, db: Session):
         is_repost_flag = post_data.get("is_repost", False)
 
         if is_blacklisted:
-            logger.info(f"Sync: Skipping blacklisted post {tweet_id}")
+            # logger.debug(f"Sync: Skipping blacklisted post {tweet_id}")
             continue
         
         if is_repost_flag:
-            logger.info(f"Sync: Skipping repost {tweet_id}")
+            # logger.debug(f"Sync: Skipping repost {tweet_id}")
             continue
 
         if is_empty:
-            logger.info(f"Sync: Skipping empty post {tweet_id}")
+            # logger.debug(f"Sync: Skipping empty post {tweet_id}")
             continue
 
         # Determine date
@@ -170,7 +157,7 @@ async def sync_account_history(username: str, db: Session):
             # UPDATE existing record
             if existing_post.is_repost: 
                 # Double check: if DB thinks it's a repost, purge it.
-                logger.info(f"Sync: Purging legacy repost {existing_post.id}")
+                # logger.debug(f"Sync: Purging legacy repost {existing_post.id}")
                 db.delete(existing_post)
                 db.query(PostMetricSnapshot).filter(PostMetricSnapshot.post_id == existing_post.id).delete()
                 continue
