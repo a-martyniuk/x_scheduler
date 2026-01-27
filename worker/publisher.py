@@ -229,8 +229,17 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
                         log(f"Uploading {len(valid_paths)} media files: {valid_paths}")
                         # X allows up to 4 images, or 1 video, or 1 GIF
                         await page.set_input_files(XSelectors.FILE_INPUT, valid_paths)
-                        log("Media upload triggered. Waiting for processing...")
-                        await human_delay(5, 10) # Videos need more time
+                        log("Media upload triggered. Waiting for preview to appear...")
+                        
+                        # Wait for media preview to be visible
+                        try:
+                            # [data-testid="attachments"] is the container for media in compose
+                            await page.wait_for_selector('[data-testid="attachments"]', state="visible", timeout=20000)
+                            log("Media preview detected.")
+                        except:
+                            log("Warning: Media preview not detected within 20s. Processing might be slow or upload failed.")
+                        
+                        await human_delay(5, 10) # Videos need more time for internal processing
                     else:
                         log(f"Warning: Media paths provided but files not found: {path_list}")
                 
@@ -246,8 +255,9 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
                     try:
                         await tweet_button.wait_for(state="attached", timeout=60000)
                         # Wait specifically for enabled state
-                        for _ in range(30): # 30 seconds more
+                        for _ in range(45): # Increased to 45s for videos
                             if await tweet_button.is_enabled():
+                                log("Tweet button is enabled.")
                                 break
                             await asyncio.sleep(1)
                     except:
@@ -256,10 +266,10 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
                     if await tweet_button.is_enabled():
                         await tweet_button.click()
                         log("Clicked Post/Reply button.")
-                        await human_delay(4, 7) # Wait for network
+                        await human_delay(5, 8) # Wait for network
                         success = True
                     else:
-                         log("Button disabled after 60s. Upload might have failed or content is invalid.")
+                         log("Button disabled after wait. Upload might have failed or content is invalid.")
                 else:
                     log("DRY RUN: Skipping send.")
                     success = True
@@ -273,22 +283,24 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
                 try:
                     # Strategy: Click 'Profile' -> Get First Tweet Link
                     await page.locator(XSelectors.PROFILE_LINK).click()
-                    await page.wait_for_url("**/status/**", timeout=2000) # Optional wait if profile redirects fast? No, profile is /username
-                    await human_delay(2, 4)
+                    # Wait for profile page to load (URL should be x.com/username)
+                    await page.wait_for_load_state("networkidle", timeout=10000)
+                    await human_delay(3, 5)
                     
                     # Look for the first tweet timestamp/link
                     # Selector: article -> time -> parent anchor
                     latest_tweet_link = page.locator(f'{XSelectors.TWEET_ARTICLE}').first.locator('time').locator('..')
-                    href = await latest_tweet_link.get_attribute('href')
-                    
-                    if href and 'status' in href:
-                        # href format: /username/status/123456789
-                        match = re.search(r'status/(\d+)', href)
-                        if match:
-                            tweet_id = match.group(1)
-                            log(f"Extracted Tweet ID: {tweet_id}")
+                    if await latest_tweet_link.count() > 0:
+                        href = await latest_tweet_link.get_attribute('href')
+                        
+                        if href and 'status' in href:
+                            # href format: /username/status/123456789
+                            match = re.search(r'status/(\d+)', href)
+                            if match:
+                                tweet_id = match.group(1)
+                                log(f"Extracted Tweet ID: {tweet_id}")
                     else:
-                        log("Could not extract ID from profile feed.")
+                        log("Could not find any tweets on profile feed.")
                         
                 except Exception as e:
                     log(f"ID Extraction failed: {e}")
