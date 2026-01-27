@@ -20,6 +20,7 @@ import { Sidebar } from './components/Sidebar';
 import { CalendarView } from './components/CalendarView';
 import { getUserTimezone } from './utils/timezone';
 import { usePosts } from './hooks/usePosts';
+import { useQuarantinePosts } from './hooks/useQuarantinePosts';
 import { useAuth } from './hooks/useAuth';
 import { useStats } from './hooks/useStats';
 import { useAnalytics } from './hooks/useAnalytics';
@@ -28,6 +29,7 @@ import { api, BASE_URL } from './api';
 
 function App() {
   const { posts, isLoading: isLoadingPosts, createPost, updatePost, error: postsError, refetch: refetchPosts } = usePosts();
+  const { posts: quarantinePosts, restorePost: restoreQuarantinePost, deletePost: deleteQuarantinePost } = useQuarantinePosts();
   const { accounts, refetch: refetchAuth } = useAuth();
   const { data: globalStats, refetch: refetchStats } = useStats();
   const { refetch: refetchAnalytics } = useAnalytics();
@@ -41,7 +43,7 @@ function App() {
     ]);
   };
 
-  const [currentView, setCurrentView] = useState<'calendar' | 'analytics' | 'scraped-data'>('calendar');
+  const [currentView, setCurrentView] = useState<'calendar' | 'analytics' | 'scraped-data' | 'quarantine'>('calendar');
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
@@ -400,6 +402,13 @@ function App() {
                 accounts={accounts}
               />
             </motion.div>
+          ) : currentView === 'quarantine' ? (
+            <ScrapedDataView
+              posts={(quarantinePosts as Post[])}
+              isQuarantine={true}
+              onRestore={restoreQuarantinePost}
+              onDelete={deleteQuarantinePost}
+            />
           ) : (
             <ScrapedDataView posts={posts} />
           )}

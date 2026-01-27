@@ -204,9 +204,16 @@ def read_latest_post(db: Session = Depends(get_db)):
     return post
 
 @router.get("/", response_model=List[PostResponse])
-def read_posts(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
-    # Exclude 'quarantine' status from default feed to hide suspicious posts
-    posts = db.query(Post).filter(Post.status != "quarantine").order_by(Post.id.desc()).offset(skip).limit(limit).all()
+def read_posts(skip: int = 0, limit: int = 100, status: str = None, db: Session = Depends(get_db)):
+    query = db.query(Post)
+    
+    if status:
+        query = query.filter(Post.status == status)
+    else:
+        # Default behavior: Exclude 'quarantine'
+        query = query.filter(Post.status != "quarantine")
+        
+    posts = query.order_by(Post.id.desc()).offset(skip).limit(limit).all()
     return posts
 
 @router.get("/{post_id}", response_model=PostResponse)

@@ -10,14 +10,15 @@ import {
     Zap,
     RefreshCcw,
     Download,
-    Database
+    Database,
+    AlertTriangle
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import type { Post, Account } from '../types';
 
 interface SidebarProps {
-    currentView: 'calendar' | 'analytics' | 'scraped-data';
-    setCurrentView: (view: 'calendar' | 'analytics' | 'scraped-data') => void;
+    currentView: 'calendar' | 'analytics' | 'scraped-data' | 'quarantine';
+    setCurrentView: (view: 'calendar' | 'analytics' | 'scraped-data' | 'quarantine') => void;
     setIsMobileMenuOpen: (isOpen: boolean) => void;
     globalStats: any;
     posts: Post[];
@@ -90,6 +91,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         { id: 'calendar', label: 'Cronograma', icon: CalendarIcon },
                         { id: 'analytics', label: 'Analíticas', icon: BarChart3 },
                         { id: 'scraped-data', label: 'Datos X', icon: Database },
+                        { id: 'quarantine', label: 'Cuarentena', icon: AlertTriangle },
                     ].map((item) => (
                         <button
                             key={item.id}

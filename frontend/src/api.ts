@@ -64,8 +64,11 @@ const fetchWithToken = async (url: string, options: RequestInit = {}) => {
 };
 
 export const api = {
-    getPosts: async (): Promise<Post[]> => {
-        const res = await fetchWithToken(API_URL + '/');
+    getPosts: async (status?: string): Promise<Post[]> => {
+        const url = status
+            ? `${API_URL}/?status=${encodeURIComponent(status)}`
+            : `${API_URL}/`;
+        const res = await fetchWithToken(url);
         if (!res.ok) throw new Error('Failed to fetch posts');
         return res.json();
     },
