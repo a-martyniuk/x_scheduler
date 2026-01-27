@@ -128,7 +128,7 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
     success = False
     tweet_id = None
     is_video = False
-    VERSION = "v1.3.1-media-debug"
+    VERSION = "v1.3.2-final-media"
 
     def log(msg):
         logger.info(f"[Worker] [{VERSION}] {msg}")
@@ -357,6 +357,14 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
                             if await tweet_button.is_enabled():
                                 log(f"Tweet button enabled after {i}s.")
                                 break
+                            
+                            # CHECK FOR ERROR TOASTS
+                            error_selector = '[data-testid="toast"], div[role="alert"]'
+                            if await page.locator(error_selector).count() > 0:
+                                error_text = await page.locator(error_selector).first.inner_text()
+                                log(f"CRITICAL: X shows error message: {error_text}")
+                                # We don't necessarily abort, but we log it
+                            
                             if i % 10 == 0 and i > 0:
                                 log(f"Still waiting for button... ({i}s)")
                             await asyncio.sleep(1)
