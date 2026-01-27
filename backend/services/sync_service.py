@@ -4,6 +4,7 @@ from loguru import logger
 from fastapi import HTTPException
 from backend.models import Post, PostMetricSnapshot, AccountMetricSnapshot
 from worker.publisher import sync_history_task
+from backend.schemas import ScrapedTweet
 
 async def sync_account_history(username: str, db: Session):
     """
@@ -90,56 +91,60 @@ async def sync_account_history(username: str, db: Session):
     scraped_ids = set()
     count = 0 
     
-    for post_data in result["posts"]:
-        tweet_id = str(post_data["tweet_id"])
+    for raw_data in result["posts"]:
+        # 1. STRICT TYPING VALIDATION
+        try:
+            post_data = ScrapedTweet(**raw_data).model_dump()
+        except Exception as e:
+            logger.warning(f"Sync: Skipping invalid data item: {e}")
+            continue
+
+        tweet_id = post_data["tweet_id"]
         scraped_ids.add(tweet_id)
 
-        # Check blacklist or empty policy for INCOMING data to prevent re-insertion
+        # 2. QUARANTINE LOGIC
+        # Instead of skipping, we determine if it's 'suspicious'
         is_empty = (not post_data.get("content") or post_data["content"].strip() == "") and not post_data.get("media_url")
         is_repost_flag = post_data.get("is_repost", False)
         
+        # If it's a known repost, we still skip it entirely (Clean Policy)
         if is_repost_flag:
-            # logger.debug(f"Sync: Skipping repost {tweet_id}")
-            continue
-
-        if is_empty:
-            # logger.debug(f"Sync: Skipping empty post {tweet_id}")
             continue
 
         # Determine date
         pub_date = None
+        date_error = None
         try:
             dt_str = post_data.get("created_at") or post_data.get("published_at")
             if dt_str:
                 pub_date = datetime.fromisoformat(dt_str.replace("Z", "+00:00")).replace(tzinfo=None)
         except Exception as e:
             logger.error(f"Error parsing date {dt_str}: {e}")
+            date_error = str(e)
 
         # Fallback date used ONLY for creation if pub_date is missing
         final_date = pub_date or datetime.now(timezone.utc).replace(tzinfo=None)
+        
+        # QUARANTINE DECISION
+        # If it's empty OR has a date error, it goes to quarantine
+        is_quarantined = is_empty or (pub_date is None)
+        quarantine_reason = ""
+        if is_empty: quarantine_reason += "[Empty Content] "
+        if pub_date is None: quarantine_reason += "[Missing Date] "
 
         # Use tweet_id for identification
         existing_post = db.query(Post).filter(Post.tweet_id == tweet_id).first()
         
-        # Additional cleanup: If we find a repost/empty that somehow exists, kill it
-        if existing_post and (is_repost_flag or is_empty):
-            logger.info(f"Sync: Removing invalid existing post {existing_post.id}")
-            db.delete(existing_post)
-            db.query(PostMetricSnapshot).filter(PostMetricSnapshot.post_id == existing_post.id).delete()
-            continue
-
         if existing_post:
             # UPDATE existing record
-            if existing_post.is_repost: 
-                # Double check: if DB thinks it's a repost, purge it.
-                # logger.debug(f"Sync: Purging legacy repost {existing_post.id}")
-                db.delete(existing_post)
-                db.query(PostMetricSnapshot).filter(PostMetricSnapshot.post_id == existing_post.id).delete()
-                continue
-
             if existing_post.status == "deleted_on_x":
                 existing_post.status = "sent"
-                existing_post.logs = (existing_post.logs or "") + "\n[Sync] Restored from deleted_on_x (Found in scan)"
+                existing_post.logs = (existing_post.logs or "") + "\n[Sync] Restored from deleted_on_x"
+
+            # Use quarantine status if applicable, otherwise keep existing valid status
+            if is_quarantined:
+                existing_post.status = "quarantine"
+                existing_post.logs = (existing_post.logs or "") + f"\n[Sync] Quarantined: {quarantine_reason}"
             
             # Update real-time metrics
             existing_post.views_count = post_data["views"]
@@ -154,12 +159,9 @@ async def sync_account_history(username: str, db: Session):
             if post_data.get("media_url"):
                 existing_post.media_url = post_data["media_url"]
             
-            # CRITICAL: Always overwrite dates if worker provided a VALID pub_date from Snowflake
             if pub_date:
                 existing_post.created_at = pub_date
                 existing_post.updated_at = pub_date 
-            else:
-                pass # Keep existing date
 
             if post_data.get("content") and (not existing_post.content or existing_post.content == "(No content)"):
                 existing_post.content = post_data["content"]
@@ -194,7 +196,10 @@ async def sync_account_history(username: str, db: Session):
         else:
             # CREATE new record
             if not pub_date:
-                    logger.error(f"Sync: Creating NEW post {post_data['tweet_id']} without a valid date. Defaulting to now.")
+                    logger.warning(f"Sync: Creating QUARANTINED post {post_data['tweet_id']} (No Date).")
+            
+            new_status = "quarantine" if is_quarantined else "sent"
+            initial_logs = f"[Sync] Created in Quarantine: {quarantine_reason}" if is_quarantined else None
 
             new_post = Post(
                 tweet_id=tweet_id,
@@ -202,7 +207,7 @@ async def sync_account_history(username: str, db: Session):
                 media_url=post_data.get("media_url"),
                 created_at=final_date,
                 updated_at=final_date,
-                status="sent",
+                status=new_status,
                 username=username,
                 views_count=post_data["views"],
                 likes_count=post_data["likes"],
@@ -212,7 +217,8 @@ async def sync_account_history(username: str, db: Session):
                 url_link_clicks=post_data.get("url_link_clicks", 0),
                 user_profile_clicks=post_data.get("user_profile_clicks", 0),
                 detail_expands=post_data.get("detail_expands", 0),
-                is_repost=False
+                is_repost=False,
+                logs=initial_logs
             )
             db.add(new_post)
             try:

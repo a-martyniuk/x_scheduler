@@ -68,3 +68,32 @@ class GlobalStats(BaseModel):
     views: int
     likes: int
     reposts: int
+
+class ScrapedTweet(BaseModel):
+    tweet_id: str
+    content: Optional[str] = ""
+    views: int = 0
+    likes: int = 0
+    reposts: int = 0
+    bookmarks: Optional[int] = 0
+    replies: Optional[int] = 0
+    url_link_clicks: Optional[int] = 0
+    user_profile_clicks: Optional[int] = 0
+    detail_expands: Optional[int] = 0
+    media_url: Optional[str] = None
+    created_at: Optional[str] = None
+    published_at: Optional[str] = None
+    is_repost: bool = False
+
+    @field_validator('tweet_id', mode='before')
+    @classmethod
+    def validate_tweet_id(cls, v):
+        return str(v).strip()
+    
+    @field_validator('views', 'likes', 'reposts', 'bookmarks', 'replies', 'url_link_clicks', 'user_profile_clicks', 'detail_expands', mode='before')
+    @classmethod
+    def set_zero_if_none(cls, v):
+        try:
+            return int(v) if v is not None else 0
+        except ValueError:
+            return 0

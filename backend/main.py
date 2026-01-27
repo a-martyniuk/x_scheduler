@@ -11,7 +11,7 @@ from fastapi import FastAPI, Header, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from .db import engine, Base, SessionLocal
 from fastapi.staticfiles import StaticFiles
-from .routes import posts, upload, auth, analytics
+from .routes import posts, upload, auth, analytics, health
 from .config import settings
 from fastapi import Header, HTTPException, Depends
 from loguru import logger
@@ -61,6 +61,7 @@ app.include_router(posts.router, prefix="/api/posts", tags=["posts"], dependenci
 app.include_router(upload.router, prefix="/api/upload", tags=["upload"], dependencies=[Depends(verify_token)])
 app.include_router(auth.router, prefix="/api/auth", tags=["auth"], dependencies=[Depends(verify_token)])
 app.include_router(analytics.router, prefix="/api/analytics", tags=["analytics"], dependencies=[Depends(verify_token)])
+app.include_router(health.router, prefix="/api/health", tags=["health"])
 
 @app.on_event("startup")
 async def startup_event():
@@ -75,22 +76,7 @@ async def startup_event():
     start_scheduler()
     logger.info("Scheduler started successfully.")
 
-@app.get("/api/health")
-async def health_check():
-    db_status = "ok"
-    try:
-        db = SessionLocal()
-        from sqlalchemy import text
-        db.execute(text("SELECT 1"))
-        db.close()
-    except Exception as e:
-        db_status = f"error: {str(e)}"
-    
-    return {
-        "status": "ok", 
-        "database": db_status,
-        "timestamp": datetime.now().isoformat()
-    }
+
 
 @app.get("/")
 def read_root():

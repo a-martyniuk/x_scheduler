@@ -1040,3 +1040,43 @@ async def import_single_tweet(url: str, username: str):
         "tweet": tweet_data
     }
 
+async def check_login_state(username: str) -> dict:
+    """
+    Lightweight health check for session validity.
+    Returns {"status": "valid" | "invalid" | "error", "log": str}
+    """
+    log_messages = []
+    def log(msg):
+        logger.info(f"[HealthCheck] {msg}")
+        log_messages.append(msg)
+
+    storage_state, _ = await _get_storage_state(username, log)
+    if not storage_state:
+        return {"status": "invalid", "log": "No cookies found"}
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        context = await browser.new_context(
+             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+             storage_state=storage_state
+        )
+        try:
+            page = await context.new_page()
+            # Optimization: Block resources heavily
+            await page.route("**/*", lambda route: route.abort() 
+                if route.request.resource_type in ["image", "stylesheet", "font", "media"] 
+                else route.continue_()
+            )
+            
+            # Go to home to check session
+            await page.goto("https://x.com/home", timeout=20000)
+            await human_delay(1, 2)
+            
+            is_valid = await verify_session(page, log)
+            return {"status": "valid" if is_valid else "invalid", "log": "\n".join(log_messages)}
+            
+        except Exception as e:
+            return {"status": "error", "log": str(e)}
+        finally:
+            await browser.close()
+
