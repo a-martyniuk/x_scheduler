@@ -542,9 +542,10 @@ async def sync_history_task(username: str):
             # Clean username for URL
             clean_username = username.lstrip('@')
             
-            # Navigate to main profile to match user's view
-            url = f"https://x.com/{clean_username}"
-            log(f"Navigating to profile: {url}")
+            # Switch back to Search (Latest) Strategy
+            # This bypasses profile feed filtering and scrolling limits
+            url = f"https://x.com/search?q=from%3A{clean_username}&src=typed_query&f=live"
+            log(f"Navigating to Search (Latest): {url}")
             
             await page.goto(url, timeout=60000, wait_until="networkidle")
             await human_delay(3, 5)
