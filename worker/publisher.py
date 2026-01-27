@@ -507,6 +507,7 @@ async def sync_history_task(username: str):
     """
     log_messages = []
     posts_imported = []
+    min_date = None
 
     def log(msg):
         logger.info(f"[Worker-Sync] {msg}")
@@ -537,6 +538,10 @@ async def sync_history_task(username: str):
 
         try:
             page = await context.new_page()
+            
+            # Clean username for URL
+            clean_username = username.lstrip('@')
+            
             # Navigate to main profile to match user's view
             url = f"https://x.com/{clean_username}"
             log(f"Navigating to profile: {url}")
@@ -890,7 +895,6 @@ async def sync_history_task(username: str):
                     log(f"Failed to parse a tweet: {e}")
 
             # Determine range
-            min_date = None
             if posts_imported:
                 # Sort by date (assuming imported list might be mixed, though likely chronological)
                 # Actually, feed is usually reverse chron.
