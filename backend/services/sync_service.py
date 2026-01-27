@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 from loguru import logger
 from fastapi import HTTPException
-from backend.models import Post, PostMetricSnapshot, AccountMetricSnapshot
+from backend.models import Post, PostMetricSnapshot, AccountMetricSnapshot, Account
 from worker.publisher import sync_history_task
 
 async def sync_account_history(username: str, db: Session):
@@ -14,6 +14,14 @@ async def sync_account_history(username: str, db: Session):
     4. Upserts Posts and creates metric snapshots.
     """
     logger.info(f"Syncing history for {username}...")
+    
+    # Verify Account Exists
+    account = db.query(Account).filter(Account.username == username).first()
+    if not account:
+        logger.error(f"Sync: Account {username} not found in database.")
+        # We can try to proceed if we rely on username, but account_id usage will fail.
+        # Let's verify if we can proceed without it or should raise.
+        # For now, we'll log and continue, but existing logic uses account.id
     
     # 0. One-time Cleanup of Instagram Orphans (to handle the cloud DB)
     try:
@@ -98,7 +106,6 @@ async def sync_account_history(username: str, db: Session):
         logger.info(f"Restored {healed_count} posts from 'deleted_on_x' to 'sent' status.")
     
     # 5. Upsert Posts
-    # 5. Upsert Posts
     # POLICY: Exclude Reposts entirely to keep analytics clean.
     # Also exclude Blacklisted IDs (Manual cleanup for edge cases)
     BLACKLIST_IDS = {
@@ -132,83 +139,119 @@ async def sync_account_history(username: str, db: Session):
         is_repost_flag = post_data.get("is_repost", False)
 
         if is_blacklisted:
-                logger.info(f"Sync: Skipping blacklisted post {tweet_id}")
-                continue
+            logger.info(f"Sync: Skipping blacklisted post {tweet_id}")
+            continue
         
         if is_repost_flag:
-                logger.info(f"Sync: Skipping repost {tweet_id}")
-                continue
+            logger.info(f"Sync: Skipping repost {tweet_id}")
+            continue
 
         if is_empty:
-                logger.info(f"Sync: Skipping empty post {tweet_id}")
-                continue
+            logger.info(f"Sync: Skipping empty post {tweet_id}")
+            continue
 
+        # Determine date
+        pub_date = None
+        try:
+            dt_str = post_data.get("created_at") or post_data.get("published_at")
+            if dt_str:
+                pub_date = datetime.fromisoformat(dt_str.replace("Z", "+00:00")).replace(tzinfo=None)
+        except Exception as e:
+            logger.error(f"Error parsing date {dt_str}: {e}")
+
+        # Fallback date used ONLY for creation if pub_date is missing
+        final_date = pub_date or datetime.now(timezone.utc).replace(tzinfo=None)
+
+        # Use account_id checking if available, otherwise just tweet_id (but account.id preferred)
+        if account:
             existing_post = db.query(Post).filter(Post.account_id == account.id, Post.tweet_id == tweet_id).first()
-            
-            # Additional cleanup: If we find a repost/empty that somehow exists, kill it
-            if existing_post and (is_repost_flag or is_empty):
-                logger.info(f"Sync: Removing invalid existing post {existing_post.id}")
+        else:
+            existing_post = db.query(Post).filter(Post.tweet_id == tweet_id).first()
+        
+        # Additional cleanup: If we find a repost/empty that somehow exists, kill it
+        if existing_post and (is_repost_flag or is_empty):
+            logger.info(f"Sync: Removing invalid existing post {existing_post.id}")
+            db.delete(existing_post)
+            db.query(PostMetricSnapshot).filter(PostMetricSnapshot.post_id == existing_post.id).delete()
+            continue
+
+        if existing_post:
+            # UPDATE existing record
+            if existing_post.is_repost: 
+                # Double check: if DB thinks it's a repost, purge it.
+                logger.info(f"Sync: Purging legacy repost {existing_post.id}")
                 db.delete(existing_post)
                 db.query(PostMetricSnapshot).filter(PostMetricSnapshot.post_id == existing_post.id).delete()
                 continue
 
-            # Parse date safely
-            try:
-                dt_str = post_data.get("created_at")
-                if dt_str:
-                    pub_date = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
-                else:
-                    pub_date = None
-            except Exception as e:
-                logger.error(f"Error parsing date {post_data.get('created_at')}: {e}")
-                pub_date = None
+            if existing_post.status == "deleted_on_x":
+                existing_post.status = "sent"
+                existing_post.logs = (existing_post.logs or "") + "\n[Sync] Restored from deleted_on_x (Found in scan)"
+            
+            # Update real-time metrics
+            existing_post.views_count = post_data["views"]
+            existing_post.likes_count = post_data["likes"]
+            existing_post.reposts_count = post_data["reposts"]
+            existing_post.bookmarks_count = post_data.get("bookmarks", 0)
+            existing_post.replies_count = post_data.get("replies", 0)
+            existing_post.url_link_clicks = post_data.get("url_link_clicks", 0)
+            existing_post.user_profile_clicks = post_data.get("user_profile_clicks",0)
+            existing_post.detail_expands = post_data.get("detail_expands", 0)
 
-            if existing_post:
-                # UPDATE existing record
-                if existing_post.is_repost: 
-                    # Double check: if DB thinks it's a repost, purge it.
-                    logger.info(f"Sync: Purging legacy repost {existing_post.id}")
-                    db.delete(existing_post)
-                    continue
-
-                if existing_post.status == "deleted_on_x":
-                    existing_post.status = "sent"
-                    existing_post.logs = (existing_post.logs or "") + "\n[Sync] Restored from deleted_on_x (Found in scan)"
-                
-                # Update real-time metrics
-                existing_post.views_count = post_data["views"]
-                existing_post.likes_count = post_data["likes"]
-                existing_post.reposts_count = post_data["reposts"]
-                existing_post.bookmarks_count = post_data.get("bookmarks", 0)
-                existing_post.replies_count = post_data.get("replies", 0)
-                existing_post.url_link_clicks = post_data.get("url_link_clicks", 0)
-                existing_post.user_profile_clicks = post_data.get("user_profile_clicks",0)
-                existing_post.detail_expands = post_data.get("detail_expands", 0)
-
-                if post_data.get("media_url"):
-                    existing_post.media_url = post_data["media_url"]
-                
-                # CRITICAL: Always overwrite dates if worker provided a VALID pub_date from Snowflake
-                if pub_date:
-                    existing_post.created_at = pub_date
-                    existing_post.updated_at = pub_date 
-                else:
-                    logger.warning(f"Sync: No date found for existing post {existing_post.id}. Preserving original date.")
-
-                if post_data.get("content") and (not existing_post.content or existing_post.content == "(No content)"):
-                    existing_post.content = post_data["content"]
-                
-                count += 1 
+            if post_data.get("media_url"):
+                existing_post.media_url = post_data["media_url"]
+            
+            # CRITICAL: Always overwrite dates if worker provided a VALID pub_date from Snowflake
+            if pub_date:
+                existing_post.created_at = pub_date
+                existing_post.updated_at = pub_date 
             else:
-                # CREATE new record
-                if not pub_date:
-                 logger.error(f"Sync: Creating NEW post {post_data['tweet_id']} without a valid date. Defaulting to now.")
+                pass # Keep existing date
+
+            if post_data.get("content") and (not existing_post.content or existing_post.content == "(No content)"):
+                existing_post.content = post_data["content"]
+            
+            # Update Snapshot for existing
+            try:
+                latest_snap = db.query(PostMetricSnapshot).filter(PostMetricSnapshot.post_id == existing_post.id).order_by(PostMetricSnapshot.timestamp.desc()).first()
+                
+                has_changes = not latest_snap or (
+                    latest_snap.views_count != post_data["views"] or 
+                    latest_snap.likes_count != post_data["likes"] or 
+                    latest_snap.reposts_count != post_data["reposts"] or
+                    latest_snap.bookmarks_count != post_data.get("bookmarks", 0) or
+                    latest_snap.replies_count != post_data.get("replies", 0)
+                )
+
+                if has_changes:
+                        snapshot = PostMetricSnapshot(
+                        post_id=existing_post.id,
+                        views_count=post_data["views"],
+                        likes_count=post_data["likes"],
+                        reposts_count=post_data["reposts"],
+                        bookmarks_count=post_data.get("bookmarks", 0),
+                        replies_count=post_data.get("replies", 0),
+                        timestamp=datetime.now(timezone.utc).replace(tzinfo=None)
+                    )
+                        db.add(snapshot)
+            except Exception as e:
+                logger.error(f"Sync: Snapshot error existing: {e}")
+
+            count += 1 
+        else:
+            # CREATE new record
+            if not pub_date:
+                    logger.error(f"Sync: Creating NEW post {post_data['tweet_id']} without a valid date. Defaulting to now.")
 
             new_post = Post(
+                account_id=account.id if account else None,
+                tweet_id=tweet_id,
                 content=post_data["content"] or "(No content)",
-                tweet_id=post_data["tweet_id"],
-                username=username,
+                media_url=post_data.get("media_url"),
+                created_at=final_date,
+                updated_at=final_date,
                 status="sent",
+                username=username,
                 views_count=post_data["views"],
                 likes_count=post_data["likes"],
                 reposts_count=post_data["reposts"],
@@ -217,59 +260,31 @@ async def sync_account_history(username: str, db: Session):
                 url_link_clicks=post_data.get("url_link_clicks", 0),
                 user_profile_clicks=post_data.get("user_profile_clicks", 0),
                 detail_expands=post_data.get("detail_expands", 0),
-                updated_at=final_date,
-                created_at=final_date,
-                media_url=post_data.get("media_url"),
-                is_repost=False # We know it's false because we skipped True above
+                is_repost=False
             )
             db.add(new_post)
             try:
                 db.flush()
-                logger.info(f"Sync: Flushed NEW post {existing_post.id} (tweet_id {post_data['tweet_id']})")
-                existing_post = new_post # Re-assign for snapshot usage
-                count += 1
-            except Exception as e:
-                logger.error(f"Sync: Failed to flush post {post_data['tweet_id']}: {e}")
-                db.rollback()
-                continue
-            
-        # Create Snapshot
-        try:
-            latest_snap = db.query(PostMetricSnapshot).filter(PostMetricSnapshot.post_id == existing_post.id).order_by(PostMetricSnapshot.timestamp.desc()).first()
-            
-            # Check if anything changed worth saving (including new metrics)
-            has_changes = not latest_snap or (
-                latest_snap.views != post_data["views"] or 
-                latest_snap.likes != post_data["likes"] or 
-                latest_snap.reposts != post_data["reposts"] or
-                latest_snap.bookmarks != post_data.get("bookmarks", 0) or
-                latest_snap.replies != post_data.get("replies", 0) or
-                latest_snap.url_link_clicks != post_data.get("url_link_clicks", 0) or
-                latest_snap.user_profile_clicks != post_data.get("user_profile_clicks", 0) or
-                latest_snap.detail_expands != post_data.get("detail_expands", 0)
-            )
-
-            if has_changes:
-                 snapshot = PostMetricSnapshot(
-                    post_id=existing_post.id,
-                    views=post_data["views"],
-                    likes=post_data["likes"],
-                    reposts=post_data["reposts"],
-                    bookmarks=post_data.get("bookmarks", 0),
-                    replies=post_data.get("replies", 0),
-                    url_link_clicks=post_data.get("url_link_clicks", 0),
-                    user_profile_clicks=post_data.get("user_profile_clicks", 0),
-                    detail_expands=post_data.get("detail_expands", 0),
+                # Create Day 0 snapshot for new post
+                snap = PostMetricSnapshot(
+                    post_id=new_post.id,
+                    views_count=new_post.views_count,
+                    likes_count=new_post.likes_count,
+                    reposts_count=new_post.reposts_count,
+                    bookmarks_count=new_post.bookmarks_count,
+                    replies_count=new_post.replies_count,
                     timestamp=datetime.now(timezone.utc).replace(tzinfo=None)
                 )
-                 db.add(snapshot)
-                 logger.debug(f"Sync: Added snapshot for post {existing_post.id}")
-        except Exception as e:
-            logger.error(f"Sync: Snapshot creation error for post {existing_post.id}: {e}")
+                db.add(snap)
+                count += 1
+            except Exception as e:
+                logger.error(f"Sync: Failed to flush post {tweet_id}: {e}")
+                db.rollback()
+                continue
 
     try:
         db.commit()
-        logger.info(f"Sync: Successfully commited {count} posts to DB.")
+        logger.info(f"Sync: Successfully committed {count} posts to DB.")
     except Exception as e:
         logger.error(f"Sync: CRITICAL DB COMMIT FAILED: {e}")
         db.rollback()
