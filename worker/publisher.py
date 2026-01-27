@@ -127,6 +127,7 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
     screenshot_file = None
     success = False
     tweet_id = None
+    is_video = False
 
     def log(msg):
         logger.info(f"[Worker] {msg}")
@@ -222,11 +223,32 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
 
                 # Upload media (multiple support)
                 if media_paths:
-                    path_list = [p.strip() for p in media_paths.split(',') if p.strip()]
-                    valid_paths = [p for p in path_list if os.path.exists(p)]
+                    # Attempt to parse as JSON first (common for imported posts)
+                    try:
+                        path_list = json.loads(media_paths)
+                        if isinstance(path_list, str):
+                            path_list = [p.strip() for p in path_list.split(',') if p.strip()]
+                    except:
+                        # Fallback to comma-separated
+                        path_list = [p.strip() for p in media_paths.split(',') if p.strip()]
+                    
+                    # Log normalized paths
+                    log(f"Parsed media paths: {path_list}")
+                    
+                    # Check if any path is actually a URL (imported)
+                    # For now we only support local paths for UPLOAD
+                    local_paths = [p for p in path_list if not p.startswith('http')]
+                    remote_paths = [p for p in path_list if p.startswith('http')]
+                    
+                    if remote_paths:
+                        log(f"Warning: Remote media URLs not directly supported for upload yet: {remote_paths}")
+
+                    valid_paths = [p for p in local_paths if os.path.exists(p)]
                     
                     if valid_paths:
-                        log(f"Uploading {len(valid_paths)} media files: {valid_paths}")
+                        is_video = any(p.lower().endswith(('.mp4', '.mov', '.webm', '.ogg')) for p in valid_paths)
+                        log(f"Uploading {len(valid_paths)} media files (isVideo={is_video}): {valid_paths}")
+                        
                         # X allows up to 4 images, or 1 video, or 1 GIF
                         await page.set_input_files(XSelectors.FILE_INPUT, valid_paths)
                         log("Media upload triggered. Waiting for preview to appear...")
@@ -234,14 +256,24 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
                         # Wait for media preview to be visible
                         try:
                             # [data-testid="attachments"] is the container for media in compose
-                            await page.wait_for_selector('[data-testid="attachments"]', state="visible", timeout=20000)
+                            await page.wait_for_selector('[data-testid="attachments"]', state="visible", timeout=30000)
                             log("Media preview detected.")
                         except:
-                            log("Warning: Media preview not detected within 20s. Processing might be slow or upload failed.")
+                            log("Warning: Media preview not detected within 30s. Processing might be slow or upload failed.")
+                            # If media was crucial, some might want to fail here. 
+                            # But we'll try to wait for the button as a final signal.
                         
-                        await human_delay(5, 10) # Videos need more time for internal processing
+                        if is_video:
+                            log("Video detected. Waiting extra time for processing...")
+                            await human_delay(10, 20) 
+                        else:
+                            await human_delay(3, 6)
                     else:
-                        log(f"Warning: Media paths provided but files not found: {path_list}")
+                        if local_paths:
+                            log(f"CRITICAL Warning: Local media paths provided but files NOT FOUND on disk: {local_paths}")
+                        elif not remote_paths:
+                            log("No valid media paths found to upload.")
+
                 
                 # --- SEND ---
 
@@ -255,12 +287,17 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
                     try:
                         await tweet_button.wait_for(state="attached", timeout=60000)
                         # Wait specifically for enabled state
-                        for _ in range(45): # Increased to 45s for videos
+                        # Increase wait time for videos (can take minutes for large ones)
+                        max_wait = 180 if is_video else 45 
+                        for i in range(max_wait): 
                             if await tweet_button.is_enabled():
-                                log("Tweet button is enabled.")
+                                log(f"Tweet button enabled after {i}s.")
                                 break
+                            if i % 10 == 0 and i > 0:
+                                log(f"Still waiting for button... ({i}s)")
                             await asyncio.sleep(1)
-                    except:
+                    except Exception as e:
+                        log(f"Error waiting for button: {e}")
                         pass
 
                     if await tweet_button.is_enabled():

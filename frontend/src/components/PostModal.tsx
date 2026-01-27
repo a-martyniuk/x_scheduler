@@ -261,20 +261,36 @@ export const PostModal: React.FC<PostModalProps> = ({ isOpen, onClose, onSave, p
 
                                         {mediaPaths.split(',').filter(Boolean).map((path, idx) => {
                                             // Handle both Windows and Linux paths from backend
-                                            const filename = path.split(/[\\/]/).pop();
+                                            const filename = path.split(/[\\/]/).pop() || '';
                                             const displayUrl = `${BASE_URL}/uploads/${filename}`;
+                                            const isVideo = filename.toLowerCase().match(/\.(mp4|webm|ogg|mov)$/);
 
                                             return (
                                                 <div key={idx} className="relative group w-24 h-24">
-                                                    <img
-                                                        src={displayUrl}
-                                                        className="w-full h-full object-cover rounded-[1.5rem] border-2 border-border/50 bg-slate-100 dark:bg-slate-800"
-                                                        alt=""
-                                                        onError={(e) => {
-                                                            const target = e.target as HTMLImageElement;
-                                                            target.src = 'https://via.placeholder.com/150?text=Error';
-                                                        }}
-                                                    />
+                                                    {isVideo ? (
+                                                        <video
+                                                            src={displayUrl}
+                                                            className="w-full h-full object-cover rounded-[1.5rem] border-2 border-border/50 bg-slate-100 dark:bg-slate-800"
+                                                            muted
+                                                            playsInline
+                                                            onMouseEnter={(e) => (e.target as HTMLVideoElement).play()}
+                                                            onMouseLeave={(e) => {
+                                                                const v = e.target as HTMLVideoElement;
+                                                                v.pause();
+                                                                v.currentTime = 0;
+                                                            }}
+                                                        />
+                                                    ) : (
+                                                        <img
+                                                            src={displayUrl}
+                                                            className="w-full h-full object-cover rounded-[1.5rem] border-2 border-border/50 bg-slate-100 dark:bg-slate-800"
+                                                            alt=""
+                                                            onError={(e) => {
+                                                                const target = e.target as HTMLImageElement;
+                                                                target.src = 'https://via.placeholder.com/150?text=Error';
+                                                            }}
+                                                        />
+                                                    )}
                                                     <button
                                                         type="button"
                                                         onClick={() => setMediaPaths(mediaPaths.split(',').filter((_, i) => i !== idx).join(','))}
