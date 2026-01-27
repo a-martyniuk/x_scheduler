@@ -98,66 +98,50 @@ async def sync_account_history(username: str, db: Session):
         logger.info(f"Restored {healed_count} posts from 'deleted_on_x' to 'sent' status.")
     
     # 5. Upsert Posts
-    count = 0
+    # 5. Upsert Posts
+    # POLICY: Exclude Reposts entirely to keep analytics clean.
+    # Also exclude Blacklisted IDs (Manual cleanup for edge cases)
+    BLACKLIST_IDS = {
+        "2007387117551530488", # No content / Ghost
+        "1995428955218985118", # No content / Ghost
+        "2007355606886798455", # "Toda latinoamerica..." (Persistent Quote Tweet)
+        "2007929193334738952", # "Domingo en el gym..." (from latest screenshot)
+        "2007327615070392726", # "PENTAGON PIZZA..." (from latest screenshot)
+    }
+    
+    # --- PHASE 0: PRE-SYNC CLEANUP (Force Delete Blacklisted IDs) ---
+    # Delete them blindly from DB to ensure they are gone regardless of scrape results
+    existing_blacklist = db.query(Post).filter(Post.tweet_id.in_(BLACKLIST_IDS)).all()
+    if existing_blacklist:
+        for bl_post in existing_blacklist:
+            logger.info(f"Sync: Force-Deleting blacklisted post {bl_post.tweet_id} from DB.")
+            db.query(PostMetricSnapshot).filter(PostMetricSnapshot.post_id == bl_post.id).delete()
+            db.delete(bl_post)
+        db.commit() # Commit immediately to ensure clear state
+
+    scraped_ids = set()
+    count = 0 
+    
     for post_data in result["posts"]:
-        existing_post = db.query(Post).filter(Post.tweet_id == post_data["tweet_id"]).first()
+        tweet_id = post_data["tweet_id"]
+        scraped_ids.add(tweet_id)
+
+        # Check blacklist or empty policy for INCOMING data to prevent re-insertion
+        is_blacklisted = tweet_id in BLACKLIST_IDS
+        is_empty = (not post_data.get("content") or post_data["content"].strip() == "") and not post_data.get("media_url")
+        is_repost_flag = post_data.get("is_repost", False)
+
+        if is_blacklisted:
+                logger.info(f"Sync: Skipping blacklisted post {tweet_id}")
+                continue
         
-        # Parse date
-        pub_date = None
-        if post_data.get("published_at"):
-            try:
-                pub_date = datetime.fromisoformat(post_data["published_at"].replace("Z", "+00:00")).replace(tzinfo=None)
-            except:
-                logger.warning(f"Failed to parse date for tweet {post_data['tweet_id']}: {post_data['published_at']}")
-        
-        # Determine the date to use for snapshots or new records
-        # If pub_date is missing, we use 'now' only as a last resort for NEW posts
-        final_date = pub_date or datetime.now(timezone.utc).replace(tzinfo=None)
+        if is_repost_flag:
+                logger.info(f"Sync: Skipping repost {tweet_id}")
+                continue
 
-        # POLICY: Exclude Reposts entirely to keep analytics clean.
-        # Also exclude Blacklisted IDs (Manual cleanup for edge cases)
-        BLACKLIST_IDS = {
-            "2007387117551530488", # No content / Ghost
-            "1995428955218985118", # No content / Ghost
-            "2007355606886798455", # "Toda latinoamerica..." (Persistent Quote Tweet)
-            "2007929193334738952", # "Domingo en el gym..." (from latest screenshot)
-            "2007327615070392726", # "PENTAGON PIZZA..." (from latest screenshot)
-        }
-        
-        # --- PHASE 0: PRE-SYNC CLEANUP (Force Delete Blacklisted IDs) ---
-        # Delete them blindly from DB to ensure they are gone regardless of scrape results
-        existing_blacklist = db.query(Post).filter(Post.tweet_id.in_(BLACKLIST_IDS)).all()
-        if existing_blacklist:
-            for bl_post in existing_blacklist:
-                logger.info(f"Sync: Force-Deleting blacklisted post {bl_post.tweet_id} from DB.")
-                db.query(PostMetricSnapshot).filter(PostMetricSnapshot.post_id == bl_post.id).delete()
-                db.delete(bl_post)
-            db.commit() # Commit immediately to ensure clear state
-
-        scraped_ids = set()
-        count = 0 
-        
-        for post_data in scraped_data:
-            tweet_id = post_data["tweet_id"]
-            scraped_ids.add(tweet_id)
-
-            # Check blacklist or empty policy for INCOMING data to prevent re-insertion
-            is_blacklisted = tweet_id in BLACKLIST_IDS
-            is_empty = (not post_data.get("content") or post_data["content"].strip() == "") and not post_data.get("media_url")
-            is_repost_flag = post_data.get("is_repost", False)
-
-            if is_blacklisted:
-                 logger.info(f"Sync: Skipping blacklisted post {tweet_id}")
-                 continue
-            
-            if is_repost_flag:
-                 logger.info(f"Sync: Skipping repost {tweet_id}")
-                 # Ensure it's gone (should be handled by pre-sync or below logic, but safety check)
-                 continue
-
-            if is_empty:
-                 logger.info(f"Sync: Skipping empty post {tweet_id}")
-                 continue
+        if is_empty:
+                logger.info(f"Sync: Skipping empty post {tweet_id}")
+                continue
 
             existing_post = db.query(Post).filter(Post.account_id == account.id, Post.tweet_id == tweet_id).first()
             
