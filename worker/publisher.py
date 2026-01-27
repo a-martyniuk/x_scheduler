@@ -128,7 +128,7 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
     success = False
     tweet_id = None
     is_video = False
-    VERSION = "v1.3.5-file-chooser-primary"
+    VERSION = "v1.3.6-enhanced-diagnostics"
 
     def log(msg):
         logger.info(f"[Worker] [{VERSION}] {msg}")
@@ -268,6 +268,14 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
                         is_video = any(p.lower().endswith(('.mp4', '.mov', '.webm', '.ogg', '.m4v')) for p in valid_paths)
                         log(f"Uploading {len(valid_paths)} media files (isVideo={is_video}): {valid_paths}")
                         
+                        # DIAGNOSTIC: Verify files before upload
+                        for vp in valid_paths:
+                            if os.path.exists(vp):
+                                file_size = os.path.getsize(vp) / (1024 * 1024)  # MB
+                                log(f"✓ File exists: {vp} ({file_size:.2f} MB)")
+                            else:
+                                log(f"✗ ERROR: File NOT found: {vp}")
+                        
                         # CRITICAL: Use file chooser method (simulates real user interaction)
                         # Direct input was failing silently - file path was set but video wasn't uploaded
                         upload_success = False
@@ -296,17 +304,28 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
                                 log(f"Fallback method also failed: {e2}")
                         
                         # Wait for media preview to be visible (CRITICAL)
+                        # IMPORTANT: Don't just check for containers, verify actual media elements exist
                         log("Waiting for media preview to confirm attachment...")
+                        media_confirmed = False
                         try:
-                            # X uses [data-testid="attachments"] but also specific item containers
-                            await page.wait_for_selector('[data-testid="attachments"], [data-testid="tweetPhoto"], [data-testid="videoPlayer"]', state="visible", timeout=30000)
-                            log("Media preview confirmed in composer.")
+                            if is_video:
+                                # For videos, look for actual <video> element or video player
+                                await page.wait_for_selector('div[data-testid="tweetComposer"] video, div[data-testid="videoPlayer"]', state="visible", timeout=30000)
+                                log("✅ Video element confirmed in composer.")
+                                media_confirmed = True
+                            else:
+                                # For images, look for actual <img> elements
+                                await page.wait_for_selector('div[data-testid="tweetComposer"] img[alt*="Image"]', state="visible", timeout=30000)
+                                log("✅ Image element confirmed in composer.")
+                                media_confirmed = True
                         except:
-                            log("CRITICAL ERROR: Media preview NOT DETECTED after upload attempt.")
-                            # Diagnostic: What do we see instead?
+                            log("❌ CRITICAL ERROR: Media element NOT DETECTED after upload attempt.")
+                            # Take diagnostic screenshot
                             try:
-                                source_preview = await page.content()
-                                log(f"Page Source Detail (partial): {source_preview[:500]}...")
+                                diag_shot = os.path.join(settings.DATA_DIR, "screenshots", f"upload_failed_{int(asyncio.get_event_loop().time())}.png")
+                                os.makedirs(os.path.dirname(diag_shot), exist_ok=True)
+                                await page.screenshot(path=diag_shot, full_page=True)
+                                log(f"Diagnostic screenshot saved: {diag_shot}")
                             except: pass
                             # We might want to ABORT here if media is mandatory, 
                             # but for now we proceed with a warning to see what happens.
