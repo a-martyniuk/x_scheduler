@@ -763,6 +763,7 @@ async def sync_history_task(username: str):
         
         profile_stats = {"followers": 0, "following": 0}
         posts_imported = []
+        seen_tweet_ids = set() # Track IDs to avoid duplicates
         min_date = None
 
         try:
@@ -787,13 +788,6 @@ async def sync_history_task(username: str):
                     f.write(html_content)
                 log(f"DEBUG: Saved raw HTML to {debug_html_path}")
                 
-                # SELF-DIAGNOSTIC: Check for target tweet text
-                target_text = "panel interactivo"
-                if target_text in html_content:
-                    log(f"CRITICAL DEBUG: Target text '{target_text}' FOUND in HTML. Issue is likely SELECTOR/PARSING.")
-                else:
-                    log(f"CRITICAL DEBUG: Target text '{target_text}' NOT FOUND in HTML. Issue is VISIBILITY/SHADOWBAN/RENDER.")
-                    
             except Exception as e:
                 log(f"DEBUG: Failed to save/analyze HTML: {e}")
 
@@ -822,88 +816,78 @@ async def sync_history_task(username: str):
             except Exception as e:
                 log(f"Failed to scrape profile stats: {e}")
 
-            # Scroll dynamically until no more new tweets load
-            log("Scrolling timeline to load more tweets...")
-            previous_count = 0
+            # --- DYNAMIC SCROLL & SCRAPE LOOP ---
+            log("Starting dynamic scroll & scrape...")
+            
             max_iterations = 50  # Safety limit
-            no_change_count = 0
+            no_new_tweets_count = 0
             
             for i in range(max_iterations):
-                await page.evaluate("window.scrollBy(0, 3000)")
-                await asyncio.sleep(3)  # Wait for content to load
+                # 1. Scrape visible articles FIRST
+                all_articles = await page.locator('article').all()
+                new_in_batch = 0
                 
-                # Count current articles
-                current_count = await page.locator('article').count()
-                
-                if i % 3 == 0:
-                    log(f"Scroll {i+1}/{max_iterations}: Found {current_count} articles")
-                
-                # Check if new content loaded
-                if current_count == previous_count:
-                    no_change_count += 1
-                    if no_change_count >= 3:  # No new content after 3 scrolls
-                        log(f"No new tweets after {no_change_count} scrolls. Stopping at {current_count} articles.")
-                        break
-                else:
-                    no_change_count = 0  # Reset counter
-                
-                previous_count = current_count
-            
-            log(f"Finished scrolling. Found {current_count} total articles. Waiting for final render...")
-            await asyncio.sleep(5)  # Extra wait for final content to load
-            
-            # DEBUG: Take screenshot to see what's on the page
-            try:
-                screenshot_path = "/app/worker/screenshots/timeline_after_scroll.png"
-                await page.screenshot(path=screenshot_path, full_page=True)
-                log(f"DEBUG: Saved timeline screenshot to {screenshot_path}")
-            except Exception as e:
-                log(f"DEBUG: Failed to save timeline screenshot: {e}")
-            
-            # Extract recent tweets - use ALL articles, not just data-testid="tweet"
-            # This captures pinned tweets, regular tweets, and replies
-            all_articles = await page.locator('article').all()
-            log(f"Found {len(all_articles)} total article elements on page.")
-            
-            # Filter to only articles that contain a valid tweet link (/status/)
-            articles = []
-            for article in all_articles:
-                status_link = article.locator('a[href*="/status/"]')
-                if await status_link.count() > 0:
-                    articles.append(article)
-            
-            log(f"Filtered to {len(articles)} articles with valid tweet links.")
-            
-            # DEBUG: Log page URL
-            current_url = page.url
-            log(f"DEBUG: Current URL: {current_url}")
-            
-            # ... (debug logging ok) ...
-
-            for article in articles:
-                try:
-                    tweet_data = await scrape_tweet_from_article(article, context, clean_username, log)
-                    
-                    if tweet_data:
-                        tweet_id = tweet_data['tweet_id']
-                        if tweet_id in [p['tweet_id'] for p in posts_imported]:
+                for article in all_articles:
+                    try:
+                        # Quick check if it's a tweet (has status link)
+                        status_link = article.locator('a[href*="/status/"]')
+                        if await status_link.count() == 0:
                             continue
+
+                        # Extract ID briefly for check
+                        href = await status_link.first.get_attribute('href')
+                        match = re.search(r'status/(\d+)', href)
+                        if not match: continue
                         
-                        log(f"Extracted Tweet: {tweet_id} | {tweet_data['content'][:30]}...")
-                        posts_imported.append(tweet_data)
+                        tid = match.group(1)
+                        if tid in seen_tweet_ids:
+                            continue # Already processed
 
-                except Exception as e:
-                    log(f"Failed to process article: {e}")
+                        # Full scrape
+                        tweet_data = await scrape_tweet_from_article(article, context, clean_username, log)
+                        
+                        if tweet_data:
+                            # Verify if ID matches (sometimes article structure is nested trickily)
+                            # scrape_tweet_from_article does its own extraction.
+                            real_tid = tweet_data['tweet_id']
+                            if real_tid in seen_tweet_ids:
+                                continue
+                                
+                            seen_tweet_ids.add(real_tid)
+                            posts_imported.append(tweet_data)
+                            log(f"Scraped Tweet: {real_tid} | {tweet_data['content'][:30]}...")
+                            new_in_batch += 1
+                            
+                            # Reset no-change counter if we found something
+                            no_new_tweets_count = 0
+                    
+                    except Exception as e:
+                        # log(f"Error scraping an article: {e}")
+                        pass
+                
+                if new_in_batch > 0:
+                    log(f"Batch {i+1}: Found {new_in_batch} new tweets. Total: {len(posts_imported)}")
+                else:
+                    no_new_tweets_count += 1
+                
+                if no_new_tweets_count >= 3:
+                     log(f"No new tweets found for {no_new_tweets_count} consecutive scrolls. Stopping.")
+                     break
 
+                # 2. Scroll Logic
+                # Use scrollHeight to ensure we hit bottom, but also small increments to trigger JS observers
+                await page.evaluate("window.scrollBy(0, 1500)") 
+                await asyncio.sleep(1)
+                await page.evaluate("window.scrollBy(0, 1500)") # Double scroll
+                await asyncio.sleep(2.5) # Wait for network
+            
+            log(f"Finished scrolling. Found {len(posts_imported)} total unique tweets.")
+            
             # Determine range
             if posts_imported:
-                # Sort by date (assuming imported list might be mixed, though likely chronological)
-                # Actually, feed is usually reverse chron.
-                # Let's find the absolute minimum date we saw.
                 for p in posts_imported:
                     if p.get("published_at"):
                         try:
-                            # 2023-10-27T10:00:00.000Z
                             dt = datetime.fromisoformat(p["published_at"].replace("Z", "+00:00"))
                             if min_date is None or dt < min_date:
                                 min_date = dt
