@@ -122,7 +122,7 @@ async def sync_account_history(username: str, db: Session):
     count = 0 
     
     for post_data in result["posts"]:
-        tweet_id = post_data["tweet_id"]
+        tweet_id = str(post_data["tweet_id"])
         scraped_ids.add(tweet_id)
 
         # Check blacklist or empty policy for INCOMING data to prevent re-insertion
