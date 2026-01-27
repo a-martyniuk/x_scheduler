@@ -114,12 +114,29 @@ async def sync_account_history(username: str, db: Session):
         # If pub_date is missing, we use 'now' only as a last resort for NEW posts
         final_date = pub_date or datetime.now(timezone.utc).replace(tzinfo=None)
 
+        # POLICY: Exclude Reposts entirely to keep analytics clean.
+        if post_data.get("is_repost", False):
+            logger.info(f"Sync: Skipping repost {post_data['tweet_id']} (Clean Policy)")
+            # If it exists in DB, delete it to clean up history
+             if existing_post:
+                logger.info(f"Sync: Deleting existing repost {existing_post.id} from DB to match policy.")
+                db.delete(existing_post)
+                # Also clean snapshots
+                db.query(PostMetricSnapshot).filter(PostMetricSnapshot.post_id == existing_post.id).delete()
+            continue
+
         if existing_post:
             # UPDATE existing record
+            if existing_post.is_repost: 
+                 # Double check: if DB thinks it's a repost, purge it.
+                 logger.info(f"Sync: Purging legacy repost {existing_post.id}")
+                 db.delete(existing_post)
+                 continue
+
             if existing_post.status == "deleted_on_x":
                 existing_post.status = "sent"
                 existing_post.logs = (existing_post.logs or "") + "\n[Sync] Restored from deleted_on_x (Found in scan)"
-
+            
             # Update real-time metrics
             existing_post.views_count = post_data["views"]
             existing_post.likes_count = post_data["likes"]
@@ -132,14 +149,12 @@ async def sync_account_history(username: str, db: Session):
 
             if post_data.get("media_url"):
                 existing_post.media_url = post_data["media_url"]
-            existing_post.is_repost = post_data.get("is_repost", False)
             
             # CRITICAL: Always overwrite dates if worker provided a VALID pub_date from Snowflake
             if pub_date:
                 existing_post.created_at = pub_date
-                existing_post.updated_at = pub_date # Keep them in sync for historical accuracy
+                existing_post.updated_at = pub_date 
             else:
-                 # Only warn, do NOT touch the dates if we failed to get a new one
                  logger.warning(f"Sync: No date found for existing post {existing_post.id}. Preserving original date.")
 
             if post_data.get("content") and (not existing_post.content or existing_post.content == "(No content)"):
@@ -167,7 +182,7 @@ async def sync_account_history(username: str, db: Session):
                 updated_at=final_date,
                 created_at=final_date,
                 media_url=post_data.get("media_url"),
-                is_repost=post_data.get("is_repost", False)
+                is_repost=False # We know it's false because we skipped True above
             )
             db.add(new_post)
             try:
