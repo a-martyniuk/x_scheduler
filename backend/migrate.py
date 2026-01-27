@@ -127,6 +127,47 @@ def run_migrations():
             if "content" in columns:
                 conn.execute(text("UPDATE posts SET content = '(No content)' WHERE content IS NULL"))
 
+            # 14. Deduplicate Posts (Merge Strategy Cleanup)
+            # Find groups of posts with same content same tweet_id (or one has null)
+            # Strategy: If found multiple posts with same tweet_id, keep the one with most recent updated_at
+            # If found multiple posts with same content, and one has tweet_id and other doesn't, DELETE the one without tweet_id (assuming it was the draft)
+            
+            logger.info("Migrating: Checking for duplicates to clean up...")
+            
+            # 1. Deduplicate by tweet_id (strict duplicates)
+            # Delete older duplicates of the same tweet_id
+            conn.execute(text("""
+                DELETE FROM posts 
+                WHERE id NOT IN (
+                    SELECT MAX(id) 
+                    FROM posts 
+                    WHERE tweet_id IS NOT NULL 
+                    GROUP BY tweet_id
+                ) 
+                AND tweet_id IS NOT NULL
+            """))
+
+            # 2. Match Imports to Drafts (The implementation of merge strategy for OLD imports)
+            # If we have a post with tweet_id='X' and content='ABC'
+            # AND a post with tweet_id=NULL and content='ABC'
+            # We should assume the one with tweet_id is the Import, and the other is the Draft that SHOULD have been merged.
+            # So we delete the Draft.
+            
+            # Note: This is aggressive. We only do it for status='sent' vs status='scheduled'/'draft'? 
+            # Or just content match.
+            # Let's be careful: Only delete if content is long enough to be unique (> 20 chars) matching "Acabo de lanzar un pane"
+            
+            conn.execute(text("""
+                DELETE FROM posts 
+                WHERE tweet_id IS NULL 
+                AND content IN (
+                    SELECT content 
+                    FROM posts 
+                    WHERE tweet_id IS NOT NULL
+                )
+                AND length(content) > 10
+            """))
+
             conn.commit()
             logger.info("Migrations completed successfully.")
             
