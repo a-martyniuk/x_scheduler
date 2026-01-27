@@ -175,6 +175,13 @@ def run_migrations():
                 AND length(content) > 15
             """))
 
+            # 3. Clean up specific noise (pizzeria retweet)
+            logger.info("Migrating: Removing specific noisy retweet...")
+            conn.execute(text("""
+                DELETE FROM posts 
+                WHERE content LIKE '%La pizzeria 24/7 cerca del pentágono esta repotando%'
+            """))
+
             conn.commit()
             logger.info("Migrations completed successfully.")
             
