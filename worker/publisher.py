@@ -733,16 +733,19 @@ async def scrape_tweet_from_article(article, context, clean_username, log_func=N
                             if "?" in tweet_author:
                                 tweet_author = tweet_author.split("?")[0]
                             
+                            
                             current_user = clean_username.lower()
                             
                             # Log for debug
-                            # log_func(f"Checking author for {tweet_id}: {tweet_author} vs {current_user}")
+                            log_func(f"Checking author for {tweet_id}: {tweet_author} vs {current_user}")
 
                             if tweet_author != current_user:
                                 is_repost = True
                                 log_func(f"Detected Repost by Handle Mismatch: {tweet_author} != {current_user}")
+                    else:
+                        log_func(f"DEBUG: No user link found for {tweet_id}")
                 except Exception as e:
-                    # log_func(f"Handle check failed: {e}")
+                    log_func(f"Handle check failed: {e}")
                     pass
 
         except Exception as e:
