@@ -128,7 +128,7 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
     success = False
     tweet_id = None
     is_video = False
-    VERSION = "v1.3.4-video-wait-fix"
+    VERSION = "v1.3.5-file-chooser-primary"
 
     def log(msg):
         logger.info(f"[Worker] [{VERSION}] {msg}")
@@ -268,31 +268,32 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
                         is_video = any(p.lower().endswith(('.mp4', '.mov', '.webm', '.ogg', '.m4v')) for p in valid_paths)
                         log(f"Uploading {len(valid_paths)} media files (isVideo={is_video}): {valid_paths}")
                         
-                        # Try multiple methods for file upload
+                        # CRITICAL: Use file chooser method (simulates real user interaction)
+                        # Direct input was failing silently - file path was set but video wasn't uploaded
                         upload_success = False
                         try:
-                            # Method 1: Direct set_input_files on found selector
-                            file_input = page.locator('input[type="file"][data-testid="fileInput"]').first
-                            if await file_input.count() == 0:
-                                file_input = page.locator('input[type="file"]').first
-                            
-                            if await file_input.count() > 0:
-                                await file_input.set_input_files(valid_paths)
-                                log("Media paths set via direct input.")
-                                upload_success = True
-                            
-                            # Method 2: If direct didn't trigger, try clicking the button to trigger file chooser
-                            if not upload_success:
-                                log("Direct upload didn't look attached, trying via file chooser...")
-                                async with page.expect_file_chooser(timeout=10000) as fc_info:
-                                    # Click the media icon (usually first in toolbar)
-                                    await page.click('[data-testid="fileInput"], [data-testid="mediaItem"]')
-                                file_chooser = await fc_info.value
-                                await file_chooser.set_files(valid_paths)
-                                log("Media files set via file chooser.")
-                                upload_success = True
+                            log("Triggering file chooser for media upload...")
+                            async with page.expect_file_chooser(timeout=10000) as fc_info:
+                                # Click the media button to open file chooser
+                                await page.click('[data-testid="attachments"] > div[role="button"]')
+                            file_chooser = await fc_info.value
+                            await file_chooser.set_files(valid_paths)
+                            log(f"Media files uploaded via file chooser: {len(valid_paths)} file(s)")
+                            upload_success = True
                         except Exception as e:
-                            log(f"Upload process warning: {e}")
+                            log(f"File chooser method failed: {e}")
+                            # Fallback: Try direct input method
+                            try:
+                                log("Attempting fallback: direct input method...")
+                                file_input = page.locator('input[type="file"]').first
+                                if await file_input.count() > 0:
+                                    await file_input.set_input_files(valid_paths)
+                                    log("Media paths set via direct input (fallback).")
+                                    upload_success = True
+                                else:
+                                    log("ERROR: No file input found for fallback method.")
+                            except Exception as e2:
+                                log(f"Fallback method also failed: {e2}")
                         
                         # Wait for media preview to be visible (CRITICAL)
                         log("Waiting for media preview to confirm attachment...")
