@@ -128,7 +128,7 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
     success = False
     tweet_id = None
     is_video = False
-    VERSION = "v1.2.1-media-fix"
+    VERSION = "v1.3-advanced-media"
 
     def log(msg):
         logger.info(f"[Worker] [{VERSION}] {msg}")
@@ -267,46 +267,51 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
                         is_video = any(p.lower().endswith(('.mp4', '.mov', '.webm', '.ogg', '.m4v')) for p in valid_paths)
                         log(f"Uploading {len(valid_paths)} media files (isVideo={is_video}): {valid_paths}")
                         
-                        # Try multiple selectors for file input
+                        # Try multiple methods for file upload
+                        upload_success = False
                         try:
+                            # Method 1: Direct set_input_files on found selector
                             file_input = page.locator('input[type="file"][data-testid="fileInput"]').first
                             if not await file_input.is_attached():
                                 file_input = page.locator('input[type="file"]').first
                             
-                            await file_input.set_input_files(valid_paths)
-                            log("Media upload triggered via set_input_files.")
-                        except Exception as e:
-                            log(f"Failed to set input files: {e}")
-                        
-                        # Wait for media preview to be visible
-                        # X uses [data-testid="attachments"] but also specific item containers
-                        try:
-                            # Wait for the container
-                            await page.wait_for_selector('[data-testid="attachments"]', state="visible", timeout=30000)
-                            log("Media container detected.")
+                            if await file_input.is_attached():
+                                await file_input.set_input_files(valid_paths)
+                                log("Media paths set via direct input.")
+                                upload_success = True
                             
-                            # For videos, wait for the actual video or processing indicator
-                            if is_video:
-                                # Look for a video element or the processing state
-                                try:
-                                    await page.wait_for_selector('[data-testid="videoPlayer"], [data-testid="attachments"] video', state="attached", timeout=40000)
-                                    log("Video element/preview detected in composer.")
-                                except:
-                                    log("Warning: Specific video preview not detected, but container is visible.")
-                            else:
-                                # For images, wait for the photo preview
-                                try:
-                                    await page.wait_for_selector('[data-testid="tweetPhoto"]', state="visible", timeout=20000)
-                                    log("Image preview detected in composer.")
-                                except:
-                                    log("Warning: Image preview not detected within 20s.")
+                            # Method 2: If direct didn't trigger, try clicking the button to trigger file chooser
+                            if not upload_success:
+                                log("Direct upload didn't look attached, trying via file chooser...")
+                                async with page.expect_file_chooser(timeout=10000) as fc_info:
+                                    # Click the media icon (usually first in toolbar)
+                                    await page.click('[data-testid="fileInput"], [data-testid="mediaItem"]')
+                                file_chooser = await fc_info.value
+                                await file_chooser.set_files(valid_paths)
+                                log("Media files set via file chooser.")
+                                upload_success = True
+                        except Exception as e:
+                            log(f"Upload process warning: {e}")
+                        
+                        # Wait for media preview to be visible (CRITICAL)
+                        log("Waiting for media preview to confirm attachment...")
+                        try:
+                            # X uses [data-testid="attachments"] but also specific item containers
+                            await page.wait_for_selector('[data-testid="attachments"], [data-testid="tweetPhoto"], [data-testid="videoPlayer"]', state="visible", timeout=30000)
+                            log("Media preview confirmed in composer.")
                         except:
-                            log("Error: Media preview container NOT DETECTED within 30s. Upload might have failed.")
+                            log("CRITICAL ERROR: Media preview NOT DETECTED after upload attempt.")
+                            # Diagnostic: What do we see instead?
+                            try:
+                                source_preview = await page.content()
+                                log(f"Page Source Detail (partial): {source_preview[:500]}...")
+                            except: pass
+                            # We might want to ABORT here if media is mandatory, 
+                            # but for now we proceed with a warning to see what happens.
                         
                         if is_video:
-                            log("Video detected. Waiting for attachment/processing (up to 180s)...")
-                            # We will rely on button enablement + a small safety buffer
-                            await human_delay(5, 10)
+                            log("Video detected. Waiting for processing/encoding (up to 180s)...")
+                            # Don't just delay, we'll monitor the button status
                         else:
                             await human_delay(3, 6)
                     else:

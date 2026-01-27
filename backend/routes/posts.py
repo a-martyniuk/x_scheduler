@@ -96,6 +96,7 @@ def create_post(post: PostCreate, background_tasks: BackgroundTasks, db: Session
     
     is_immediate = post.status == "immediate"
     post_data = post.model_dump()
+    logger.info(f"Post data: {post_data}")
     
     if is_immediate:
         post_data["status"] = "processing"

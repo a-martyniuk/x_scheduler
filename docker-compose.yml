@@ -6,12 +6,10 @@ services:
     ports:
       - "8000:8000"
     volumes:
+      - ./data:/app/data
       - ./backend:/app/backend
-      - ./logs:/app/logs
-      - ./uploads:/app/uploads
-      - ./x_scheduler.db:/app/x_scheduler.db
     environment:
-      - DATABASE_URL=sqlite:////app/x_scheduler.db
+      - DATABASE_URL=sqlite:////app/data/x_scheduler.db
     restart: always
 
   frontend:
