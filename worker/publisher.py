@@ -701,10 +701,10 @@ async def scrape_tweet_from_article(article, context, clean_username, log_func=N
         # Check if Repost
         is_repost = False
         try:
-            # 1. Check strict selector
+            # STRATEGY 1: Check strict selector for "You reposted" (Legacy)
             header = article.locator(XSelectors.METRIC_SOCIAL_CONTEXT).first
             
-            # 2. Check fallback generic social context if strict fails
+            # STRATEGY 2: Check fallback generic social context
             if await header.count() == 0:
                  header = article.locator('[data-testid="socialContext"]').first
 
@@ -717,10 +717,34 @@ async def scrape_tweet_from_article(article, context, clean_username, log_func=N
                 ]
                 if any(x in header_text for x in repost_keywords):
                     is_repost = True
-                
-                # Also treat "pinned" as NOT a repost, but "liked" ? No, liked doesn't appear on profile timeline usually unless in a specific tab.
-                # But sometimes "You might like" appears.
-                # If it says "reposted", it IS a repost.
+            
+            # STRATEGY 3 (ROBUST): Compare Author Handle
+            # If the handle in the tweet header is NOT the username we are syncing, it IS a retweet.
+            if not is_repost and clean_username:
+                try:
+                    # Find the user link in the header. Usually the first link in User-Name.
+                    # It has an href like "/FinanzasArgy"
+                    user_link = article.locator('[data-testid="User-Name"] a[href^="/"]').first
+                    if await user_link.count() > 0:
+                        href = await user_link.get_attribute("href") # e.g. /FinanzasArgy
+                        if href:
+                            tweet_author = href.strip("/").lower()
+                            # Clean up checks (ignore query params if any)
+                            if "?" in tweet_author:
+                                tweet_author = tweet_author.split("?")[0]
+                            
+                            current_user = clean_username.lower()
+                            
+                            # Log for debug
+                            # log_func(f"Checking author for {tweet_id}: {tweet_author} vs {current_user}")
+
+                            if tweet_author != current_user:
+                                is_repost = True
+                                log_func(f"Detected Repost by Handle Mismatch: {tweet_author} != {current_user}")
+                except Exception as e:
+                    # log_func(f"Handle check failed: {e}")
+                    pass
+
         except Exception as e:
             pass
 
