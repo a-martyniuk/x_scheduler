@@ -120,63 +120,104 @@ async def sync_account_history(username: str, db: Session):
             "2007387117551530488", # No content / Ghost
             "1995428955218985118", # No content / Ghost
             "2007355606886798455", # "Toda latinoamerica..." (Persistent Quote Tweet)
+            "2007929193334738952", # "Domingo en el gym..." (from latest screenshot)
+            "2007327615070392726", # "PENTAGON PIZZA..." (from latest screenshot)
         }
         
-        is_blacklisted = post_data["tweet_id"] in BLACKLIST_IDS
-        is_empty = (not post_data.get("content") or post_data["content"].strip() == "") and not post_data.get("media_url")
-        is_repost_flag = post_data.get("is_repost", False)
+        # --- PHASE 0: PRE-SYNC CLEANUP (Force Delete Blacklisted IDs) ---
+        # Delete them blindly from DB to ensure they are gone regardless of scrape results
+        existing_blacklist = db.query(Post).filter(Post.tweet_id.in_(BLACKLIST_IDS)).all()
+        if existing_blacklist:
+            for bl_post in existing_blacklist:
+                logger.info(f"Sync: Force-Deleting blacklisted post {bl_post.tweet_id} from DB.")
+                db.query(PostMetricSnapshot).filter(PostMetricSnapshot.post_id == bl_post.id).delete()
+                db.delete(bl_post)
+            db.commit() # Commit immediately to ensure clear state
 
-        if is_blacklisted or is_repost_flag or is_empty:
-            reason = "Blacklisted" if is_blacklisted else "Empty/Ghost" if is_empty else "Repost Policy"
-            logger.info(f"Sync: Skipping/Removing post {post_data['tweet_id']} ({reason})")
+        scraped_ids = set()
+        count = 0 
+        
+        for post_data in scraped_data:
+            tweet_id = post_data["tweet_id"]
+            scraped_ids.add(tweet_id)
+
+            # Check blacklist or empty policy for INCOMING data to prevent re-insertion
+            is_blacklisted = tweet_id in BLACKLIST_IDS
+            is_empty = (not post_data.get("content") or post_data["content"].strip() == "") and not post_data.get("media_url")
+            is_repost_flag = post_data.get("is_repost", False)
+
+            if is_blacklisted:
+                 logger.info(f"Sync: Skipping blacklisted post {tweet_id}")
+                 continue
             
-            # If it exists in DB, delete it to clean up history
-            if existing_post:
-                logger.info(f"Sync: Deleting existing post {existing_post.id} from DB ({reason}).")
-                db.delete(existing_post)
-                # Also clean snapshots
-                db.query(PostMetricSnapshot).filter(PostMetricSnapshot.post_id == existing_post.id).delete()
-            continue
-
-        if existing_post:
-            # UPDATE existing record
-            if existing_post.is_repost: 
-                 # Double check: if DB thinks it's a repost, purge it.
-                 logger.info(f"Sync: Purging legacy repost {existing_post.id}")
-                 db.delete(existing_post)
+            if is_repost_flag:
+                 logger.info(f"Sync: Skipping repost {tweet_id}")
+                 # Ensure it's gone (should be handled by pre-sync or below logic, but safety check)
                  continue
 
-            if existing_post.status == "deleted_on_x":
-                existing_post.status = "sent"
-                existing_post.logs = (existing_post.logs or "") + "\n[Sync] Restored from deleted_on_x (Found in scan)"
-            
-            # Update real-time metrics
-            existing_post.views_count = post_data["views"]
-            existing_post.likes_count = post_data["likes"]
-            existing_post.reposts_count = post_data["reposts"]
-            existing_post.bookmarks_count = post_data.get("bookmarks", 0)
-            existing_post.replies_count = post_data.get("replies", 0)
-            existing_post.url_link_clicks = post_data.get("url_link_clicks", 0)
-            existing_post.user_profile_clicks = post_data.get("user_profile_clicks",0)
-            existing_post.detail_expands = post_data.get("detail_expands", 0)
+            if is_empty:
+                 logger.info(f"Sync: Skipping empty post {tweet_id}")
+                 continue
 
-            if post_data.get("media_url"):
-                existing_post.media_url = post_data["media_url"]
+            existing_post = db.query(Post).filter(Post.account_id == account.id, Post.tweet_id == tweet_id).first()
             
-            # CRITICAL: Always overwrite dates if worker provided a VALID pub_date from Snowflake
-            if pub_date:
-                existing_post.created_at = pub_date
-                existing_post.updated_at = pub_date 
+            # Additional cleanup: If we find a repost/empty that somehow exists, kill it
+            if existing_post and (is_repost_flag or is_empty):
+                logger.info(f"Sync: Removing invalid existing post {existing_post.id}")
+                db.delete(existing_post)
+                db.query(PostMetricSnapshot).filter(PostMetricSnapshot.post_id == existing_post.id).delete()
+                continue
+
+            # Parse date safely
+            try:
+                dt_str = post_data.get("created_at")
+                if dt_str:
+                    pub_date = datetime.fromisoformat(dt_str.replace("Z", "+00:00"))
+                else:
+                    pub_date = None
+            except Exception as e:
+                logger.error(f"Error parsing date {post_data.get('created_at')}: {e}")
+                pub_date = None
+
+            if existing_post:
+                # UPDATE existing record
+                if existing_post.is_repost: 
+                    # Double check: if DB thinks it's a repost, purge it.
+                    logger.info(f"Sync: Purging legacy repost {existing_post.id}")
+                    db.delete(existing_post)
+                    continue
+
+                if existing_post.status == "deleted_on_x":
+                    existing_post.status = "sent"
+                    existing_post.logs = (existing_post.logs or "") + "\n[Sync] Restored from deleted_on_x (Found in scan)"
+                
+                # Update real-time metrics
+                existing_post.views_count = post_data["views"]
+                existing_post.likes_count = post_data["likes"]
+                existing_post.reposts_count = post_data["reposts"]
+                existing_post.bookmarks_count = post_data.get("bookmarks", 0)
+                existing_post.replies_count = post_data.get("replies", 0)
+                existing_post.url_link_clicks = post_data.get("url_link_clicks", 0)
+                existing_post.user_profile_clicks = post_data.get("user_profile_clicks",0)
+                existing_post.detail_expands = post_data.get("detail_expands", 0)
+
+                if post_data.get("media_url"):
+                    existing_post.media_url = post_data["media_url"]
+                
+                # CRITICAL: Always overwrite dates if worker provided a VALID pub_date from Snowflake
+                if pub_date:
+                    existing_post.created_at = pub_date
+                    existing_post.updated_at = pub_date 
+                else:
+                    logger.warning(f"Sync: No date found for existing post {existing_post.id}. Preserving original date.")
+
+                if post_data.get("content") and (not existing_post.content or existing_post.content == "(No content)"):
+                    existing_post.content = post_data["content"]
+                
+                count += 1 
             else:
-                 logger.warning(f"Sync: No date found for existing post {existing_post.id}. Preserving original date.")
-
-            if post_data.get("content") and (not existing_post.content or existing_post.content == "(No content)"):
-                existing_post.content = post_data["content"]
-            
-            count += 1 
-        else:
-            # CREATE new record
-            if not pub_date:
+                # CREATE new record
+                if not pub_date:
                  logger.error(f"Sync: Creating NEW post {post_data['tweet_id']} without a valid date. Defaulting to now.")
 
             new_post = Post(
