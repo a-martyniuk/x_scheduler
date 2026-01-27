@@ -133,6 +133,25 @@ async def import_tweet(request: ImportTweetRequest, db: Session = Depends(get_db
     tweet_id = tweet_data['tweet_id']
     existing_post = db.query(Post).filter(Post.tweet_id == tweet_id).first()
     
+    # NEW: Merge Strategy - Check for content match if not found by ID
+    if not existing_post:
+        # Normalize content for comparison (basic strip)
+        imported_content = (tweet_data.get("content") or "").strip()
+        if imported_content and imported_content != "(No content)":
+             # Find a candidate to merge:
+             # - Must not have a tweet_id already (otherwise it's a different tweet)
+             # - Status should be draft/scheduled/failed (not sent, unless we want to link sent posts too? 
+             #   Usually sent posts have tweet_id, but maybe manual ones don't. Let's include 'sent' if tweet_id is null)
+             # - Content matches
+             candidate = db.query(Post).filter(
+                 Post.tweet_id.is_(None),
+                 Post.content == imported_content
+             ).first()
+             
+             if candidate:
+                 logger.info(f"Merging import {tweet_id} into existing post {candidate.id}")
+                 existing_post = candidate
+    
     # Default values for fields not in scraped data or differently named
     post_data = {
         "content": tweet_data.get("content") or "(No content)",
