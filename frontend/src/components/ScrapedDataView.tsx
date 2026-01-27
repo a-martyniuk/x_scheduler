@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Database, Search, ArrowUpRight, Calendar, Eye, Heart, Repeat, Bookmark, MessageCircle } from 'lucide-react';
+import { Database, Search, ArrowUpRight, Calendar, Eye, Heart, Repeat, Bookmark, MessageCircle, Trash2 } from 'lucide-react';
 import type { Post } from '../types';
 
 interface ScrapedDataViewProps {
@@ -207,14 +207,25 @@ export const ScrapedDataView: React.FC<ScrapedDataViewProps> = ({ posts, isQuara
                                                     </button>
                                                 </div>
                                             ) : (
-                                                <a
-                                                    href={`https://x.com/i/status/${post.tweet_id}`}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white dark:bg-white/5 border border-border/50 text-muted-foreground hover:text-primary hover:border-primary/50 transition-all active:scale-95 shadow-sm"
-                                                >
-                                                    <ArrowUpRight size={16} />
-                                                </a>
+                                                <div className="flex items-center justify-end gap-2">
+                                                    {onDelete && (
+                                                        <button
+                                                            onClick={() => post.id && onDelete(post.id)}
+                                                            className="p-3 bg-rose-500/10 hover:bg-rose-500 hover:text-white text-rose-500 rounded-xl transition-all"
+                                                            title="Eliminar post"
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    )}
+                                                    <a
+                                                        href={`https://x.com/i/status/${post.tweet_id}`}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-white dark:bg-white/5 border border-border/50 text-muted-foreground hover:text-primary hover:border-primary/50 transition-all active:scale-95 shadow-sm"
+                                                    >
+                                                        <ArrowUpRight size={16} />
+                                                    </a>
+                                                </div>
                                             )}
                                         </td>
                                     </tr>

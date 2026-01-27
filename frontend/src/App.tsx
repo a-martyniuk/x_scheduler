@@ -28,7 +28,7 @@ import { cn } from './lib/utils';
 import { api, BASE_URL } from './api';
 
 function App() {
-  const { posts, isLoading: isLoadingPosts, createPost, updatePost, error: postsError, refetch: refetchPosts } = usePosts();
+  const { posts, isLoading: isLoadingPosts, createPost, updatePost, deletePost, error: postsError, refetch: refetchPosts } = usePosts();
   const { posts: quarantinePosts, restorePost: restoreQuarantinePost, deletePost: deleteQuarantinePost } = useQuarantinePosts();
   const { accounts, refetch: refetchAuth } = useAuth();
   const { data: globalStats, refetch: refetchStats } = useStats();
@@ -410,7 +410,10 @@ function App() {
               onDelete={deleteQuarantinePost}
             />
           ) : (
-            <ScrapedDataView posts={posts} />
+            <ScrapedDataView
+              posts={posts}
+              onDelete={(id) => deletePost(id)}
+            />
           )}
         </AnimatePresence>
       </main>
