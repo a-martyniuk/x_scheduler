@@ -118,7 +118,7 @@ async def sync_account_history(username: str, db: Session):
         if post_data.get("is_repost", False):
             logger.info(f"Sync: Skipping repost {post_data['tweet_id']} (Clean Policy)")
             # If it exists in DB, delete it to clean up history
-             if existing_post:
+            if existing_post:
                 logger.info(f"Sync: Deleting existing repost {existing_post.id} from DB to match policy.")
                 db.delete(existing_post)
                 # Also clean snapshots
