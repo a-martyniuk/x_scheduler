@@ -128,7 +128,7 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
     success = False
     tweet_id = None
     is_video = False
-    VERSION = "v1.3.2-final-media"
+    VERSION = "v1.3.3-playwright-fix"
 
     def log(msg):
         logger.info(f"[Worker] [{VERSION}] {msg}")
@@ -273,10 +273,10 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
                         try:
                             # Method 1: Direct set_input_files on found selector
                             file_input = page.locator('input[type="file"][data-testid="fileInput"]').first
-                            if not await file_input.is_attached():
+                            if await file_input.count() == 0:
                                 file_input = page.locator('input[type="file"]').first
                             
-                            if await file_input.is_attached():
+                            if await file_input.count() > 0:
                                 await file_input.set_input_files(valid_paths)
                                 log("Media paths set via direct input.")
                                 upload_success = True
