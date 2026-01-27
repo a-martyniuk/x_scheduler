@@ -86,26 +86,6 @@ async def sync_account_history(username: str, db: Session):
     
     # 5. Upsert Posts
     # POLICY: Exclude Reposts entirely to keep analytics clean.
-    # Also exclude Blacklisted IDs (Manual cleanup for edge cases)
-    BLACKLIST_IDS = {
-        "2007387117551530408", # No content / Ghost (Fixed ID)
-        "1995428955218985118", # No content / Ghost
-        "2007404288633712869", # "Amé" (Short reply/quote)
-        "2007355606806798455", # "Toda latinoamerica..." (Persistent Quote Tweet - Fixed Typo 806)
-        "2007929193334738952", # "Domingo en el gym..."
-        "2007327615070392726", # "PENTAGON PIZZA..."
-        "2007332245871415556", # "La civilización avanza..." (James Clear)
-    }
-    
-    # --- PHASE 0: PRE-SYNC CLEANUP (Force Delete Blacklisted IDs) ---
-    # Delete them blindly from DB to ensure they are gone regardless of scrape results
-    existing_blacklist = db.query(Post).filter(Post.tweet_id.in_(BLACKLIST_IDS)).all()
-    if existing_blacklist:
-        for bl_post in existing_blacklist:
-            logger.info(f"Sync: Force-Deleting blacklisted post {bl_post.tweet_id} from DB.")
-            db.query(PostMetricSnapshot).filter(PostMetricSnapshot.post_id == bl_post.id).delete()
-            db.delete(bl_post)
-        db.commit() # Commit immediately to ensure clear state
 
     scraped_ids = set()
     count = 0 
@@ -115,13 +95,8 @@ async def sync_account_history(username: str, db: Session):
         scraped_ids.add(tweet_id)
 
         # Check blacklist or empty policy for INCOMING data to prevent re-insertion
-        is_blacklisted = tweet_id in BLACKLIST_IDS
         is_empty = (not post_data.get("content") or post_data["content"].strip() == "") and not post_data.get("media_url")
         is_repost_flag = post_data.get("is_repost", False)
-
-        if is_blacklisted:
-            # logger.debug(f"Sync: Skipping blacklisted post {tweet_id}")
-            continue
         
         if is_repost_flag:
             # logger.debug(f"Sync: Skipping repost {tweet_id}")
