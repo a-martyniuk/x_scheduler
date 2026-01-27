@@ -556,8 +556,16 @@ async def sync_history_task(username: str):
                 with open(debug_html_path, "w", encoding="utf-8") as f:
                     f.write(html_content)
                 log(f"DEBUG: Saved raw HTML to {debug_html_path}")
+                
+                # SELF-DIAGNOSTIC: Check for target tweet text
+                target_text = "panel interactivo"
+                if target_text in html_content:
+                    log(f"CRITICAL DEBUG: Target text '{target_text}' FOUND in HTML. Issue is likely SELECTOR/PARSING.")
+                else:
+                    log(f"CRITICAL DEBUG: Target text '{target_text}' NOT FOUND in HTML. Issue is VISIBILITY/SHADOWBAN/RENDER.")
+                    
             except Exception as e:
-                log(f"DEBUG: Failed to save HTML: {e}")
+                log(f"DEBUG: Failed to save/analyze HTML: {e}")
 
             # --- VERIFY SESSION ---
             if not await verify_session(page, log):
@@ -644,9 +652,26 @@ async def sync_history_task(username: str):
 
             for article in articles:
                 try:
+                    tweet_text_el = article.locator(XSelectors.TWEET_TEXT).first
+                    raw_text = await tweet_text_el.inner_text() if await tweet_text_el.count() > 0 else "No Text"
+                    
+                    # Extract Tweet ID (URL)
+                    tweet_links = article.locator('a[href*="/status/"]')
+                    current_tweet_id = None
+                    tweet_url = ""
+                    if await tweet_links.count() > 0:
+                        link_el = tweet_links.first
+                        href = await link_el.get_attribute('href')
+                        if href:
+                            match = re.search(r'status/(\d+)', href)
+                            current_tweet_id = match.group(1) if match else None
+                            tweet_url = href
+                    
+                    log(f"Processing article (ID: {current_tweet_id}, Text: '{raw_text[:50]}...')")
+
                     # ... (Time/ID extraction logic remains similar as it uses generic HTML tags 'time', 'a') ...
                     # ID / Time extraction logic
-                    tweet_id = None
+                    tweet_id = None # This will be re-assigned below, but keeping for clarity of original structure
                     datetime_str = None
                     time_tag = article.locator('time')
                     
@@ -684,6 +709,14 @@ async def sync_history_task(username: str):
                          log(f"Warning: No valid date found for article (Tweet ID: {tweet_id})")
 
                     if tweet_id:
+                        if not tweet_id:
+                            log(f"DEBUG Article: Could not extract ID. Text: {raw_text[:30]}...")
+                            continue
+                            
+                        log(f"DEBUG Article: Found {tweet_id} | Text: {raw_text[:30]}...")
+
+                        if tweet_id in [p['tweet_id'] for p in posts_imported]:
+                            continue
                         # Content
                         content_el = article.locator(XSelectors.TWEET_TEXT)
                         content = ""
