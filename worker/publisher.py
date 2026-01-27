@@ -156,6 +156,11 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
             # Create page BEFORE verifying session
             page = await context.new_page()
 
+            # Navigate to a base page to check cookies/session
+            log("Navigating to verify session...")
+            await page.goto("https://x.com/", timeout=45000)
+            await human_delay(2, 4)
+
             # --- VERIFY SESSION ---
             if not await verify_session(page, log):
                 return {"success": False, "log": "Authentication failed: Session invalid or expired. Please update cookies.", "screenshot_path": None, "tweet_id": None}
