@@ -157,15 +157,22 @@ def run_migrations():
             # Or just content match.
             # Let's be careful: Only delete if content is long enough to be unique (> 20 chars) matching "Acabo de lanzar un pane"
             
+            # 2. Match Imports to Drafts (Fuzzy Match)
+            # Use the first 30 characters to match drafts to imported tweets.
+            # This handles cases where X modifies whitespace or links.
+            
+            logger.info("Migrating: Running fuzzy deduplication...")
             conn.execute(text("""
                 DELETE FROM posts 
                 WHERE tweet_id IS NULL 
-                AND content IN (
-                    SELECT content 
-                    FROM posts 
-                    WHERE tweet_id IS NOT NULL
+                AND EXISTS (
+                    SELECT 1 
+                    FROM posts p2 
+                    WHERE p2.tweet_id IS NOT NULL 
+                    AND p2.id != posts.id
+                    AND substr(p2.content, 1, 30) = substr(posts.content, 1, 30)
                 )
-                AND length(content) > 10
+                AND length(content) > 15
             """))
 
             conn.commit()
