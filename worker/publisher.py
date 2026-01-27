@@ -128,7 +128,7 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
     success = False
     tweet_id = None
     is_video = False
-    VERSION = "v1.2-media-diag"
+    VERSION = "v1.2.1-media-fix"
 
     def log(msg):
         logger.info(f"[Worker] [{VERSION}] {msg}")
@@ -244,7 +244,24 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
                     if remote_paths:
                         log(f"Warning: Remote media URLs not directly supported for upload yet: {remote_paths}")
 
-                    valid_paths = [p for p in local_paths if os.path.exists(p)]
+                    if local_paths:
+                        normalized_paths = []
+                        for p in local_paths:
+                            if os.path.exists(p):
+                                normalized_paths.append(p)
+                            else:
+                                # Fallback: check if the filename exists in our local UPLOAD_DIR
+                                filename = os.path.basename(p.replace('\\', '/'))
+                                # Try to find where UPLOAD_DIR would be
+                                from backend.routes.upload import UPLOAD_DIR as BACKEND_UPLOAD_DIR
+                                alt_path = os.path.join(BACKEND_UPLOAD_DIR, filename)
+                                if os.path.exists(alt_path):
+                                    log(f"Found media via fallback: {alt_path}")
+                                    normalized_paths.append(alt_path)
+                                else:
+                                    log(f"Warning: Media not found at {p} or {alt_path}")
+                        
+                        valid_paths = normalized_paths
                     
                     if valid_paths:
                         is_video = any(p.lower().endswith(('.mp4', '.mov', '.webm', '.ogg', '.m4v')) for p in valid_paths)
