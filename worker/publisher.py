@@ -729,6 +729,11 @@ async def scrape_tweet_from_article(article, context, clean_username, log_func=N
         return None
 
 async def sync_history_task(username: str):
+    log_messages = []
+    
+    def log(msg):
+        logger.info(f"[Worker] {msg}")
+        log_messages.append(msg)
 
     storage_state, temp_cookies_path = await _get_storage_state(username, log)
     if not storage_state:
