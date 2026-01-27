@@ -747,6 +747,8 @@ async def sync_history_task(username: str):
         )
         
         profile_stats = {"followers": 0, "following": 0}
+        posts_imported = []
+        min_date = None
 
         try:
             page = await context.new_page()
