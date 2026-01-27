@@ -171,21 +171,21 @@ async def sync_account_history(username: str, db: Session):
                 latest_snap = db.query(PostMetricSnapshot).filter(PostMetricSnapshot.post_id == existing_post.id).order_by(PostMetricSnapshot.timestamp.desc()).first()
                 
                 has_changes = not latest_snap or (
-                    latest_snap.views_count != post_data["views"] or 
-                    latest_snap.likes_count != post_data["likes"] or 
-                    latest_snap.reposts_count != post_data["reposts"] or
-                    latest_snap.bookmarks_count != post_data.get("bookmarks", 0) or
-                    latest_snap.replies_count != post_data.get("replies", 0)
+                    latest_snap.views != post_data["views"] or 
+                    latest_snap.likes != post_data["likes"] or 
+                    latest_snap.reposts != post_data["reposts"] or
+                    latest_snap.bookmarks != post_data.get("bookmarks", 0) or
+                    latest_snap.replies != post_data.get("replies", 0)
                 )
 
                 if has_changes:
                         snapshot = PostMetricSnapshot(
                         post_id=existing_post.id,
-                        views_count=post_data["views"],
-                        likes_count=post_data["likes"],
-                        reposts_count=post_data["reposts"],
-                        bookmarks_count=post_data.get("bookmarks", 0),
-                        replies_count=post_data.get("replies", 0),
+                        views=post_data["views"],
+                        likes=post_data["likes"],
+                        reposts=post_data["reposts"],
+                        bookmarks=post_data.get("bookmarks", 0),
+                        replies=post_data.get("replies", 0),
                         timestamp=datetime.now(timezone.utc).replace(tzinfo=None)
                     )
                         db.add(snapshot)
@@ -226,11 +226,11 @@ async def sync_account_history(username: str, db: Session):
                 # Create Day 0 snapshot for new post
                 snap = PostMetricSnapshot(
                     post_id=new_post.id,
-                    views_count=new_post.views_count,
-                    likes_count=new_post.likes_count,
-                    reposts_count=new_post.reposts_count,
-                    bookmarks_count=new_post.bookmarks_count,
-                    replies_count=new_post.replies_count,
+                    views=new_post.views_count,
+                    likes=new_post.likes_count,
+                    reposts=new_post.reposts_count,
+                    bookmarks=new_post.bookmarks_count,
+                    replies=new_post.replies_count,
                     timestamp=datetime.now(timezone.utc).replace(tzinfo=None)
                 )
                 db.add(snap)
