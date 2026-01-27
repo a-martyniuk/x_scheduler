@@ -9,14 +9,15 @@ import {
     LogOut,
     Zap,
     RefreshCcw,
-    Download
+    Download,
+    Database
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import type { Post, Account } from '../types';
 
 interface SidebarProps {
-    currentView: 'calendar' | 'analytics';
-    setCurrentView: (view: 'calendar' | 'analytics') => void;
+    currentView: 'calendar' | 'analytics' | 'scraped-data';
+    setCurrentView: (view: 'calendar' | 'analytics' | 'scraped-data') => void;
     setIsMobileMenuOpen: (isOpen: boolean) => void;
     globalStats: any;
     posts: Post[];
@@ -76,6 +77,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     {[
                         { id: 'calendar', label: 'Cronograma', icon: CalendarIcon },
                         { id: 'analytics', label: 'Analíticas', icon: BarChart3 },
+                        { id: 'scraped-data', label: 'Datos X', icon: Database },
                     ].map((item) => (
                         <button
                             key={item.id}

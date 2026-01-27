@@ -14,6 +14,7 @@ import { PostModal } from './components/PostModal';
 import { LoginModal } from './components/LoginModal';
 import { ImportTweetModal } from './components/ImportTweetModal';
 import { AnalyticsView } from './components/AnalyticsView';
+import { ScrapedDataView } from './components/ScrapedDataView';
 import { LoginScreen } from './components/LoginScreen';
 import { Sidebar } from './components/Sidebar';
 import { CalendarView } from './components/CalendarView';
@@ -40,7 +41,7 @@ function App() {
     ]);
   };
 
-  const [currentView, setCurrentView] = useState<'calendar' | 'analytics'>('calendar');
+  const [currentView, setCurrentView] = useState<'calendar' | 'analytics' | 'scraped-data'>('calendar');
   const [isPostModalOpen, setIsPostModalOpen] = useState(false);
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
@@ -386,7 +387,7 @@ function App() {
               onDateClick={handleDateClick}
               onEventClick={handleEventClick}
             />
-          ) : (
+          ) : currentView === 'analytics' ? (
             <motion.div
               key="analytics"
               initial={{ opacity: 0, y: 20 }}
@@ -399,6 +400,8 @@ function App() {
                 accounts={accounts}
               />
             </motion.div>
+          ) : (
+            <ScrapedDataView posts={posts} />
           )}
         </AnimatePresence>
       </main>
