@@ -8,7 +8,8 @@ import {
     Plus,
     LogOut,
     Zap,
-    RefreshCcw
+    RefreshCcw,
+    Download
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import type { Post, Account } from '../types';
@@ -25,6 +26,7 @@ interface SidebarProps {
     onLogout: () => void;
     onRefresh: () => void;
     onSync: () => Promise<any>;
+    onOpenImportModal: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -38,7 +40,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onOpenLoginModal,
     onLogout,
     onRefresh,
-    onSync
+    onSync,
+    onOpenImportModal
 }) => {
     const sentCount = globalStats?.sent || 0;
     const queuedCount = globalStats?.scheduled || 0;
@@ -109,8 +112,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         disabled={isSyncing}
                         title="Sincronizar con X (Descarga info real)"
                     >
-                        <RefreshCcw size={14} className={cn("group-hover:rotate-180 transition-transform duration-700", isSyncing && "animate-spin")} />
                         <span className="hidden sm:inline">{isSyncing ? "..." : "Sync X"}</span>
+                    </button>
+                    <button
+                        onClick={onOpenImportModal}
+                        className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-orange-500/10 text-orange-500 hover:bg-orange-500 hover:text-white rounded-xl transition-all duration-300 text-[10px] font-black uppercase tracking-widest border border-orange-500/20 group relative"
+                        title="Importar tweet por URL"
+                    >
+                        <Download size={14} className="group-hover:translate-y-0.5 transition-transform duration-300" />
+                        <span className="hidden md:inline">Import</span>
                     </button>
                 </div>
 

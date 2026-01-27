@@ -501,27 +501,234 @@ async def login_to_x(username, password):
 
     return {"success": success, "log": "\n".join(log_messages)}
 
+
+def parse_number(text):
+    if not text: return 0
+    text = text.replace(",", "").strip().upper()
+    match = re.search(r'([\d\.]+)', text)
+    if not match: return 0
+    num = float(match.group(1))
+    if 'K' in text: num *= 1000
+    elif 'M' in text: num *= 1000000
+    return int(num)
+
+async def scrape_tweet_from_article(article, context, clean_username, log_func=None):
+    """
+    Extracts tweet data from a single article element.
+    Returns a dictionary or None if extraction fails.
+    """
+    if log_func is None:
+        def log_func(msg): logger.info(f"[Scraper] {msg}")
+
+    try:
+        tweet_text_el = article.locator(XSelectors.TWEET_TEXT).first
+        raw_text = await tweet_text_el.inner_text() if await tweet_text_el.count() > 0 else "No Text"
+        
+        # 1. Extract Tweet ID First (Critical for precision)
+        link_el = article.locator('a[href*="/status/"]').first
+        tweet_id = None
+        tweet_url = ""
+        
+        if await link_el.count() > 0:
+            href = await link_el.get_attribute('href')
+            if href:
+                match = re.search(r'status/(\d+)', href)
+                tweet_id = match.group(1) if match else None
+                tweet_url = href
+        
+        if not tweet_id:
+             return None
+
+        # 2. Extract / Calculate Date
+        datetime_str = None
+        time_tag = article.locator('time')
+        
+        # Try Snowflake ID calculation (Best Precision)
+        try:
+            # Snowflake formula: (id >> 22) + 1288834974657
+            timestamp_ms = (int(tweet_id) >> 22) + 1288834974657
+            # Ensure it ends with Z to signify UTC for the ISO string
+            datetime_str = datetime.utcfromtimestamp(timestamp_ms / 1000.0).isoformat() + "Z"
+        except Exception as e:
+            log_func(f"Snowflake formula error for {tweet_id}: {e}")
+
+        # Fallback to HTML Tags
+        if not datetime_str and await time_tag.count() > 0:
+            try:
+                await time_tag.first.wait_for(state="attached", timeout=1000)
+                datetime_str = await time_tag.first.get_attribute('datetime')
+                if not datetime_str:
+                        datetime_str = await time_tag.first.get_attribute('title') or await time_tag.first.get_attribute('aria-label')
+            except: pass
+
+        if not datetime_str:
+                log_func(f"Warning: No valid date found for article (Tweet ID: {tweet_id})")
+
+        # Content
+        content_el = article.locator(XSelectors.TWEET_TEXT)
+        content = ""
+        if await content_el.count() > 0:
+            content = await content_el.inner_text()
+        
+        # Media Scraping
+        media_url = None
+        try:
+            # Try to find an image
+            img_el = article.locator('[data-testid="tweetPhoto"] img').first
+            if await img_el.count() > 0:
+                media_url = await img_el.get_attribute("src")
+            else:
+                # Try video poster
+                video_el = article.locator('[data-testid="videoPlayer"] video').first
+                if await video_el.count() > 0:
+                    media_url = await video_el.get_attribute("poster")
+        except Exception as e:
+            pass
+
+        # Stats Scraping from Timeline
+        views = 0
+        likes = 0
+        reposts = 0
+        replies = 0
+        bookmarks = 0
+        url_link_clicks = 0
+        user_profile_clicks = 0
+        detail_expands = 0
+
+        try:
+            # Likes
+            like_el = article.locator(f'{XSelectors.METRIC_LIKE}, {XSelectors.METRIC_UNLIKE}').first
+            if await like_el.count() > 0:
+                label = await like_el.get_attribute("aria-label") 
+                if label and "Like" in label: 
+                    likes = parse_number(label.split("Like")[0])
+
+            # Reposts
+            rt_el = article.locator(f'{XSelectors.METRIC_REPOST}, {XSelectors.METRIC_UNREPOST}').first
+            if await rt_el.count() > 0:
+                label = await rt_el.get_attribute("aria-label")
+                if label and "Repost" in label:
+                    reposts = parse_number(label.split("Repost")[0])
+            
+            # Replies
+            reply_el = article.locator(f'[data-testid="reply"]').first
+            if await reply_el.count() > 0:
+                label = await reply_el.get_attribute("aria-label")
+                if label and ("Repl" in label or "Resp" in label):
+                    raw = label.split("Repl")[0].split("Resp")[0]
+                    replies = parse_number(raw)
+            
+            # Bookmarks
+            bm_el = article.locator(f'[data-testid="bookmark"], [data-testid="removeBookmark"]').first
+            if await bm_el.count() > 0:
+                label = await bm_el.get_attribute("aria-label")
+                if label and ("Bookm" in label or "Guard" in label):
+                        raw = label.split("Bookm")[0].split("Guard")[0]
+                        bookmarks = parse_number(raw)
+
+            # Views
+            analytics_link = article.locator(XSelectors.LINK_ANALYTICS).first
+            if await analytics_link.count() > 0:
+                label = await analytics_link.get_attribute("aria-label")
+                if label and "View" in label:
+                    views = parse_number(label.split("View")[0])
+            else:
+                view_stat = article.locator(f'{XSelectors.CONTAINER_VIEW_STAT}', has_text="View").first
+                if await view_stat.count() == 0:
+                        all_stats = await article.locator('[aria-label*="View"]').all()
+                        for stat in all_stats:
+                            lbl = await stat.get_attribute("aria-label")
+                            if lbl and "View" in lbl:
+                                views = parse_number(lbl.split("View")[0])
+                                break
+            
+            # --- DEEP ANALYTICS SCRAPING ---
+            # Only if context and clean_username are provided
+            if context and clean_username and tweet_id:
+                try:
+                    log_func(f"Fetching detailed analytics for tweet {tweet_id}...")
+                    analytics_url = f"https://x.com/{clean_username}/status/{tweet_id}/analytics"
+                    
+                    # Open in new tab
+                    analytics_page = await context.new_page()
+                    try:
+                        await analytics_page.goto(analytics_url, timeout=20000)
+                        await human_delay(2, 3)
+                        
+                        # Strategy 1: Aria labels
+                        try:
+                            metric_containers = await analytics_page.locator('[aria-label], [data-testid]').all()
+                            for container in metric_containers:
+                                aria_label = await container.get_attribute('aria-label')
+                                if aria_label:
+                                    if 'link click' in aria_label.lower():
+                                        match = re.search(r'(\d+)', aria_label)
+                                        if match: url_link_clicks = int(match.group(1))
+                                    elif 'profile visit' in aria_label.lower():
+                                        match = re.search(r'(\d+)', aria_label)
+                                        if match: user_profile_clicks = int(match.group(1))
+                                    elif 'detail expand' in aria_label.lower():
+                                        match = re.search(r'(\d+)', aria_label)
+                                        if match: detail_expands = int(match.group(1))
+                        except: pass
+                        
+                        # Strategy 2: Text regex fallback
+                        if url_link_clicks == 0 and user_profile_clicks == 0 and detail_expands == 0:
+                            try:
+                                all_text = await analytics_page.locator('body').inner_text()
+                                link_match = re.search(r'(\d[\d,]*)\s*[^\d\w]*\s*(?:Link clicks?)', all_text, re.IGNORECASE)
+                                if link_match: url_link_clicks = int(link_match.group(1).replace(',', ''))
+                                
+                                profile_match = re.search(r'(\d[\d,]*)\s*[^\d\w]*\s*(?:Profile visits?)', all_text, re.IGNORECASE)
+                                if profile_match: user_profile_clicks = int(profile_match.group(1).replace(',', ''))
+                                
+                                detail_match = re.search(r'(\d[\d,]*)\s*[^\d\w]*\s*(?:Detail expands?)', all_text, re.IGNORECASE)
+                                if detail_match: detail_expands = int(detail_match.group(1).replace(',', ''))
+                            except: pass
+
+                    except Exception as e:
+                        log_func(f"Failed to fetch analytics for {tweet_id}: {e}")
+                    finally:
+                        await analytics_page.close()
+                        await human_delay(0.5, 1)
+
+                except Exception as e:
+                    log_func(f"Analytics navigation failed for {tweet_id}: {e}")
+
+        except Exception as e:
+            pass
+
+        # Check if Repost
+        is_repost = False
+        try:
+            header = article.locator(XSelectors.METRIC_SOCIAL_CONTEXT).first
+            if await header.count() > 0:
+                header_text = (await header.inner_text()).lower()
+                if any(x in header_text for x in ["repost", "retweet", "reposte", "comparti"]):
+                    is_repost = True
+        except Exception as e:
+            pass
+
+        return {
+            "tweet_id": tweet_id,
+            "content": content,
+            "views": views,
+            "likes": likes,
+            "reposts": reposts,
+            "replies": replies,
+            "bookmarks": bookmarks,
+            "url_link_clicks": url_link_clicks,
+            "user_profile_clicks": user_profile_clicks,
+            "detail_expands": detail_expands,
+            "published_at": datetime_str,
+            "media_url": media_url,
+            "is_repost": is_repost
+        }
+    except Exception as e:
+        log_func(f"Failed to scrape article: {e}")
+        return None
+
 async def sync_history_task(username: str):
-    """
-    Scrapes the user's profile to import historical posts.
-    """
-    log_messages = []
-    posts_imported = []
-    min_date = None
-
-    def log(msg):
-        logger.info(f"[Worker-Sync] {msg}")
-        log_messages.append(msg)
-
-    def parse_number(text):
-        if not text: return 0
-        text = text.replace(",", "").strip().upper()
-        match = re.search(r'([\d\.]+)', text)
-        if not match: return 0
-        num = float(match.group(1))
-        if 'K' in text: num *= 1000
-        elif 'M' in text: num *= 1000000
-        return int(num)
 
     storage_state, temp_cookies_path = await _get_storage_state(username, log)
     if not storage_state:
@@ -653,280 +860,18 @@ async def sync_history_task(username: str):
 
             for article in articles:
                 try:
-                    tweet_text_el = article.locator(XSelectors.TWEET_TEXT).first
-                    raw_text = await tweet_text_el.inner_text() if await tweet_text_el.count() > 0 else "No Text"
+                    tweet_data = await scrape_tweet_from_article(article, context, clean_username, log)
                     
-                    # Extract Tweet ID (URL)
-                    tweet_links = article.locator('a[href*="/status/"]')
-                    current_tweet_id = None
-                    tweet_url = ""
-                    if await tweet_links.count() > 0:
-                        link_el = tweet_links.first
-                        href = await link_el.get_attribute('href')
-                        if href:
-                            match = re.search(r'status/(\d+)', href)
-                            current_tweet_id = match.group(1) if match else None
-                            tweet_url = href
-                    
-                    log(f"Processing article (ID: {current_tweet_id}, Text: '{raw_text[:50]}...')")
-
-                    # ... (Time/ID extraction logic remains similar as it uses generic HTML tags 'time', 'a') ...
-                    # ID / Time extraction logic
-                    tweet_id = None # This will be re-assigned below, but keeping for clarity of original structure
-                    datetime_str = None
-                    time_tag = article.locator('time')
-                    
-                    # 1. Extract Tweet ID First (Critical for precision)
-                    link_el = article.locator('a[href*="/status/"]').first
-                    if await link_el.count() > 0:
-                        href = await link_el.get_attribute('href')
-                        if href:
-                            match = re.search(r'status/(\d+)', href)
-                            tweet_id = match.group(1) if match else None
-                    
-                    # 2. Extract / Calculate Date
-                    datetime_str = None
-                    
-                    # Try Snowflake ID calculation (Best Precision)
-                    if tweet_id:
-                        try:
-                            # Snowflake formula: (id >> 22) + 1288834974657
-                            timestamp_ms = (int(tweet_id) >> 22) + 1288834974657
-                            # Ensure it ends with Z to signify UTC for the ISO string
-                            datetime_str = datetime.utcfromtimestamp(timestamp_ms / 1000.0).isoformat() + "Z"
-                        except Exception as e:
-                            log(f"Snowflake formula error for {tweet_id}: {e}")
-
-                    # Fallback to HTML Tags (if Snowflake failed or we want to compare)
-                    if not datetime_str and await time_tag.count() > 0:
-                        try:
-                            await time_tag.first.wait_for(state="attached", timeout=1000)
-                            datetime_str = await time_tag.first.get_attribute('datetime')
-                            if not datetime_str:
-                                 datetime_str = await time_tag.first.get_attribute('title') or await time_tag.first.get_attribute('aria-label')
-                        except: pass
-
-                    if not datetime_str:
-                         log(f"Warning: No valid date found for article (Tweet ID: {tweet_id})")
-
-                    if tweet_id:
-                        if not tweet_id:
-                            log(f"DEBUG Article: Could not extract ID. Text: {raw_text[:30]}...")
-                            continue
-                            
-                        log(f"DEBUG Article: Found {tweet_id} | Text: {raw_text[:30]}...")
-
+                    if tweet_data:
+                        tweet_id = tweet_data['tweet_id']
                         if tweet_id in [p['tweet_id'] for p in posts_imported]:
                             continue
-                        # Content
-                        content_el = article.locator(XSelectors.TWEET_TEXT)
-                        content = ""
-                        if await content_el.count() > 0:
-                            content = await content_el.inner_text()
                         
-                        # Media Scraping
-                        media_url = None
-                        try:
-                            # Try to find an image
-                            img_el = article.locator('[data-testid="tweetPhoto"] img').first
-                            if await img_el.count() > 0:
-                                media_url = await img_el.get_attribute("src")
-                            else:
-                                # Try video poster
-                                video_el = article.locator('[data-testid="videoPlayer"] video').first
-                                if await video_el.count() > 0:
-                                    media_url = await video_el.get_attribute("poster")
-                        except Exception as e:
-                            pass
+                        log(f"Extracted Tweet: {tweet_id} | {tweet_data['content'][:30]}...")
+                        posts_imported.append(tweet_data)
 
-                        # Stats Scraping from Timeline
-                        views = 0
-                        likes = 0
-                        reposts = 0
-                        replies = 0
-                        bookmarks = 0
-                        url_link_clicks = 0
-                        user_profile_clicks = 0
-                        detail_expands = 0
-
-                        try:
-                            # Likes
-                            like_el = article.locator(f'{XSelectors.METRIC_LIKE}, {XSelectors.METRIC_UNLIKE}').first
-                            if await like_el.count() > 0:
-                                label = await like_el.get_attribute("aria-label") 
-                                if label and "Like" in label: 
-                                    likes = parse_number(label.split("Like")[0])
-
-                            # Reposts
-                            rt_el = article.locator(f'{XSelectors.METRIC_REPOST}, {XSelectors.METRIC_UNREPOST}').first
-                            if await rt_el.count() > 0:
-                                label = await rt_el.get_attribute("aria-label")
-                                if label and "Repost" in label:
-                                    reposts = parse_number(label.split("Repost")[0])
-                            
-                            # Replies
-                            reply_el = article.locator(f'[data-testid="reply"]').first
-                            if await reply_el.count() > 0:
-                                label = await reply_el.get_attribute("aria-label")
-                                # Label usually: "0 Replies. Reply"
-                                if label and ("Repl" in label or "Resp" in label):
-                                    # Fallback for Spanish generic "Responder"
-                                    # English: "XYZ Replies"
-                                    raw = label.split("Repl")[0].split("Resp")[0]
-                                    replies = parse_number(raw)
-                            
-                            # Bookmarks
-                            bm_el = article.locator(f'[data-testid="bookmark"], [data-testid="removeBookmark"]').first
-                            if await bm_el.count() > 0:
-                                label = await bm_el.get_attribute("aria-label")
-                                # Label usually: "0 Bookmarks. Bookmark" or "Guardar"
-                                if label and ("Bookm" in label or "Guard" in label):
-                                     raw = label.split("Bookm")[0].split("Guard")[0]
-                                     bookmarks = parse_number(raw)
-
-                            # Views
-                            analytics_link = article.locator(XSelectors.LINK_ANALYTICS).first
-                            if await analytics_link.count() > 0:
-                                label = await analytics_link.get_attribute("aria-label")
-                                if label and "View" in label:
-                                    views = parse_number(label.split("View")[0])
-                            else:
-                                view_stat = article.locator(f'{XSelectors.CONTAINER_VIEW_STAT}', has_text="View").first
-                                if await view_stat.count() == 0:
-                                     all_stats = await article.locator('[aria-label*="View"]').all()
-                                     for stat in all_stats:
-                                         lbl = await stat.get_attribute("aria-label")
-                                         if lbl and "View" in lbl:
-                                             views = parse_number(lbl.split("View")[0])
-                                             break
-                            
-                            # --- DEEP ANALYTICS SCRAPING ---
-                            # Navigate to analytics to get link clicks, profile visits, detail expands
-                            try:
-                                log(f"Fetching detailed analytics for tweet {tweet_id}...")
-                                analytics_url = f"https://x.com/{clean_username}/status/{tweet_id}/analytics"
-                                
-                                # Open in new tab to avoid losing the timeline
-                                analytics_page = await context.new_page()
-                                try:
-                                    await analytics_page.goto(analytics_url, timeout=20000)
-                                    await human_delay(2, 3)
-                                    
-                                    # Save screenshot for debugging
-                                    screenshot_path = os.path.join(SCREENSHOTS_DIR, f"analytics_{tweet_id}.png")
-                                    await analytics_page.screenshot(path=screenshot_path)
-                                    log(f"Saved analytics screenshot to {screenshot_path}")
-                                    
-                                    # Strategy: Find metric labels and get their associated numbers
-                                    # X shows metrics in a grid with number above label
-                                    
-                                    # Get all text content
-                                    page_text = await analytics_page.content()
-                                    
-                                    # Try multiple strategies
-                                    
-                                    # Strategy 1: Look for aria-labels or data-testids
-                                    try:
-                                        # Find all divs/spans that might contain metrics
-                                        metric_containers = await analytics_page.locator('[aria-label], [data-testid]').all()
-                                        for container in metric_containers:
-                                            aria_label = await container.get_attribute('aria-label')
-                                            if aria_label:
-                                                # Check if it contains our metrics
-                                                if 'link click' in aria_label.lower():
-                                                    match = re.search(r'(\d+)', aria_label)
-                                                    if match:
-                                                        url_link_clicks = int(match.group(1))
-                                                elif 'profile visit' in aria_label.lower():
-                                                    match = re.search(r'(\d+)', aria_label)
-                                                    if match:
-                                                        user_profile_clicks = int(match.group(1))
-                                                elif 'detail expand' in aria_label.lower():
-                                                    match = re.search(r'(\d+)', aria_label)
-                                                    if match:
-                                                        detail_expands = int(match.group(1))
-                                    except Exception as e:
-                                        log(f"Strategy 1 failed: {e}")
-                                    
-                                    # Strategy 2: Look for text patterns with flexible spacing
-                                    if url_link_clicks == 0 and user_profile_clicks == 0 and detail_expands == 0:
-                                        try:
-                                            all_text = await analytics_page.locator('body').inner_text()
-                                            
-                                            # Debug: Log a sample of the text
-                                            log(f"Analytics page text sample (first 500 chars): {all_text[:500]}")
-                                            
-                                            # More flexible regex - look for number anywhere near the text
-                                            # Pattern: number (possibly with separators) followed eventually by text
-                                            link_pattern = r'(\d[\d,]*)\s*[^\d\w]*\s*(?:Link clicks?)'
-                                            profile_pattern = r'(\d[\d,]*)\s*[^\d\w]*\s*(?:Profile visits?)'
-                                            detail_pattern = r'(\d[\d,]*)\s*[^\d\w]*\s*(?:Detail expands?)'
-                                            
-                                            link_match = re.search(link_pattern, all_text, re.IGNORECASE | re.DOTALL)
-                                            if link_match:
-                                                url_link_clicks = int(link_match.group(1).replace(',', ''))
-                                                log(f"Found link clicks via regex: {url_link_clicks}")
-                                            else:
-                                                log("Link clicks pattern not found in text")
-                                            
-                                            profile_match = re.search(profile_pattern, all_text, re.IGNORECASE | re.DOTALL)
-                                            if profile_match:
-                                                user_profile_clicks = int(profile_match.group(1).replace(',', ''))
-                                                log(f"Found profile visits via regex: {user_profile_clicks}")
-                                            else:
-                                                log("Profile visits pattern not found in text")
-                                            
-                                            detail_match = re.search(detail_pattern, all_text, re.IGNORECASE | re.DOTALL)
-                                            if detail_match:
-                                                detail_expands = int(detail_match.group(1).replace(',', ''))
-                                                log(f"Found detail expands via regex: {detail_expands}")
-                                            else:
-                                                log("Detail expands pattern not found in text")
-                                        except Exception as e:
-                                            log(f"Strategy 2 failed: {e}")
-                                    
-                                    log(f"Analytics: link_clicks={url_link_clicks}, profile_visits={user_profile_clicks}, detail_expands={detail_expands}")
-                                    
-                                except Exception as e:
-                                    log(f"Failed to fetch analytics for {tweet_id}: {e}")
-                                finally:
-                                    await analytics_page.close()
-                                    await human_delay(0.5, 1)  # Brief pause between tweets
-                                    
-                            except Exception as e:
-                                log(f"Analytics navigation failed for {tweet_id}: {e}")
-
-                        except Exception as e:
-                            pass
-
-                        # Check if Repost
-                        is_repost = False
-                        try:
-                            header = article.locator(XSelectors.METRIC_SOCIAL_CONTEXT).first
-                            if await header.count() > 0:
-                                header_text = (await header.inner_text()).lower()
-                                if any(x in header_text for x in ["repost", "retweet", "reposte", "comparti"]):
-                                    is_repost = True
-                        except Exception as e:
-                            pass
-
-                        posts_imported.append({
-                            "tweet_id": tweet_id,
-                            "content": content,
-                            "views": views,
-                            "likes": likes,
-                            "reposts": reposts,
-                            "replies": replies,
-                            "bookmarks": bookmarks,
-                            "url_link_clicks": url_link_clicks,
-                            "user_profile_clicks": user_profile_clicks,
-                            "detail_expands": detail_expands,
-                            "published_at": datetime_str,
-                            "media_url": media_url,
-                            "is_repost": is_repost
-                        })
                 except Exception as e:
-                    log(f"Failed to parse a tweet: {e}")
+                    log(f"Failed to process article: {e}")
 
             # Determine range
             if posts_imported:
@@ -948,6 +893,7 @@ async def sync_history_task(username: str):
         finally:
             await browser.close()
 
+
     return {
         "success": True, 
         "log": "\n".join(log_messages), 
@@ -955,3 +901,99 @@ async def sync_history_task(username: str):
         "oldest_scanned_date": min_date.isoformat() if min_date else None,
         "profile": profile_stats
     }
+
+async def import_single_tweet(url: str, username: str):
+    """
+    Imports a single tweet by URL.
+    This bypasses feed visibility issues by navigating directly to the tweet.
+    """
+    log_messages = []
+    
+    def log(msg):
+        logger.info(f"[Worker-Import] {msg}")
+        log_messages.append(msg)
+
+    # Resolve cookies
+    storage_state, _ = await _get_storage_state(username, log)
+    if not storage_state:
+        return {"success": False, "log": "No cookies found."}
+
+    tweet_data = None
+    
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        context = await browser.new_context(
+            user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            storage_state=storage_state
+        )
+
+        try:
+            page = await context.new_page()
+            log(f"Navigating to tweet: {url}")
+            await page.goto(url, timeout=60000, wait_until="networkidle")
+            await human_delay(2, 4)
+
+            # Check if login success (re-use verify if possible, or simple check)
+            if "login" in page.url:
+                return {"success": False, "log": "Redirected to login. Cookies might be invalid."}
+
+            # Locate article
+            # In single tweet view, the main tweet is usually the first article or one with the specific ID focus
+            # We can just look for the article that corresponds to the Tweet ID in the URL.
+            
+            tweet_id_match = re.search(r'status/(\d+)', url)
+            if not tweet_id_match:
+                 return {"success": False, "log": "Invalid Tweet URL"}
+            
+            target_id = tweet_id_match.group(1)
+            
+            # Simple strategy: grab all articles, find the one with the link to this tweet OR just the first one.
+            # Usually the focused tweet is the first major article.
+            
+            # Wait for any article
+            try:
+                await page.wait_for_selector('article', timeout=15000)
+            except:
+                # Capture debug screenshot
+                await page.screenshot(path=os.path.join(SCREENSHOTS_DIR, "import_fail.png"))
+                return {"success": False, "log": "No content found (timeout)."}
+            
+            articles = await page.locator('article').all()
+            found_article = None
+            
+            for art in articles:
+                # Check if this article links to the target ID (self-link)
+                # Or checks if the time element links to it
+                links = art.locator(f'a[href*="{target_id}"]').first
+                if await links.count() > 0:
+                    found_article = art
+                    break
+            
+            if not found_article and len(articles) > 0:
+                 # Fallback: assume first article is the tweet
+                 found_article = articles[0]
+            
+            if found_article:
+                log("Found target article element.")
+                clean_username = username.lstrip('@')
+                tweet_data = await scrape_tweet_from_article(found_article, context, clean_username, log)
+                if tweet_data:
+                    log(f"Successfully scraped tweet: {tweet_data['tweet_id']}")
+                else:
+                    log("Failed to scrape data from article element.")
+            else:
+                log("Could not locate the tweet article element.")
+            
+        except Exception as e:
+            log(f"Import error: {e}")
+            await page.screenshot(path=os.path.join(SCREENSHOTS_DIR, "import_error.png"))
+        
+        finally:
+            await browser.close()
+
+    return {
+        "success": bool(tweet_data),
+        "log": "\n".join(log_messages),
+        "tweet": tweet_data
+    }
+

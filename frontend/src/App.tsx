@@ -12,6 +12,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import type { Post } from './types';
 import { PostModal } from './components/PostModal';
 import { LoginModal } from './components/LoginModal';
+import { ImportTweetModal } from './components/ImportTweetModal';
 import { AnalyticsView } from './components/AnalyticsView';
 import { LoginScreen } from './components/LoginScreen';
 import { Sidebar } from './components/Sidebar';
@@ -44,6 +45,7 @@ function App() {
   const [selectedPost, setSelectedPost] = useState<Post | null>(null);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const hasDarkClass = document.documentElement.classList.contains('dark');
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -256,6 +258,7 @@ function App() {
           onLogout={handleLogout}
           onRefresh={handleGlobalRefresh}
           onSync={handleSync}
+          onOpenImportModal={() => setIsImportModalOpen(true)}
         />
       </aside>
 
@@ -317,6 +320,7 @@ function App() {
               onLogout={handleLogout}
               onRefresh={handleGlobalRefresh}
               onSync={handleSync}
+              onOpenImportModal={() => setIsImportModalOpen(true)}
             />
           </motion.aside>
         )}
@@ -413,6 +417,16 @@ function App() {
       <LoginModal
         isOpen={isLoginModalOpen}
         onClose={() => setIsLoginModalOpen(false)}
+      />
+
+      <ImportTweetModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+        accounts={accounts}
+        onImportSuccess={async () => {
+          await handleGlobalRefresh();
+          // Maybe show a toast
+        }}
       />
 
       {/* CSS Overrides are now in index.css */}

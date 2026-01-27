@@ -55,6 +55,11 @@ class PostResponse(PostBase):
     
     model_config = ConfigDict(from_attributes=True)
 
+
+class ImportTweetRequest(BaseModel):
+    url: str
+    username: str
+
 class GlobalStats(BaseModel):
     sent: int
     failed: int

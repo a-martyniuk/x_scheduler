@@ -6,7 +6,8 @@ from backend.db import SessionLocal, get_db
 from backend.models import Post
 from loguru import logger
 from backend.schemas import PostCreate, PostUpdate, PostResponse, GlobalStats
-from worker.publisher import publish_post_task
+from worker.publisher import publish_post_task, import_single_tweet
+from backend.schemas import PostCreate, PostUpdate, PostResponse, GlobalStats, ImportTweetRequest
 
 router = APIRouter()
 
@@ -108,6 +109,64 @@ def create_post(post: PostCreate, background_tasks: BackgroundTasks, db: Session
     if is_immediate:
         background_tasks.add_task(run_immediate_publish, db_post.id)
         
+    return db_post
+
+@router.post("/import", response_model=PostResponse)
+async def import_tweet(request: ImportTweetRequest, db: Session = Depends(get_db)):
+    """
+    Import a tweet by URL.
+    """
+    logger.info(f"Importing tweet from {request.url} for user {request.username}")
+    
+    # 1. Run the worker task synchronously (or async await) to get data
+    result = await import_single_tweet(request.url, request.username)
+    
+    if not result.get("success"):
+        raise HTTPException(status_code=400, detail=f"Import failed: {result.get('log')}")
+    
+    tweet_data = result.get("tweet")
+    if not tweet_data:
+         raise HTTPException(status_code=404, detail="Tweet data not found in result.")
+
+    # 2. Upsert logic
+    tweet_id = tweet_data['tweet_id']
+    existing_post = db.query(Post).filter(Post.tweet_id == tweet_id).first()
+    
+    # Default values for fields not in scraped data or differently named
+    post_data = {
+        "content": tweet_data.get("content") or "(No content)",
+        "media_paths": json.dumps([tweet_data.get("media_url")]) if tweet_data.get("media_url") else None,
+        "status": "sent",
+        "username": request.username,
+        "is_repost": tweet_data.get("is_repost", False),
+        "tweet_id": tweet_id,
+        "views_count": tweet_data.get("views", 0),
+        "likes_count": tweet_data.get("likes", 0),
+        "reposts_count": tweet_data.get("reposts", 0),
+        "replies_count": tweet_data.get("replies", 0),
+        "bookmarks_count": tweet_data.get("bookmarks", 0),
+        "url_link_clicks": tweet_data.get("url_link_clicks", 0),
+        "user_profile_clicks": tweet_data.get("user_profile_clicks", 0),
+        "detail_expands": tweet_data.get("detail_expands", 0),
+        # Use published_at for created_at if available
+        "created_at": datetime.fromisoformat(tweet_data["published_at"].replace("Z", "+00:00")).replace(tzinfo=None) if tweet_data.get("published_at") else datetime.now(),
+        "updated_at": datetime.now()
+    }
+
+    if existing_post:
+        # Update
+        for key, value in post_data.items():
+            if key != "created_at": # Don't overwrite creation date on update usually, but maybe for sync?
+                setattr(existing_post, key, value)
+        db_post = existing_post
+    else:
+        # Create
+        db_post = Post(**post_data)
+        db.add(db_post)
+    
+    db.commit()
+    db.refresh(db_post)
+    
     return db_post
 
 @router.get("/latest", response_model=PostResponse)

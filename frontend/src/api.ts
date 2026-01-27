@@ -212,6 +212,19 @@ export const api = {
         const res = await fetchWithToken(`${BASE_URL}/api/analytics/account-growth`);
         if (!res.ok) return [];
         return res.json();
+    },
+
+    importTweet: async (url: string, username: string): Promise<Post> => {
+        const res = await fetchWithToken(API_URL + '/import', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url, username }),
+        });
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => ({ detail: 'Import failed' }));
+            throw new Error(errorData.detail || 'Import failed');
+        }
+        return res.json();
     }
 
 };
