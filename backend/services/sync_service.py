@@ -2,7 +2,7 @@ from sqlalchemy.orm import Session
 from datetime import datetime, timezone
 from loguru import logger
 from fastapi import HTTPException
-from backend.models import Post, PostMetricSnapshot, AccountMetricSnapshot, Account
+from backend.models import Post, PostMetricSnapshot, AccountMetricSnapshot
 from worker.publisher import sync_history_task
 
 async def sync_account_history(username: str, db: Session):
@@ -14,14 +14,6 @@ async def sync_account_history(username: str, db: Session):
     4. Upserts Posts and creates metric snapshots.
     """
     logger.info(f"Syncing history for {username}...")
-    
-    # Verify Account Exists
-    account = db.query(Account).filter(Account.username == username).first()
-    if not account:
-        logger.error(f"Sync: Account {username} not found in database.")
-        # We can try to proceed if we rely on username, but account_id usage will fail.
-        # Let's verify if we can proceed without it or should raise.
-        # For now, we'll log and continue, but existing logic uses account.id
     
     # 0. One-time Cleanup of Instagram Orphans (to handle the cloud DB)
     try:
@@ -162,11 +154,8 @@ async def sync_account_history(username: str, db: Session):
         # Fallback date used ONLY for creation if pub_date is missing
         final_date = pub_date or datetime.now(timezone.utc).replace(tzinfo=None)
 
-        # Use account_id checking if available, otherwise just tweet_id (but account.id preferred)
-        if account:
-            existing_post = db.query(Post).filter(Post.account_id == account.id, Post.tweet_id == tweet_id).first()
-        else:
-            existing_post = db.query(Post).filter(Post.tweet_id == tweet_id).first()
+        # Use tweet_id for identification
+        existing_post = db.query(Post).filter(Post.tweet_id == tweet_id).first()
         
         # Additional cleanup: If we find a repost/empty that somehow exists, kill it
         if existing_post and (is_repost_flag or is_empty):
@@ -244,7 +233,6 @@ async def sync_account_history(username: str, db: Session):
                     logger.error(f"Sync: Creating NEW post {post_data['tweet_id']} without a valid date. Defaulting to now.")
 
             new_post = Post(
-                account_id=account.id if account else None,
                 tweet_id=tweet_id,
                 content=post_data["content"] or "(No content)",
                 media_url=post_data.get("media_url"),
