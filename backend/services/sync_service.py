@@ -104,7 +104,7 @@ async def sync_account_history(username: str, db: Session):
         "2007387117551530408", # No content / Ghost (Fixed ID)
         "1995428955218985118", # No content / Ghost
         "2007404288633712869", # "Amé" (Short reply/quote)
-        "2007355606886798455", # "Toda latinoamerica..." (Persistent Quote Tweet)
+        "2007355606806798455", # "Toda latinoamerica..." (Persistent Quote Tweet - Fixed Typo 806)
         "2007929193334738952", # "Domingo en el gym..."
         "2007327615070392726", # "PENTAGON PIZZA..."
     }
