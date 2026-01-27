@@ -6,6 +6,5 @@ count = db.query(Post).count()
 sent_count = db.query(Post).filter(Post.status == "sent").count()
 print(f"Total posts: {count}")
 print(f"Sent posts: {sent_count}")
-for p in db.query(Post).all():
-    print(f"ID: {p.id}, Status: {p.status}, Content: {p.content[:20]}...")
-db.close()
+for p in db.query(Post).filter(Post.tweet_id.isnot(None)).order_by(Post.created_at.desc()).all():
+    print(f"TweetID: {p.tweet_id} | Date: {p.created_at} | Content: {p.content[:30]}...")

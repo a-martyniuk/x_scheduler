@@ -168,41 +168,56 @@ async def sync_account_history(username: str, db: Session):
                 is_repost=post_data.get("is_repost", False)
             )
             db.add(new_post)
-            db.flush()
-            existing_post = new_post
-            count += 1
+            try:
+                db.flush()
+                logger.info(f"Sync: Flushed NEW post {existing_post.id} (tweet_id {post_data['tweet_id']})")
+                existing_post = new_post # Re-assign for snapshot usage
+                count += 1
+            except Exception as e:
+                logger.error(f"Sync: Failed to flush post {post_data['tweet_id']}: {e}")
+                db.rollback()
+                continue
             
         # Create Snapshot
-        latest_snap = db.query(PostMetricSnapshot).filter(PostMetricSnapshot.post_id == existing_post.id).order_by(PostMetricSnapshot.timestamp.desc()).first()
-        
-        # Check if anything changed worth saving (including new metrics)
-        has_changes = not latest_snap or (
-            latest_snap.views != post_data["views"] or 
-            latest_snap.likes != post_data["likes"] or 
-            latest_snap.reposts != post_data["reposts"] or
-            latest_snap.bookmarks != post_data.get("bookmarks", 0) or
-            latest_snap.replies != post_data.get("replies", 0) or
-            latest_snap.url_link_clicks != post_data.get("url_link_clicks", 0) or
-            latest_snap.user_profile_clicks != post_data.get("user_profile_clicks", 0) or
-            latest_snap.detail_expands != post_data.get("detail_expands", 0)
-        )
-
-        if has_changes:
-             snapshot = PostMetricSnapshot(
-                post_id=existing_post.id,
-                views=post_data["views"],
-                likes=post_data["likes"],
-                reposts=post_data["reposts"],
-                bookmarks=post_data.get("bookmarks", 0),
-                replies=post_data.get("replies", 0),
-                url_link_clicks=post_data.get("url_link_clicks", 0),
-                user_profile_clicks=post_data.get("user_profile_clicks", 0),
-                detail_expands=post_data.get("detail_expands", 0),
-                timestamp=datetime.now(timezone.utc).replace(tzinfo=None)
+        try:
+            latest_snap = db.query(PostMetricSnapshot).filter(PostMetricSnapshot.post_id == existing_post.id).order_by(PostMetricSnapshot.timestamp.desc()).first()
+            
+            # Check if anything changed worth saving (including new metrics)
+            has_changes = not latest_snap or (
+                latest_snap.views != post_data["views"] or 
+                latest_snap.likes != post_data["likes"] or 
+                latest_snap.reposts != post_data["reposts"] or
+                latest_snap.bookmarks != post_data.get("bookmarks", 0) or
+                latest_snap.replies != post_data.get("replies", 0) or
+                latest_snap.url_link_clicks != post_data.get("url_link_clicks", 0) or
+                latest_snap.user_profile_clicks != post_data.get("user_profile_clicks", 0) or
+                latest_snap.detail_expands != post_data.get("detail_expands", 0)
             )
-             db.add(snapshot)
 
-    db.commit()
+            if has_changes:
+                 snapshot = PostMetricSnapshot(
+                    post_id=existing_post.id,
+                    views=post_data["views"],
+                    likes=post_data["likes"],
+                    reposts=post_data["reposts"],
+                    bookmarks=post_data.get("bookmarks", 0),
+                    replies=post_data.get("replies", 0),
+                    url_link_clicks=post_data.get("url_link_clicks", 0),
+                    user_profile_clicks=post_data.get("user_profile_clicks", 0),
+                    detail_expands=post_data.get("detail_expands", 0),
+                    timestamp=datetime.now(timezone.utc).replace(tzinfo=None)
+                )
+                 db.add(snapshot)
+                 logger.debug(f"Sync: Added snapshot for post {existing_post.id}")
+        except Exception as e:
+            logger.error(f"Sync: Snapshot creation error for post {existing_post.id}: {e}")
+
+    try:
+        db.commit()
+        logger.info(f"Sync: Successfully commited {count} posts to DB.")
+    except Exception as e:
+        logger.error(f"Sync: CRITICAL DB COMMIT FAILED: {e}")
+        db.rollback()
     
     return {
         "status": "success", 
