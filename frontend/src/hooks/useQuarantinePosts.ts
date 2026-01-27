@@ -5,7 +5,7 @@ import type { Post } from '../types';
 export function useQuarantinePosts() {
     const queryClient = useQueryClient();
 
-    const { data: posts = [], isLoading, error, refetch } = useQuery({
+    const { data: posts = [], isLoading, error, refetch } = useQuery<Post[]>({
         queryKey: ['posts', 'quarantine'],
         queryFn: () => api.getPosts('quarantine'),
         refetchInterval: 30000,

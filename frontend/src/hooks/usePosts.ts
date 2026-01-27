@@ -7,7 +7,7 @@ export function usePosts() {
 
     const { data: posts = [], isLoading, error, refetch } = useQuery({
         queryKey: ['posts'],
-        queryFn: api.getPosts,
+        queryFn: () => api.getPosts(),
         refetchInterval: 30000,
         enabled: !!localStorage.getItem('admin_token'),
     });
