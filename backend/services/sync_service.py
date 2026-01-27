@@ -101,11 +101,12 @@ async def sync_account_history(username: str, db: Session):
     # POLICY: Exclude Reposts entirely to keep analytics clean.
     # Also exclude Blacklisted IDs (Manual cleanup for edge cases)
     BLACKLIST_IDS = {
-        "2007387117551530488", # No content / Ghost
+        "2007387117551530408", # No content / Ghost (Fixed ID)
         "1995428955218985118", # No content / Ghost
+        "2007404288633712869", # "Amé" (Short reply/quote)
         "2007355606886798455", # "Toda latinoamerica..." (Persistent Quote Tweet)
-        "2007929193334738952", # "Domingo en el gym..." (from latest screenshot)
-        "2007327615070392726", # "PENTAGON PIZZA..." (from latest screenshot)
+        "2007929193334738952", # "Domingo en el gym..."
+        "2007327615070392726", # "PENTAGON PIZZA..."
     }
     
     # --- PHASE 0: PRE-SYNC CLEANUP (Force Delete Blacklisted IDs) ---
