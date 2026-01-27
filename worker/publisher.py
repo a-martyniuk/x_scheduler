@@ -734,20 +734,31 @@ async def scrape_tweet_from_article(article, context, clean_username, log_func=N
                                 tweet_author = tweet_author.split("?")[0]
                             
                             
+                            
                             current_user = clean_username.lower()
                             
-                            # Log for debug
-                            log_func(f"Checking author for {tweet_id}: {tweet_author} vs {current_user}")
-
                             if tweet_author != current_user:
                                 is_repost = True
                                 log_func(f"Detected Repost by Handle Mismatch: {tweet_author} != {current_user}")
                     else:
-                        log_func(f"DEBUG: No user link found for {tweet_id}")
+                         # No handle found, likely ad or odd element
+                         pass
                 except Exception as e:
-                    log_func(f"Handle check failed: {e}")
                     pass
 
+            # STRATEGY 4: Detect Quote Tweets (User has 0 followers but viral stats -> likely scraping the quoted tweet)
+            # Quote Tweets usually have TWO User-Name elements or TWO Avatars visible within the article context
+            # (One for the poster, one for the quoted user).
+            if not is_repost:
+                try:
+                    # Count avatars. If > 1, it is likely a Quote Tweet (or Thread, but Threads usually look different)
+                    # Use a generic selector for avatar containers
+                    avatars = article.locator('[data-testid^="User-Avatar-Container"]').all()
+                    if len(await avatars) > 1:
+                        is_repost = True
+                        log_func(f"Detected Quote Tweet (Multiple Avatars): {len(await avatars)}")
+                except:
+                    pass
         except Exception as e:
             pass
 
