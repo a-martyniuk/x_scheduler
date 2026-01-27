@@ -128,10 +128,11 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
     success = False
     tweet_id = None
     is_video = False
+    VERSION = "v1.1-media-fix"
 
     def log(msg):
-        logger.info(f"[Worker] {msg}")
-        log_messages.append(msg)
+        logger.info(f"[Worker] [{VERSION}] {msg}")
+        log_messages.append(f"[{VERSION}] {msg}")
     
     storage_state, temp_cookies_path = await _get_storage_state(username, log)
     if not storage_state:
@@ -246,26 +247,48 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
                     valid_paths = [p for p in local_paths if os.path.exists(p)]
                     
                     if valid_paths:
-                        is_video = any(p.lower().endswith(('.mp4', '.mov', '.webm', '.ogg')) for p in valid_paths)
+                        is_video = any(p.lower().endswith(('.mp4', '.mov', '.webm', '.ogg', '.m4v')) for p in valid_paths)
                         log(f"Uploading {len(valid_paths)} media files (isVideo={is_video}): {valid_paths}")
                         
-                        # X allows up to 4 images, or 1 video, or 1 GIF
-                        await page.set_input_files(XSelectors.FILE_INPUT, valid_paths)
-                        log("Media upload triggered. Waiting for preview to appear...")
+                        # Try multiple selectors for file input
+                        try:
+                            file_input = page.locator('input[type="file"][data-testid="fileInput"]').first
+                            if not await file_input.is_attached():
+                                file_input = page.locator('input[type="file"]').first
+                            
+                            await file_input.set_input_files(valid_paths)
+                            log("Media upload triggered via set_input_files.")
+                        except Exception as e:
+                            log(f"Failed to set input files: {e}")
                         
                         # Wait for media preview to be visible
+                        # X uses [data-testid="attachments"] but also specific item containers
                         try:
-                            # [data-testid="attachments"] is the container for media in compose
+                            # Wait for the container
                             await page.wait_for_selector('[data-testid="attachments"]', state="visible", timeout=30000)
-                            log("Media preview detected.")
+                            log("Media container detected.")
+                            
+                            # For videos, wait for the actual video or processing indicator
+                            if is_video:
+                                # Look for a video element or the processing state
+                                try:
+                                    await page.wait_for_selector('[data-testid="videoPlayer"], [data-testid="attachments"] video', state="attached", timeout=40000)
+                                    log("Video element/preview detected in composer.")
+                                except:
+                                    log("Warning: Specific video preview not detected, but container is visible.")
+                            else:
+                                # For images, wait for the photo preview
+                                try:
+                                    await page.wait_for_selector('[data-testid="tweetPhoto"]', state="visible", timeout=20000)
+                                    log("Image preview detected in composer.")
+                                except:
+                                    log("Warning: Image preview not detected within 20s.")
                         except:
-                            log("Warning: Media preview not detected within 30s. Processing might be slow or upload failed.")
-                            # If media was crucial, some might want to fail here. 
-                            # But we'll try to wait for the button as a final signal.
+                            log("Error: Media preview container NOT DETECTED within 30s. Upload might have failed.")
                         
                         if is_video:
-                            log("Video detected. Waiting extra time for processing...")
-                            await human_delay(10, 20) 
+                            log("Video detected. Waiting extra time for processing (up to 180s)...")
+                            # We don't just sleep, we will wait for the button later
                         else:
                             await human_delay(3, 6)
                     else:
