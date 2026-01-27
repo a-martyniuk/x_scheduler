@@ -47,6 +47,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     const sentCount = globalStats?.sent || 0;
     const queuedCount = globalStats?.scheduled || 0;
     const [isSyncing, setIsSyncing] = React.useState(false);
+    const [isRefreshing, setIsRefreshing] = React.useState(false);
 
     const handleSyncClick = async () => {
         setIsSyncing(true);
@@ -57,6 +58,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
             alert(`Error al sincronizar: ${error.message}`);
         } finally {
             setIsSyncing(false);
+        }
+    };
+
+    const handleRefresh = async () => {
+        setIsRefreshing(true);
+        try {
+            await onRefresh();
+        } finally {
+            // Artificial delay to ensure user sees the "loading" state if it's too fast
+            await new Promise(resolve => setTimeout(resolve, 500));
+            setIsRefreshing(false);
         }
     };
 
@@ -98,12 +110,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
                 <div className="mb-10 px-2 flex gap-2">
                     <button
-                        onClick={onRefresh}
-                        className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-secondary/50 text-secondary-foreground hover:bg-secondary hover:text-primary rounded-xl transition-all duration-300 text-[10px] font-black uppercase tracking-widest border border-border/50 group relative"
+                        onClick={handleRefresh}
+                        disabled={isRefreshing}
+                        className={cn(
+                            "flex-1 flex items-center justify-center gap-2 py-2.5 bg-secondary/50 text-secondary-foreground hover:bg-secondary hover:text-primary rounded-xl transition-all duration-300 text-[10px] font-black uppercase tracking-widest border border-border/50 group relative",
+                            isRefreshing && "opacity-70 cursor-not-allowed"
+                        )}
                         title="Recargar datos locales (No sincroniza con X)"
                     >
-                        <RefreshCcw size={14} className="group-hover:rotate-180 transition-transform duration-700" />
-                        <span className="hidden sm:inline">Datos</span>
+                        <RefreshCcw size={14} className={cn("transition-transform duration-700", isRefreshing ? "animate-spin" : "group-hover:rotate-180")} />
+                        <span className="hidden sm:inline">{isRefreshing ? '...' : 'Datos'}</span>
                     </button>
                     <button
                         onClick={handleSyncClick}

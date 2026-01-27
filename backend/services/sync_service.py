@@ -115,11 +115,24 @@ async def sync_account_history(username: str, db: Session):
         final_date = pub_date or datetime.now(timezone.utc).replace(tzinfo=None)
 
         # POLICY: Exclude Reposts entirely to keep analytics clean.
-        if post_data.get("is_repost", False):
-            logger.info(f"Sync: Skipping repost {post_data['tweet_id']} (Clean Policy)")
+        # Also exclude Blacklisted IDs (Manual cleanup for edge cases)
+        BLACKLIST_IDS = {
+            "2007387117551530488", # No content / Ghost
+            "1995428955218985118", # No content / Ghost
+            "2007355606886798455", # "Toda latinoamerica..." (Persistent Quote Tweet)
+        }
+        
+        is_blacklisted = post_data["tweet_id"] in BLACKLIST_IDS
+        is_empty = (not post_data.get("content") or post_data["content"].strip() == "") and not post_data.get("media_url")
+        is_repost_flag = post_data.get("is_repost", False)
+
+        if is_blacklisted or is_repost_flag or is_empty:
+            reason = "Blacklisted" if is_blacklisted else "Empty/Ghost" if is_empty else "Repost Policy"
+            logger.info(f"Sync: Skipping/Removing post {post_data['tweet_id']} ({reason})")
+            
             # If it exists in DB, delete it to clean up history
             if existing_post:
-                logger.info(f"Sync: Deleting existing repost {existing_post.id} from DB to match policy.")
+                logger.info(f"Sync: Deleting existing post {existing_post.id} from DB ({reason}).")
                 db.delete(existing_post)
                 # Also clean snapshots
                 db.query(PostMetricSnapshot).filter(PostMetricSnapshot.post_id == existing_post.id).delete()

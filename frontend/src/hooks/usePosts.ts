@@ -5,7 +5,7 @@ import type { Post } from '../types';
 export function usePosts() {
     const queryClient = useQueryClient();
 
-    const { data: posts = [], isLoading, error } = useQuery({
+    const { data: posts = [], isLoading, error, refetch } = useQuery({
         queryKey: ['posts'],
         queryFn: api.getPosts,
         refetchInterval: 30000,
@@ -38,7 +38,7 @@ export function usePosts() {
         posts,
         isLoading,
         error,
-        refetch: () => queryClient.invalidateQueries({ queryKey: ['posts'] }),
+        refetch,
         createPost: createMutation.mutateAsync,
         updatePost: updateMutation.mutateAsync,
         deletePost: deleteMutation.mutateAsync,
