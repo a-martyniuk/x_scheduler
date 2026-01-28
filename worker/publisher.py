@@ -113,6 +113,11 @@ async def _get_storage_state(username: str, log_func):
             log_func(f"Failed to load cookies from environment: {e}")
             
 
+async def human_delay(min_s=0.5, max_s=1.5):
+    """Randomized delay to simulate human pause."""
+    delay = random.uniform(min_s, max_s)
+    await asyncio.sleep(delay)
+
 async def publish_post_task(content, media_paths=None, reply_to_id=None, username=None, dry_run=False):
     """
     Publishes a post (tweet) or reply using Playwright.
@@ -283,6 +288,12 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                             
                             log("Attempting upload via Force-Click on File Input (Robust)...")
                             
+                            # Anti-detect: Hover over the area first to simulate human focus
+                            try:
+                                await page.locator('[aria-label*="photos"], [aria-label*="media"]').first.hover()
+                                await human_delay(0.5, 1.2)
+                            except: pass
+
                             # Method: Force-click the hidden file input to trigger native chooser
                             # This bypasses the need to identify the correct UI button
                             try:
@@ -290,6 +301,7 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                                     # Force click the input directly
                                     await page.locator('input[type="file"]').first.click(force=True)
                                 
+                                await human_delay(0.5, 1.5) # Pause after opening dialog logic
                                 file_chooser = await fc_info.value
                                 await file_chooser.set_files(valid_paths)
                                 log(f"✅ Medias selected via Intercepted FileChooser: {valid_paths}")
@@ -552,27 +564,26 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                         try:
                             if await attachments_area.count() > 0:
                                 inner = await attachments_area.first.inner_html()
-                                log(f"DEBUG: Attachments area content: {inner[:300]}...") # Log first 300 chars
+                            log(f"DEBUG: Attachments area content: {inner[:300]}...") # Log first 300 chars
                             else:
                                 log("DEBUG: Attachments area [data-testid='attachments'] NOT FOUND.")
                         except: pass
                         
-                        if not video_present:
-                            log("❌ CRITICAL: Video element MISSING from composer before tweet click. Aborting.")
-                            
-                            # Try to catch any error message visible
-                            try:
-                                error_text = await page.locator('[data-testid="toast"], div[role="alert"]').inner_text()
-                                if error_text: log(f"X Error Message: {error_text}")
-                            except: pass
-                            
                             return {"success": False, "error": "Video failed to attach - missing from composer before send"}
                         else:
-                            log("✅ Video element confirmed present. Proceeding to tweet.")
-
-                    if await tweet_button.is_enabled():
+                             log("✅ Final video presence check passed.")
+                    
+                    # --- EXECUTE SEND ---
+                    log("Clicking Tweet button (Humanized)...")
+                    try:
+                        await tweet_button.hover()
+                        await human_delay(0.2, 0.7)
                         await tweet_button.click()
-                        log("Clicked Post/Reply button.")
+                    except Exception as e:
+                        log(f"Hover/Click failed: {e}. Trying force click.")
+                        await tweet_button.click(force=True)
+                    
+                    log("Tweet button clicked. Waiting for result...")
                         await human_delay(5, 8) # Wait for network
                         success = True
                     else:
