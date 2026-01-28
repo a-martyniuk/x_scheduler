@@ -586,10 +586,8 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                         await tweet_button.click(force=True)
                     
                     log("Tweet button clicked. Waiting for result...")
-                        await human_delay(5, 8) # Wait for network
-                        success = True
-                    else:
-                         log("Button disabled after wait. Upload might have failed or content is invalid.")
+                    await human_delay(5, 8) # Wait for network
+                    success = True
                 else:
                     log("DRY RUN: Skipping send.")
                     success = True
