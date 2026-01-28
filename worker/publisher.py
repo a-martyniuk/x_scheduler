@@ -128,7 +128,7 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
     success = False
     tweet_id = None
     is_video = False
-    VERSION = "v1.3.8-active-monitoring"
+    VERSION = "v1.3.9-fixed-selectors"
 
     def log(msg):
         logger.info(f"[Worker] [{VERSION}] {msg}")
@@ -282,8 +282,13 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
                         try:
                             log("Triggering file chooser for media upload...")
                             async with page.expect_file_chooser(timeout=10000) as fc_info:
-                                # Click the media button to open file chooser
-                                await page.click('[data-testid="attachments"] > div[role="button"]')
+                                # Click the media button - try multiple possible selectors
+                                try:
+                                    # Primary: Media button in composer toolbar
+                                    await page.click('[data-testid="toolBar"] [aria-label*="Media"], [data-testid="toolBar"] [aria-label*="media"]', timeout=5000)
+                                except:
+                                    # Fallback: Generic file input trigger
+                                    await page.click('[data-testid="attachments"] button, [role="button"][aria-label*="Add"]', timeout=5000)
                             file_chooser = await fc_info.value
                             await file_chooser.set_files(valid_paths)
                             log(f"Media files uploaded via file chooser: {len(valid_paths)} file(s)")
@@ -327,8 +332,23 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
                                 await page.screenshot(path=diag_shot, full_page=True)
                                 log(f"Diagnostic screenshot saved: {diag_shot}")
                             except: pass
-                            # We might want to ABORT here if media is mandatory, 
-                            # but for now we proceed with a warning to see what happens.
+                            
+                            # ABORT: Video was expected but not uploaded
+                            if is_video:
+                                log("❌ ABORTING: Video upload failed - cannot publish post without video")
+                                success = False
+                                # Update post status to failed
+                                try:
+                                    from backend.database import get_db
+                                    db = next(get_db())
+                                    db_post = db.query(Post).filter(Post.id == post_id).first()
+                                    if db_post:
+                                        db_post.status = "failed"
+                                        db_post.logs = (db_post.logs or "") + "\n[ABORT] Video upload failed - media element not detected"
+                                        db.commit()
+                                except Exception as e:
+                                    log(f"Failed to update post status: {e}")
+                                return {"success": False, "error": "Video upload failed"}
                         
                         
                         if is_video:
