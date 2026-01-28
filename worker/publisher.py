@@ -375,19 +375,49 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                         except:
                             log("⚠️ Media NOT detected after initial wait. Applying FALLBACK: Re-selecting input...")
                             try:
-                                # FALLBACK: Force set_input_files directly
-                                # This bypasses the file chooser and hits the input hard
-                                await page.locator('input[type="file"]').set_input_files(valid_paths)
-                                await human_delay(0.5, 1.0)
-                                # Redispatch events
-                                await page.evaluate("""() => {
-                                    const input = document.querySelector('input[type="file"]');
-                                    if (input) {
-                                        input.dispatchEvent(new Event('change', { bubbles: true }));
-                                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                                # FALLBACK: DataTransfer Simulation (Drag & Drop)
+                                # This bypasses the input element entirely and is robust against React state issues.
+                                log("Attempting NUCLEAR FALLBACK: Simulating Drag & Drop event...")
+                                
+                                # Local import for fallback logic
+                                import base64
+                                
+                                target_file = valid_paths[0]
+                                with open(target_file, "rb") as f:
+                                    encoded_file = base64.b64encode(f.read()).decode('utf-8')
+                                    
+                                mime = "video/mp4" if is_video else "image/png"
+                                fname = os.path.basename(target_file)
+                                
+                                await page.evaluate("""async ({data, name, mime}) => {
+                                    // 1. Reconstruct File
+                                    const res = await fetch(`data:${mime};base64,${data}`);
+                                    const blob = await res.blob();
+                                    const file = new File([blob], name, { type: mime });
+                                    
+                                    // 2. Helper to dispatch events
+                                    const dispatch = (elem, type, dt) => {
+                                        elem.dispatchEvent(new DragEvent(type, {
+                                            bubbles: true, cancelable: true, dataTransfer: dt
+                                        }));
                                     }
-                                }""")
-                                log("✅ Fallback input trigger executed.")
+
+                                    // 3. Find Drop Zone (Editor)
+                                    const editor = document.querySelector('[data-testid="tweetTextarea_0"]') || document.querySelector('div[role="textbox"]');
+                                    if (!editor) throw new Error("Editor not found for drop");
+
+                                    // 4. Simulate Sequence
+                                    const dt = new DataTransfer();
+                                    dt.items.add(file);
+                                    
+                                    dispatch(editor, 'dragenter', dt);
+                                    dispatch(editor, 'dragover', dt);
+                                    dispatch(editor, 'drop', dt);
+                                }""", {'data': encoded_file, 'name': fname, 'mime': mime})
+                                
+                                log("✅ Drag & Drop simulation executed.")
+                                await asyncio.sleep(2) # Allow React to process the drop
+                                
                             except Exception as fb_e:
                                 log(f"❌ Fallback trigger failed: {fb_e}")
 
@@ -410,7 +440,7 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                             try:
                                 diag_shot = os.path.join(settings.DATA_DIR, "screenshots", f"upload_failed_{int(asyncio.get_event_loop().time())}.png")
                                 os.makedirs(os.path.dirname(diag_shot), exist_ok=True)
-                                await page.screenshot(path=diag_shot, full_page=True)
+                                await page.screenshot(path=diag_shot)
                                 log(f"Diagnostic screenshot saved: {diag_shot}")
                             except: pass
                             
