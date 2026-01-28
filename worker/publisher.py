@@ -128,7 +128,7 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
     success = False
     tweet_id = None
     is_video = False
-    VERSION = "v1.3.7-extended-wait"
+    VERSION = "v1.3.8-active-monitoring"
 
     def log(msg):
         logger.info(f"[Worker] [{VERSION}] {msg}")
@@ -332,12 +332,36 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
                         
                         
                         if is_video:
-                            log("Video detected. Waiting for X.com to process video...")
-                            # CRITICAL: Video element appears immediately, but X.com needs time to
-                            # encode/process the video before it can be published. 15s was not enough.
-                            # Increasing to 30s to ensure video is fully processed.
-                            await asyncio.sleep(30)  # Mandatory 30s wait for video processing
-                            log("Minimum video processing wait complete (30s). Continuing...")
+                            log("Video detected. Monitoring video processing status...")
+                            # CRITICAL: Wait until X.com finishes processing the video
+                            # Instead of fixed wait, actively monitor for completion indicators
+                            video_ready = False
+                            max_wait = 60  # Maximum 60 seconds
+                            start_time = asyncio.get_event_loop().time()
+                            
+                            while not video_ready and (asyncio.get_event_loop().time() - start_time) < max_wait:
+                                try:
+                                    # Check if video is still processing (look for processing indicators)
+                                    processing = await page.locator('text=/processing|encoding|uploading/i').count()
+                                    
+                                    if processing == 0:
+                                        # No processing indicators found, video should be ready
+                                        elapsed = int(asyncio.get_event_loop().time() - start_time)
+                                        log(f"✅ Video processing complete after {elapsed}s")
+                                        video_ready = True
+                                    else:
+                                        # Still processing, wait a bit more
+                                        await asyncio.sleep(2)
+                                except:
+                                    # If we can't check, assume it's ready after minimum wait
+                                    if (asyncio.get_event_loop().time() - start_time) >= 30:
+                                        log("⚠️ Could not verify processing status, proceeding after 30s minimum wait")
+                                        video_ready = True
+                                    else:
+                                        await asyncio.sleep(2)
+                            
+                            if not video_ready:
+                                log(f"⚠️ Video processing timeout after {max_wait}s, proceeding anyway")
                         else:
                             await human_delay(3, 6)
                     else:
