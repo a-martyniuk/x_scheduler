@@ -9,7 +9,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Instalar navegadores de Playwright (solo necesarios si no están en la imagen base)
-RUN playwright install chromium
+RUN python -m patchright install chromium
 
 # Copiar el resto del código del proyecto
 COPY . .
