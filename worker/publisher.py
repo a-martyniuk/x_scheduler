@@ -128,7 +128,7 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
     success = False
     tweet_id = None
     is_video = False
-    VERSION = "v1.3.6-enhanced-diagnostics"
+    VERSION = "v1.3.7-extended-wait"
 
     def log(msg):
         logger.info(f"[Worker] [{VERSION}] {msg}")
@@ -333,11 +333,11 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
                         
                         if is_video:
                             log("Video detected. Waiting for X.com to process video...")
-                            # CRITICAL: X.com enables the tweet button immediately, but the video
-                            # is NOT actually attached until processing completes. We MUST wait
-                            # a minimum time to ensure the video is actually processed.
-                            await asyncio.sleep(15)  # Mandatory 15s wait for video processing
-                            log("Minimum video processing wait complete. Continuing...")
+                            # CRITICAL: Video element appears immediately, but X.com needs time to
+                            # encode/process the video before it can be published. 15s was not enough.
+                            # Increasing to 30s to ensure video is fully processed.
+                            await asyncio.sleep(30)  # Mandatory 30s wait for video processing
+                            log("Minimum video processing wait complete (30s). Continuing...")
                         else:
                             await human_delay(3, 6)
                     else:
