@@ -399,12 +399,12 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                                     await page.wait_for_selector('[data-testid="attachments"] video', state="visible", timeout=25000)
                                     log("✅ Video element confirmed in attachments (after wait).")
                                     media_confirmed = True
-                            else:
-                                # For images, look for actual <img> elements
-                                await page.wait_for_selector('div[data-testid="tweetComposer"] img[alt*="Image"]', state="visible", timeout=30000)
-                                log("✅ Image element confirmed in composer.")
-                                media_confirmed = True
-                        except:
+                                else:
+                                    # For images, look for actual <img> elements
+                                    await page.wait_for_selector('div[data-testid="tweetComposer"] img[alt*="Image"]', state="visible", timeout=30000)
+                                    log("✅ Image element confirmed in composer.")
+                                    media_confirmed = True
+                            except:
                             log("❌ CRITICAL ERROR: Media element NOT DETECTED after upload attempt.")
                             # Take diagnostic screenshot
                             try:
