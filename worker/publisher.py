@@ -279,28 +279,27 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                         # CRITICAL: Use direct file input method
                         upload_success = False
                         try:
-                            log("Attempting direct file input upload...")
-                            # Find the hidden file input element
-                            file_input = page.locator('input[type="file"]').first
-                            if await file_input.count() > 0:
-                                # Set the files
-                                await file_input.set_input_files(valid_paths)
-                                log(f"✅ Media files set via file input: {len(valid_paths)} file(s)")
-                                
-                                # CRITICAL: Manually trigger change event to ensure X.com processes the upload
-                                await page.evaluate('''
-                                    const input = document.querySelector('input[type="file"]');
-                                    if (input) {
-                                        const event = new Event('change', { bubbles: true });
-                                        input.dispatchEvent(event);
-                                    }
-                                ''')
-                                log("🔔 Change event triggered on file input")
-                                upload_success = True
-                            else:
-                                log("❌ No file input found in page")
+                            log("Attempting UI-driven upload via FileChooser...")
+                            
+                            # 1. Prepare to catch the file chooser event
+                            async with page.expect_file_chooser() as fc_info:
+                                # 2. Click the visible "Media" button
+                                # Looking for [aria-label="Add photos or video"] or similar
+                                media_btn = page.locator('[aria-label="Add photos or video"], [aria-label="Add media"], [data-testid="fileInput"]').first
+                                if await media_btn.is_visible():
+                                    await media_btn.click()
+                                else:
+                                    # Fallback: force click the hidden input's label or parent if needed
+                                    # checking for standard X composer structure
+                                    await page.click('[data-testid="fileInput"]') 
+                                    
+                            # 3. Set files on the intercepted chooser
+                            file_chooser = await fc_info.value
+                            await file_chooser.set_files(valid_paths)
+                            log(f"✅ Medias selected via FileChooser: {valid_paths}")
+                            upload_success = True
                         except Exception as e:
-                            log(f"Direct input method failed: {e}")
+                            log(f"UI-driven upload failed: {e}")
                         
                         # Wait for media preview to be visible (CRITICAL)
                         # IMPORTANT: Don't just check for containers, verify actual media elements exist
