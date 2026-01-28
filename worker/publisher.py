@@ -350,9 +350,11 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                             while not video_ready and (asyncio.get_event_loop().time() - start_time) < max_wait:
                                 try:
                                     # Check if video is still processing (look for processing indicators)
-                                    processing = await page.locator('text=/processing|encoding|uploading/i').count()
+                                    # Indicators: Text "Processing", "Encoding", "Uploading" OR role="progressbar"
+                                    processing_text = await page.locator('text=/processing|encoding|uploading/i').count()
+                                    progress_bar = await page.locator('[role="progressbar"]').count()
                                     
-                                    if processing == 0:
+                                    if processing_text == 0 and progress_bar == 0:
                                         # No processing indicators found, video should be ready
                                         elapsed = int(asyncio.get_event_loop().time() - start_time)
                                         log(f"✅ Video processing complete after {elapsed}s")
@@ -428,6 +430,27 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                     except Exception as e:
                         log(f"Error waiting for button: {e}")
                         pass
+
+                    # --- FINAL SANITY CHECK BEFORE CLICKING ---
+                    # If we expected a video, verify it is present immediately before posting.
+                    # This prevents cases where upload failed/cancelled but the button became enabled for text only.
+                    if is_video:
+                        log("Performing final video presence check...")
+                        # Look for video player or video tag
+                        video_present = await page.locator('div[data-testid="tweetComposer"] video, div[data-testid="videoPlayer"]').count() > 0
+                        
+                        if not video_present:
+                            log("❌ CRITICAL: Video element MISSING from composer before tweet click. Aborting.")
+                            
+                            # Try to catch any error message visible
+                            try:
+                                error_text = await page.locator('[data-testid="toast"], div[role="alert"]').inner_text()
+                                if error_text: log(f"X Error Message: {error_text}")
+                            except: pass
+                            
+                            return {"success": False, "error": "Video failed to attach - missing from composer before send"}
+                        else:
+                            log("✅ Video element confirmed present. Proceeding to tweet.")
 
                     if await tweet_button.is_enabled():
                         await tweet_button.click()
