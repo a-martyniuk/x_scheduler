@@ -564,7 +564,7 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                         try:
                             if await attachments_area.count() > 0:
                                 inner = await attachments_area.first.inner_html()
-                            log(f"DEBUG: Attachments area content: {inner[:300]}...") # Log first 300 chars
+                                log(f"DEBUG: Attachments area content: {inner[:300]}...") # Log first 300 chars
                             else:
                                 log("DEBUG: Attachments area [data-testid='attachments'] NOT FOUND.")
                         except: pass
