@@ -284,14 +284,24 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                             # 1. Prepare to catch the file chooser event
                             async with page.expect_file_chooser() as fc_info:
                                 # 2. Click the visible "Media" button
-                                # Looking for [aria-label="Add photos or video"] or similar
-                                media_btn = page.locator('[aria-label="Add photos or video"], [aria-label="Add media"], [data-testid="fileInput"]').first
+                                # Looking for [aria-label="Add photos or video"] (English) or "Fotos y vídeos" (Spanish) etc.
+                                # Also support data-testid explicitly for the button wrapper if possible.
+                                media_btn = page.locator('div[role="button"][aria-label*="photos"], div[role="button"][aria-label*="media"], div[role="button"][aria-label*="fotos"], div[role="button"][aria-label*="vídeo"]').first
+                                
                                 if await media_btn.is_visible():
+                                    await media_btn.hover()
+                                    await asyncio.sleep(0.5)
                                     await media_btn.click()
                                 else:
-                                    # Fallback: force click the hidden input's label or parent if needed
-                                    # checking for standard X composer structure
-                                    await page.click('[data-testid="fileInput"]') 
+                                    # Fallback: Try to find the button by the file input's parent/sibling relationship
+                                    # The input is usually inside a div that is the button, or close to it.
+                                    # We try to click the label or the div wrapping the input.
+                                    fallback_btn = page.locator('[data-testid="fileInput"]').locator('xpath=..')
+                                    if await fallback_btn.is_visible():
+                                         await fallback_btn.click()
+                                    else:
+                                        # Last resort
+                                        await page.click('[data-testid="fileInput"]', force=True)
                                     
                             # 3. Set files on the intercepted chooser
                             file_chooser = await fc_info.value
@@ -339,7 +349,7 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                             # CRITICAL: Wait until X.com finishes processing the video
                             # Instead of fixed wait, actively monitor for completion indicators
                             video_ready = False
-                            max_wait = 60  # Maximum 60 seconds
+                            max_wait = 180  # Increased to 3 minutes for slow processing
                             start_time = asyncio.get_event_loop().time()
                             
                             # Give X some time to START processing/showing the indicator
@@ -350,7 +360,8 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                                 try:
                                     # Check if video is still processing (look for processing indicators)
                                     # Indicators: Text "Processing", "Encoding", "Uploading" OR role="progressbar"
-                                    processing_text = await page.locator('text=/processing|encoding|uploading/i').count()
+                                    # Multilingual: "Procesando", "Enviando", "Codificando"
+                                    processing_text = await page.locator('text=/processing|encoding|uploading|procesando|enviando|codificando/i').count()
                                     progress_bar = await page.locator('[role="progressbar"]').count()
                                     
                                     if processing_text == 0 and progress_bar == 0:
@@ -361,16 +372,16 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                                     else:
                                         # Still processing, wait a bit more
                                         await asyncio.sleep(2)
+                                        if int(asyncio.get_event_loop().time() - start_time) % 10 == 0:
+                                            log("Still processing video...")
                                 except:
                                     # If we can't check, assume it's ready after minimum wait
-                                    if (asyncio.get_event_loop().time() - start_time) >= 30:
-                                        log("⚠️ Could not verify processing status, proceeding after 30s minimum wait")
-                                        video_ready = True
-                                    else:
-                                        await asyncio.sleep(2)
+                                    await asyncio.sleep(2)
                             
                             if not video_ready:
-                                log(f"⚠️ Video processing timeout after {max_wait}s, proceeding anyway")
+                                log(f"❌ CRITICAL: Video processing TIMEOUT after {max_wait}s. Aborting.")
+                                # Abort logic
+                                return {"success": False, "error": f"Video processing timed out after {max_wait}s"}
                         else:
                             await human_delay(3, 6)
                     else:
