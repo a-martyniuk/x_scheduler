@@ -366,9 +366,9 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                                          composer_area = page.locator('div[role="dialog"]' if reply_to_id else 'div[data-testid="tweetTextarea_0_label"]').locator('xpath=..')
 
                                     # Indicators: Text "Processing", "Encoding", "Uploading" OR role="progressbar"
-                                    # Multilingual: "Procesando", "Enviando", "Codificando"
+                                    # Multilingual: "Procesando", "Enviando", "Codificando", "Subiendo", "Cargando"
                                     # We search only WITHIN the composer area
-                                    processing_text_locator = composer_area.locator('text=/processing|encoding|uploading|procesando|enviando|codificando/i')
+                                    processing_text_locator = composer_area.locator('text=/processing|encoding|uploading|procesando|enviando|codificando|subiendo|cargando/i')
                                     progress_bar_locator = composer_area.locator('[role="progressbar"]')
                                     
                                     processing_count = await processing_text_locator.count()
