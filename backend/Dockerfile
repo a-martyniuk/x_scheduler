@@ -12,9 +12,8 @@ COPY requirements.txt .
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Playwright browsers are in base image, but we ideally need to ensure dependencies for patched driver
-# and undetected-playwright might need specific versions or deps.
-RUN playwright install chromium --with-deps
+# Install Patchright browsers (using python -m patchright since we install via pip)
+RUN python -m patchright install chromium --with-deps
 
 # Copy backend code
 COPY backend/ ./backend/

@@ -3,7 +3,7 @@ import time
 import os
 import json
 import re
-from undetected_playwright.async_api import async_playwright
+from patchright.async_api import async_playwright
 
 
 import random
