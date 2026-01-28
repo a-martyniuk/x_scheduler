@@ -80,11 +80,12 @@ async def verify_session(page, log_func) -> bool:
         log_func(f"Verifying session on {page.url}...")
         try:
             # Home or Account switcher means logged in
-            await page.wait_for_selector(f'{XSelectors.HOME_LINK}, {XSelectors.ACCOUNT_SWITCHER}', timeout=5000)
+            await page.wait_for_selector(f'{XSelectors.HOME_LINK}, {XSelectors.ACCOUNT_SWITCHER}', timeout=20000)
             log_func("Session verification: ACTIVE (Found account indicators)")
             return True
         except Exception as inner_e:
-            log_func(f"Missing indicators (Home/Account): {inner_e}")
+            title = await page.title()
+            log_func(f"Missing indicators (Home/Account): {inner_e}. Page Title: '{title}'")
             pass
 
         # Take a look at the page
