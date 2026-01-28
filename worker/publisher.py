@@ -569,9 +569,11 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                                 log("DEBUG: Attachments area [data-testid='attachments'] NOT FOUND.")
                         except: pass
                         
+                        if not video_present:
+                            log("❌ CRITICAL: Video element MISSING from composer before tweet click. Aborting.")
                             return {"success": False, "error": "Video failed to attach - missing from composer before send"}
                         else:
-                             log("✅ Final video presence check passed.")
+                            log("✅ Final video presence check passed.")
                     
                     # --- EXECUTE SEND ---
                     log("Clicking Tweet button (Humanized)...")
