@@ -128,7 +128,7 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
     success = False
     tweet_id = None
     is_video = False
-    VERSION = "v1.4.0-direct-input"
+    VERSION = "v1.4.1-html-diagnostics"
 
     def log(msg):
         logger.info(f"[Worker] [{VERSION}] {msg}")
@@ -276,13 +276,21 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
                             else:
                                 log(f"✗ ERROR: File NOT found: {vp}")
                         
-                        # DIAGNOSTIC: Take screenshot before upload to see available buttons
+                        # DIAGNOSTIC: Take screenshot AND save HTML before upload
                         try:
                             diag_before = os.path.join(settings.DATA_DIR, "screenshots", f"before_upload_{int(asyncio.get_event_loop().time())}.png")
                             os.makedirs(os.path.dirname(diag_before), exist_ok=True)
                             await page.screenshot(path=diag_before, full_page=True)
                             log(f"📸 Pre-upload screenshot: {diag_before}")
-                        except: pass
+                            
+                            # Also save HTML to see available elements
+                            html_dump = os.path.join(settings.DATA_DIR, "screenshots", f"composer_html_{int(asyncio.get_event_loop().time())}.html")
+                            html_content = await page.content()
+                            with open(html_dump, 'w', encoding='utf-8') as f:
+                                f.write(html_content)
+                            log(f"📄 Composer HTML saved: {html_dump}")
+                        except Exception as e:
+                            log(f"Diagnostic capture failed: {e}")
                         
                         # CRITICAL: Use file chooser method (simulates real user interaction)
                         # Direct input was failing silently - file path was set but video wasn't uploaded
@@ -331,18 +339,8 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
                             if is_video:
                                 log("❌ ABORTING: Video upload failed - cannot publish post without video")
                                 success = False
-                                # Update post status to failed
-                                try:
-                                    from backend.database import get_db
-                                    db = next(get_db())
-                                    db_post = db.query(Post).filter(Post.id == post_id).first()
-                                    if db_post:
-                                        db_post.status = "failed"
-                                        db_post.logs = (db_post.logs or "") + "\n[ABORT] Video upload failed - media element not detected"
-                                        db.commit()
-                                except Exception as e:
-                                    log(f"Failed to update post status: {e}")
-                                return {"success": False, "error": "Video upload failed"}
+                                # Return error - backend will handle status update
+                                return {"success": False, "error": "Video upload failed - media element not detected"}
                         
                         
                         if is_video:
