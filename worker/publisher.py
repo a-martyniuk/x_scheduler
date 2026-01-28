@@ -281,64 +281,52 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                         try:
                             log("Attempting UI-driven upload via FileChooser...")
                             
-                            # 1. Prepare to catch the file chooser event
-                            log("Attempting upload via Direct Input manipulation (Reliable)...")
-                            # 1. Primary Method: Direct Input Set (Bypasses UI Chooser)
-                            file_input = page.locator('input[type="file"]')
-                            direct_upload_attempted = False
+                            log("Attempting upload via Force-Click on File Input (Robust)...")
                             
-                            if await file_input.count() > 0:
-                                await file_input.first.set_input_files(valid_paths)
-                                log(f"✅ Medias set via direct input: {valid_paths}")
-                                direct_upload_attempted = True
-                            else:
-                                log("⚠️ Direct file input not found. Skipping to fallback.")
+                            # Method: Force-click the hidden file input to trigger native chooser
+                            # This bypasses the need to identify the correct UI button
+                            try:
+                                async with page.expect_file_chooser(timeout=15000) as fc_info:
+                                    # Force click the input directly
+                                    await page.locator('input[type="file"]').first.click(force=True)
+                                
+                                file_chooser = await fc_info.value
+                                await file_chooser.set_files(valid_paths)
+                                log(f"✅ Medias selected via Intercepted FileChooser: {valid_paths}")
+                                upload_success = True
+                            except Exception as e:
+                                log(f"Force-click upload failed: {e}")
+                                # Fallback: Try clicking the UI button if force-click failed
+                                log("⚠️ Falling back to UI Button Click...")
+                                try:
+                                     async with page.expect_file_chooser(timeout=10000) as fc_info:
+                                        media_btn = page.locator('div[role="button"][aria-label*="photos"], div[role="button"][aria-label*="media"]').first
+                                        if await media_btn.is_visible():
+                                            await media_btn.click()
+                                        else:
+                                            # Last resort selector (icon)
+                                            await page.click('svg[aria-label*="photos"], svg[aria-label*="media"]', force=True)
+                                     
+                                     file_chooser = await fc_info.value
+                                     await file_chooser.set_files(valid_paths)
+                                     log(f"✅ Medias selected via UI Fallback: {valid_paths}")
+                                     upload_success = True
+                                except Exception as e2:
+                                    log(f"UI Fallback also failed: {e2}")
 
-                            # 2. VERIFY & RETRY
-                            # Direct upload can trigger "Media failed to load" on X if it expects trusted events.
-                            await asyncio.sleep(2.0) 
+                            # VERIFICATION
+                            await asyncio.sleep(3.0) # Wait for upload to reflect
                             
                             # Check for specific error toast
                             failed_load_toast = page.locator('text=/failed to load|falló al cargar/i')
                             attachments = page.locator('[data-testid="attachments"]')
                             
-                            needs_fallback = False
-                            
-                            if direct_upload_attempted:
-                                if await failed_load_toast.count() > 0:
-                                    log("⚠️ Warning: Direct upload triggered 'Failed to load' error. Retrying with UI Fallback...")
-                                    needs_fallback = True
-                                elif await attachments.count() == 0:
-                                    log("⚠️ Warning: Direct upload appears successful but NO attachments found. Retrying with UI Fallback...")
-                                    needs_fallback = True
-                                else:
-                                    log("✅ Direct upload verified: Attachments present.")
+                            if await failed_load_toast.count() > 0:
+                                log("❌ Error: Upload triggered 'Failed to load' toast.")
+                            elif await attachments.count() == 0:
+                                log("⚠️ Warning: No attachments found after upload sequence.")
                             else:
-                                needs_fallback = True
-
-                            if needs_fallback:
-                                log("🔄 Executing UI-driven Fallback Upload...")
-                                async with page.expect_file_chooser(timeout=10000) as fc_info:
-                                    # Looking for [aria-label="Add photos or video"] (English) or "Fotos y vídeos" (Spanish) etc.
-                                    media_btn = page.locator('div[role="button"][aria-label*="photos"], div[role="button"][aria-label*="media"], div[role="button"][aria-label*="fotos"], div[role="button"][aria-label*="vídeo"]').first
-                                    
-                                    if await media_btn.is_visible():
-                                        await media_btn.hover()
-                                        await asyncio.sleep(0.5)
-                                        await media_btn.click()
-                                    else:
-                                        # Fallback: Try to find the button by the file input's parent/sibling relationship
-                                        fallback_btn = page.locator('[data-testid="fileInput"]').locator('xpath=..')
-                                        if await fallback_btn.is_visible():
-                                             await fallback_btn.click()
-                                        else:
-                                            # Last resort
-                                            await page.click('[data-testid="fileInput"]', force=True)
-                                    
-                                file_chooser = await fc_info.value
-                                await file_chooser.set_files(valid_paths)
-                                log(f"✅ Medias selected via Fallback UI FileChooser: {valid_paths}")
-                                upload_success = True
+                                log("✅ Upload verified: Attachments present.")
 
                         except Exception as e:
                             log(f"Upload attempt failed: {e}")
