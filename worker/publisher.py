@@ -435,11 +435,11 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                                             except:
                                                 log("Still processing video... (Indicator found but couldn't read text)")
                                         
-                                        await asyncio.sleep(2)
+                                        await asyncio.sleep(1)
                                 except Exception as e:
                                     # If we can't check, assume it's ready after minimum wait or log error
                                     log(f"Error checking video status: {e}. Retrying...")
-                                    await asyncio.sleep(2)
+                                    await asyncio.sleep(1)
                             
                             if not video_ready:
                                 log(f"❌ CRITICAL: Video processing TIMEOUT after {max_wait}s. Aborting.")
