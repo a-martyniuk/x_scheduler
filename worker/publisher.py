@@ -282,34 +282,55 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                             log("Attempting UI-driven upload via FileChooser...")
                             
                             # 1. Prepare to catch the file chooser event
-                            async with page.expect_file_chooser() as fc_info:
-                                # 2. Click the visible "Media" button
-                                # Looking for [aria-label="Add photos or video"] (English) or "Fotos y vídeos" (Spanish) etc.
-                                # Also support data-testid explicitly for the button wrapper if possible.
-                                media_btn = page.locator('div[role="button"][aria-label*="photos"], div[role="button"][aria-label*="media"], div[role="button"][aria-label*="fotos"], div[role="button"][aria-label*="vídeo"]').first
+                            log("Attempting upload via Direct Input manipulation (Reliable)...")
+                            # 1. Primary Method: Direct Input Set (Bypasses UI Chooser)
+                            # Start waiting for the file chooser to be intercepted - just in case the input triggers one
+                            # But actually we just want to find the input.
+                            
+                            file_input = page.locator('input[type="file"]')
+                            if await file_input.count() > 0:
+                                await file_input.first.set_input_files(valid_paths)
+                                log(f"✅ Medias set via direct input: {valid_paths}")
+                                upload_success = True
+                            else:
+                                log("⚠️ Direct file input not found. Falling back to UI FileChooser...")
                                 
-                                if await media_btn.is_visible():
-                                    await media_btn.hover()
-                                    await asyncio.sleep(0.5)
-                                    await media_btn.click()
-                                else:
-                                    # Fallback: Try to find the button by the file input's parent/sibling relationship
-                                    # The input is usually inside a div that is the button, or close to it.
-                                    # We try to click the label or the div wrapping the input.
-                                    fallback_btn = page.locator('[data-testid="fileInput"]').locator('xpath=..')
-                                    if await fallback_btn.is_visible():
-                                         await fallback_btn.click()
-                                    else:
-                                        # Last resort
-                                        await page.click('[data-testid="fileInput"]', force=True)
+                                # 2. Fallback: UI Click + FileChooser
+                                async with page.expect_file_chooser(timeout=10000) as fc_info:
+                                    # Looking for [aria-label="Add photos or video"] (English) or "Fotos y vídeos" (Spanish) etc.
+                                    # Also support data-testid explicitly for the button wrapper if possible.
+                                    media_btn = page.locator('div[role="button"][aria-label*="photos"], div[role="button"][aria-label*="media"], div[role="button"][aria-label*="fotos"], div[role="button"][aria-label*="vídeo"]').first
                                     
-                            # 3. Set files on the intercepted chooser
-                            file_chooser = await fc_info.value
-                            await file_chooser.set_files(valid_paths)
-                            log(f"✅ Medias selected via FileChooser: {valid_paths}")
-                            upload_success = True
+                                    if await media_btn.is_visible():
+                                        await media_btn.hover()
+                                        await asyncio.sleep(0.5)
+                                        await media_btn.click()
+                                    else:
+                                        # Fallback: Try to find the button by the file input's parent/sibling relationship
+                                        # The input is usually inside a div that is the button, or close to it.
+                                        # We try to click the label or the div wrapping the input.
+                                        fallback_btn = page.locator('[data-testid="fileInput"]').locator('xpath=..')
+                                        if await fallback_btn.is_visible():
+                                             await fallback_btn.click()
+                                        else:
+                                            # Last resort
+                                            await page.click('[data-testid="fileInput"]', force=True)
+                                    
+                                file_chooser = await fc_info.value
+                                await file_chooser.set_files(valid_paths)
+                                log(f"✅ Medias selected via Fallback UI FileChooser: {valid_paths}")
+                                upload_success = True
+
                         except Exception as e:
-                            log(f"UI-driven upload failed: {e}")
+                            log(f"Upload attempt failed: {e}")
+                            
+                        # Diagnostic: Screenshot after upload attempt
+                        try:
+                            up_shot = os.path.join(settings.DATA_DIR, "screenshots", f"upload_attempt_{int(asyncio.get_event_loop().time())}.png")
+                            os.makedirs(os.path.dirname(up_shot), exist_ok=True)
+                            await page.screenshot(path=up_shot)
+                            log(f"Upload attempt screenshot: {up_shot}")
+                        except: pass
                         
                         # Wait for media preview to be visible (CRITICAL)
                         # IMPORTANT: Don't just check for containers, verify actual media elements exist
