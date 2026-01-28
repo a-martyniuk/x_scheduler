@@ -359,15 +359,46 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                         
                         # Wait for media preview to be visible (CRITICAL)
                         # IMPORTANT: Don't just check for containers, verify actual media elements exist
-                        log("Waiting for media preview to confirm attachment...")
+                        # Wait for media preview to be visible (CRITICAL)
+                        # IMPORTANT: Don't just check for containers, verify actual media elements exist
+                        log("Waiting for media preview (with FALLBACK strategy)...")
                         media_confirmed = False
+                        
+                        # Phase 1: Rapid Check
                         try:
                             if is_video:
-                                # For videos, look for actual <video> element or video player INSIDE ATTACHMENTS
-                                # This avoids false positives from other videos on the page
-                                await page.wait_for_selector('[data-testid="attachments"] video', state="visible", timeout=30000)
-                                log("✅ Video element confirmed in attachments.")
-                                media_confirmed = True
+                                await page.wait_for_selector('[data-testid="attachments"] video', state="attached", timeout=6000)
+                            else:
+                                await page.wait_for_selector('[data-testid="attachments"] img', state="attached", timeout=6000)
+                            media_confirmed = True
+                            log("✅ Media detected immediately.")
+                        except:
+                            log("⚠️ Media NOT detected after initial wait. Applying FALLBACK: Re-selecting input...")
+                            try:
+                                # FALLBACK: Force set_input_files directly
+                                # This bypasses the file chooser and hits the input hard
+                                await page.locator('input[type="file"]').set_input_files(valid_paths)
+                                await human_delay(0.5, 1.0)
+                                # Redispatch events
+                                await page.evaluate("""() => {
+                                    const input = document.querySelector('input[type="file"]');
+                                    if (input) {
+                                        input.dispatchEvent(new Event('change', { bubbles: true }));
+                                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                                    }
+                                }""")
+                                log("✅ Fallback input trigger executed.")
+                            except Exception as fb_e:
+                                log(f"❌ Fallback trigger failed: {fb_e}")
+
+                        # Phase 2: Final Wait
+                        if not media_confirmed:
+                            try:
+                                if is_video:
+                                    # Longer wait for final confirmation
+                                    await page.wait_for_selector('[data-testid="attachments"] video', state="visible", timeout=25000)
+                                    log("✅ Video element confirmed in attachments (after wait).")
+                                    media_confirmed = True
                             else:
                                 # For images, look for actual <img> elements
                                 await page.wait_for_selector('div[data-testid="tweetComposer"] img[alt*="Image"]', state="visible", timeout=30000)
