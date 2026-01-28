@@ -346,6 +346,15 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                         
                         if is_video:
                             log("Video detected. Monitoring video processing status...")
+                            
+                            # Define tweet button early for monitoring (it's disabled during upload)
+                            if reply_to_id:
+                                tweet_button = page.locator(XSelectors.BTN_REPLY_MODAL)
+                            else:
+                                tweet_button = page.locator(XSelectors.BTN_TWEET_INLINE)
+                                if not await tweet_button.is_visible():
+                                     tweet_button = page.locator(XSelectors.BTN_TWEET_MODAL)
+
                             # CRITICAL: Wait until X.com finishes processing the video
                             # Instead of fixed wait, actively monitor for completion indicators
                             video_ready = False
@@ -358,6 +367,14 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                             
                             while not video_ready and (asyncio.get_event_loop().time() - start_time) < max_wait:
                                 try:
+                                    # BURST SCREENSHOT (Debug Timeline)
+                                    now_s = int(asyncio.get_event_loop().time() - start_time)
+                                    if now_s % 10 == 0:
+                                        try:
+                                            debug_shot = os.path.join(settings.DATA_DIR, "screenshots", f"debug_process_{now_s}s_{int(asyncio.get_event_loop().time())}.png")
+                                            await page.screenshot(path=debug_shot)
+                                        except: pass
+
                                     # Scope check to the composer area to avoid false positives from other parts of the page
                                     # Try to find the composer (Home or Modal)
                                     composer_area = page.locator('div[data-testid="tweetComposer"]').first
@@ -384,17 +401,33 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                                         log("❌ CRITICAL: Upload Error/Retry indicator detected in composer.")
                                         return {"success": False, "error": "Media upload failed (Retry/Error detected)"}
 
-                                    if processing_count == 0 and progress_bar_count == 0:
-                                        # No processing indicators AND no errors found -> Ready
+                                    # PRIMARY CHECK: Is the button disabled? (X disables it during upload/processing)
+                                    is_btn_disabled = await tweet_button.is_disabled()
+
+                                    if processing_count == 0 and progress_bar_count == 0 and not is_btn_disabled:
+                                        # No processing indicators AND no errors AND button is ENABLED -> Ready
                                         elapsed = int(asyncio.get_event_loop().time() - start_time)
                                         log(f"✅ Video processing complete after {elapsed}s")
+                                        
+                                        # DEBUG: If it finished too fast (<10s total), dump HTML to be sure we didn't miss something
+                                        if elapsed < 10:
+                                            try:
+                                                html_debug = os.path.join(settings.DATA_DIR, "screenshots", f"debug_fast_finish_{int(asyncio.get_event_loop().time())}.html")
+                                                html_content = await composer_area.inner_html()
+                                                with open(html_debug, 'w', encoding='utf-8') as f:
+                                                    f.write(html_content)
+                                                log(f"⚠️ Fast finish detected. Dumped composer HTML to {html_debug}")
+                                            except: pass
+                                            
                                         video_ready = True
                                     else:
                                         # Still processing
                                         if int(asyncio.get_event_loop().time() - start_time) % 10 == 0:
                                             # Debug log to see WHAT is being found
                                             try:
-                                                if processing_count > 0:
+                                                if is_btn_disabled:
+                                                     log("Still processing video... Tweet button is DISABLED.")
+                                                elif processing_count > 0:
                                                     txt = await processing_text_locator.first.inner_text()
                                                     log(f"Still processing video... Found text: '{txt}'")
                                                 elif progress_bar_count > 0:
@@ -441,9 +474,14 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                 # --- SEND ---
 
                 if not dry_run:
-                    tweet_button = page.locator(XSelectors.BTN_TWEET_INLINE)
-                    if not await tweet_button.is_visible():
-                         tweet_button = page.locator(XSelectors.BTN_TWEET_MODAL)
+                    # Tweet button already defined above if is_video, but ensure it's set for text-only too
+                    if 'tweet_button' not in locals():
+                        if reply_to_id:
+                            tweet_button = page.locator(XSelectors.BTN_REPLY_MODAL)
+                        else:
+                            tweet_button = page.locator(XSelectors.BTN_TWEET_INLINE)
+                            if not await tweet_button.is_visible():
+                                 tweet_button = page.locator(XSelectors.BTN_TWEET_MODAL)
                     
                     # Wait for button to be enabled (upload processing)
                     log("Waiting for Tweet button to be enabled...")
