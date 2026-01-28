@@ -32,10 +32,13 @@ app = FastAPI(title="X Scheduler")
 os.makedirs(settings.DATA_DIR, exist_ok=True)
 UPLOAD_PATH = os.path.join(settings.DATA_DIR, "uploads")
 LOG_PATH = os.path.join(settings.DATA_DIR, "logs")
+SCREENSHOTS_PATH = os.path.join(settings.DATA_DIR, "screenshots")
 os.makedirs(UPLOAD_PATH, exist_ok=True)
 os.makedirs(LOG_PATH, exist_ok=True)
+os.makedirs(SCREENSHOTS_PATH, exist_ok=True)
 
 app.mount("/uploads", StaticFiles(directory=UPLOAD_PATH), name="uploads")
+app.mount("/screenshots", StaticFiles(directory=SCREENSHOTS_PATH), name="screenshots")
 
 # 1. CORS Middleware - MUST BE FIRST
 app.add_middleware(
