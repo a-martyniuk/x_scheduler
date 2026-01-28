@@ -405,7 +405,7 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                                     log("✅ Image element confirmed in composer.")
                                     media_confirmed = True
                             except:
-                            log("❌ CRITICAL ERROR: Media element NOT DETECTED after upload attempt.")
+                                log("❌ CRITICAL ERROR: Media element NOT DETECTED after upload attempt.")
                             # Take diagnostic screenshot
                             try:
                                 diag_shot = os.path.join(settings.DATA_DIR, "screenshots", f"upload_failed_{int(asyncio.get_event_loop().time())}.png")
