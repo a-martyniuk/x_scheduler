@@ -368,12 +368,12 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                             while not video_ready and (asyncio.get_event_loop().time() - start_time) < max_wait:
                                 try:
                                     # BURST SCREENSHOT (Debug Timeline)
+                                    # Capture every iteration (~2s) to debug fast failures
                                     now_s = int(asyncio.get_event_loop().time() - start_time)
-                                    if now_s % 10 == 0:
-                                        try:
-                                            debug_shot = os.path.join(settings.DATA_DIR, "screenshots", f"debug_process_{now_s}s_{int(asyncio.get_event_loop().time())}.png")
-                                            await page.screenshot(path=debug_shot)
-                                        except: pass
+                                    try:
+                                        debug_shot = os.path.join(settings.DATA_DIR, "screenshots", f"debug_process_{now_s}s_{int(asyncio.get_event_loop().time())}.png")
+                                        await page.screenshot(path=debug_shot)
+                                    except: pass
 
                                     # Scope check to the composer area to avoid false positives from other parts of the page
                                     # Try to find the composer (Home or Modal)
