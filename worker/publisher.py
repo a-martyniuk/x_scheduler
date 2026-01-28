@@ -323,6 +323,18 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                             file_chooser = await fc_info.value
                             await human_delay(0.5, 1.0)
                             await file_chooser.set_files(valid_paths)
+                            
+                            # CRITICAL: Dispatch events to ensure React sees the change
+                            await human_delay(0.2, 0.5)
+                            log("Dispatching 'change' event to hidden input...")
+                            await page.evaluate("""() => {
+                                const input = document.querySelector('input[type="file"]');
+                                if (input) {
+                                    input.dispatchEvent(new Event('change', { bubbles: true }));
+                                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                                }
+                            }""")
+                            
                             log(f"✅ Medias selected via FileChooser: {valid_paths}")
                             upload_success = True
 
