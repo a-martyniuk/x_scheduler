@@ -153,7 +153,8 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
             context = await browser.new_context(
                 viewport={"width": 1920, "height": 1080},
                 locale="en-US",
-                storage_state=storage_state
+                storage_state=storage_state,
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" # Force Windows UA to match cookies
             )
             context.set_default_timeout(45000) # 45 seconds
             context.set_default_navigation_timeout(90000) # 90 seconds
