@@ -79,11 +79,14 @@ async def _get_storage_state(username: str, log_func):
                             new_c['expires'] = new_c.pop('expirationDate')
                         # Fix sameSite
                         if 'sameSite' in new_c:
-                            ss = new_c['sameSite']
-                            if ss == 'no_restriction':
+                            ss = str(new_c['sameSite']).lower().replace('_', '').replace('-', '')
+                            if ss in ['norestriction', 'unspecified']:
                                 new_c['sameSite'] = 'None'
-                            elif ss == 'unspecified':
-                                new_c.pop('sameSite', None)
+                            elif ss not in ['strict', 'lax', 'none']:
+                                # If valid value (Strict/Lax/None), keep properly capitalized
+                                if ss == 'strict': new_c['sameSite'] = 'Strict'
+                                elif ss == 'lax': new_c['sameSite'] = 'Lax'
+                                else: new_c['sameSite'] = 'None'
                         cleaned_cookies.append(new_c)
 
                     # Wrap list in Playwright storage_state format
@@ -492,23 +495,19 @@ async def scrape_stats_task(tweet_id: str, username: str = None):
         logger.info(f"[Worker-Scraper] {msg}")
         log_messages.append(msg)
 
-    if username:
-        cookies_path = get_user_paths(username)["cookies"]
-    else:
-        cookies_path = os.path.join(WORKER_DIR, "cookies.json")
-
-    if not os.path.exists(cookies_path):
+    # Resolve cookies
+    storage_state, temp_cookies_path = await _get_storage_state(username, log)
+    
+    if not storage_state:
         return {"success": False, "log": "cookies.json missing", "stats": stats}
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
-        context = await browser.new_context(
-             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        )
-        
         try:
-            with open(cookies_path, 'r') as f:
-                await context.add_cookies(json.load(f))
+            context = await browser.new_context(
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                storage_state=storage_state
+            )
             
             page = await context.new_page()
             
@@ -583,6 +582,12 @@ async def scrape_stats_task(tweet_id: str, username: str = None):
             log(f"Scrape error: {e}")
         finally:
             await browser.close()
+            # Clean up temp file for cookies if it was created
+            if temp_cookies_path and os.path.exists(temp_cookies_path):
+                try:
+                    os.unlink(temp_cookies_path)
+                except:
+                    pass
 
     return {"success": True, "log": "\n".join(log_messages), "stats": stats}
 
