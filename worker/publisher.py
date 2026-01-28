@@ -128,7 +128,7 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
     success = False
     tweet_id = None
     is_video = False
-    VERSION = "v1.4.1-html-diagnostics"
+    VERSION = "v1.4.2-change-event"
 
     def log(msg):
         logger.info(f"[Worker] [{VERSION}] {msg}")
@@ -292,18 +292,26 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
                         except Exception as e:
                             log(f"Diagnostic capture failed: {e}")
                         
-                        # CRITICAL: Use file chooser method (simulates real user interaction)
-                        # Direct input was failing silently - file path was set but video wasn't uploaded
+                        # CRITICAL: Use direct file input method
                         upload_success = False
                         try:
                             log("Attempting direct file input upload...")
                             # Find the hidden file input element
                             file_input = page.locator('input[type="file"]').first
                             if await file_input.count() > 0:
-                                # Make it visible temporarily (some sites hide it)
-                                await page.evaluate('document.querySelector(\'input[type="file"]\').style.display = "block"')
+                                # Set the files
                                 await file_input.set_input_files(valid_paths)
                                 log(f"✅ Media files set via file input: {len(valid_paths)} file(s)")
+                                
+                                # CRITICAL: Manually trigger change event to ensure X.com processes the upload
+                                await page.evaluate('''
+                                    const input = document.querySelector('input[type="file"]');
+                                    if (input) {
+                                        const event = new Event('change', { bubbles: true });
+                                        input.dispatchEvent(event);
+                                    }
+                                ''')
+                                log("🔔 Change event triggered on file input")
                                 upload_success = True
                             else:
                                 log("❌ No file input found in page")
