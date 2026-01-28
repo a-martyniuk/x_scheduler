@@ -284,21 +284,42 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                             # 1. Prepare to catch the file chooser event
                             log("Attempting upload via Direct Input manipulation (Reliable)...")
                             # 1. Primary Method: Direct Input Set (Bypasses UI Chooser)
-                            # Start waiting for the file chooser to be intercepted - just in case the input triggers one
-                            # But actually we just want to find the input.
-                            
                             file_input = page.locator('input[type="file"]')
+                            direct_upload_attempted = False
+                            
                             if await file_input.count() > 0:
                                 await file_input.first.set_input_files(valid_paths)
                                 log(f"✅ Medias set via direct input: {valid_paths}")
-                                upload_success = True
+                                direct_upload_attempted = True
                             else:
-                                log("⚠️ Direct file input not found. Falling back to UI FileChooser...")
-                                
-                                # 2. Fallback: UI Click + FileChooser
+                                log("⚠️ Direct file input not found. Skipping to fallback.")
+
+                            # 2. VERIFY & RETRY
+                            # Direct upload can trigger "Media failed to load" on X if it expects trusted events.
+                            await asyncio.sleep(2.0) 
+                            
+                            # Check for specific error toast
+                            failed_load_toast = page.locator('text=/failed to load|falló al cargar/i')
+                            attachments = page.locator('[data-testid="attachments"]')
+                            
+                            needs_fallback = False
+                            
+                            if direct_upload_attempted:
+                                if await failed_load_toast.count() > 0:
+                                    log("⚠️ Warning: Direct upload triggered 'Failed to load' error. Retrying with UI Fallback...")
+                                    needs_fallback = True
+                                elif await attachments.count() == 0:
+                                    log("⚠️ Warning: Direct upload appears successful but NO attachments found. Retrying with UI Fallback...")
+                                    needs_fallback = True
+                                else:
+                                    log("✅ Direct upload verified: Attachments present.")
+                            else:
+                                needs_fallback = True
+
+                            if needs_fallback:
+                                log("🔄 Executing UI-driven Fallback Upload...")
                                 async with page.expect_file_chooser(timeout=10000) as fc_info:
                                     # Looking for [aria-label="Add photos or video"] (English) or "Fotos y vídeos" (Spanish) etc.
-                                    # Also support data-testid explicitly for the button wrapper if possible.
                                     media_btn = page.locator('div[role="button"][aria-label*="photos"], div[role="button"][aria-label*="media"], div[role="button"][aria-label*="fotos"], div[role="button"][aria-label*="vídeo"]').first
                                     
                                     if await media_btn.is_visible():
@@ -307,8 +328,6 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                                         await media_btn.click()
                                     else:
                                         # Fallback: Try to find the button by the file input's parent/sibling relationship
-                                        # The input is usually inside a div that is the button, or close to it.
-                                        # We try to click the label or the div wrapping the input.
                                         fallback_btn = page.locator('[data-testid="fileInput"]').locator('xpath=..')
                                         if await fallback_btn.is_visible():
                                              await fallback_btn.click()
@@ -338,9 +357,10 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                         media_confirmed = False
                         try:
                             if is_video:
-                                # For videos, look for actual <video> element or video player
-                                await page.wait_for_selector('div[data-testid="tweetComposer"] video, div[data-testid="videoPlayer"]', state="visible", timeout=30000)
-                                log("✅ Video element confirmed in composer.")
+                                # For videos, look for actual <video> element or video player INSIDE ATTACHMENTS
+                                # This avoids false positives from other videos on the page
+                                await page.wait_for_selector('[data-testid="attachments"] video', state="visible", timeout=30000)
+                                log("✅ Video element confirmed in attachments.")
                                 media_confirmed = True
                             else:
                                 # For images, look for actual <img> elements
