@@ -61,8 +61,26 @@ async def _get_storage_state(username: str, log_func):
         try:
             import tempfile
             temp_fd, temp_cookies_path = tempfile.mkstemp(suffix='.json', text=True)
+            
+            # Parse and normalize cookie structure
+            try:
+                cookies_data = json.loads(cookies_json_str)
+                if isinstance(cookies_data, list):
+                    # Wrap list in Playwright storage_state format
+                    final_structure = {
+                        "cookies": cookies_data,
+                        "origins": []
+                    }
+                    content_to_write = json.dumps(final_structure)
+                else:
+                    # Assume it's already in correct format
+                    content_to_write = cookies_json_str
+            except:
+                # Fallback if parsing fails (shouldn't happen with valid JSON)
+                content_to_write = cookies_json_str
+
             with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
-                f.write(cookies_json_str)
+                f.write(content_to_write)
             log_func("Using cookies from X_COOKIES_JSON environment variable")
             return temp_cookies_path, temp_cookies_path
         except Exception as e:
