@@ -286,21 +286,22 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                         try:
                             log("Attempting UI-driven upload via 'Add Media' button...")
                             
-                            # Define selectors for the media button
-                            # 1. Precise aria-label (English)
-                            # 2. Icon selector (SVG path or aria-label partial)
+                            # Define selectors for the media button (Multi-language)
                             media_selectors = [
-                                '[aria-label="Add photos or video"]',  # Precise
-                                'div[aria-label="Add photos or video"]',
+                                '[aria-label="Add photos or video"]', # English
+                                '[aria-label="Agregar fotos o videos"]', # Spanish (Common)
+                                '[aria-label="Añadir fotos o vídeo"]',   # Spanish (X specific)
                                 'div[role="button"][aria-label*="photos"]',
+                                'div[role="button"][aria-label*="fotos"]', # Spanish partial
                                 'div[role="button"][aria-label*="media"]'
                             ]
                             
                             file_chooser = None
                             
                             # Try to find and click the button
-                            async with page.expect_file_chooser(timeout=10000) as fc_info:
+                            async with page.expect_file_chooser(timeout=15000) as fc_info:
                                 button_found = False
+                                # 1. Try UI Click
                                 for selector in media_selectors:
                                     try:
                                         btn = page.locator(selector).first
@@ -313,10 +314,11 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                                             break
                                     except: continue
                                 
+                                # 2. Fallback: JavaScript Click on Hidden Input (Most Reliable)
                                 if not button_found:
-                                    # Last resort - try force clicking the file input if it exists in DOM
-                                    log("⚠️ UI Button not found. Trying force-click on hidden input...")
-                                    await page.locator('input[type="file"]').first.click(force=True)
+                                    log("⚠️ UI Button not found. Triggering hidden input via JS...")
+                                    # This bypasses visibility checks entirely
+                                    await page.evaluate("() => { const el = document.querySelector('input[type=\"file\"]'); if (el) el.click(); }")
 
                             file_chooser = await fc_info.value
                             await human_delay(0.5, 1.0)
