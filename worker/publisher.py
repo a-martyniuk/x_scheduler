@@ -128,7 +128,7 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
     success = False
     tweet_id = None
     is_video = False
-    VERSION = "v1.4.3-anti-detection"
+    VERSION = "v1.4.4-stealth-args"
 
     def log(msg):
         logger.info(f"[Worker] [{VERSION}] {msg}")
@@ -139,8 +139,19 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
         return {"success": False, "log": f"No credentials found for {username or 'default'}", "screenshot_path": None, "tweet_id": None}
 
     async with async_playwright() as p:
-        # Launch browser (headless=True for background operation)
-        browser = await p.chromium.launch(headless=True) 
+        # Launch browser with anti-detection arguments
+        browser = await p.chromium.launch(
+            headless=True,
+            args=[
+                '--disable-blink-features=AutomationControlled',  # Hide automation
+                '--disable-dev-shm-usage',
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-web-security',
+                '--disable-features=IsolateOrigins,site-per-process',
+                '--disable-site-isolation-trials'
+            ]
+        )
 
         try:
             # Anti-detection: Make Playwright look like a real browser
