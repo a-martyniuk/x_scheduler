@@ -3,7 +3,9 @@ import time
 import os
 import json
 import re
-from playwright.async_api import async_playwright
+from undetected_playwright.async_api import async_playwright
+
+
 import random
 from loguru import logger
 from datetime import datetime
@@ -128,7 +130,7 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
     success = False
     tweet_id = None
     is_video = False
-    VERSION = "v1.4.4-stealth-args"
+    VERSION = "v1.5.0-undetected"
 
     def log(msg):
         logger.info(f"[Worker] [{VERSION}] {msg}")
@@ -139,40 +141,19 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
         return {"success": False, "log": f"No credentials found for {username or 'default'}", "screenshot_path": None, "tweet_id": None}
 
     async with async_playwright() as p:
-        # Launch browser with anti-detection arguments
+        # Launch browser with undetected-playwright (stealth handled automatically)
         browser = await p.chromium.launch(
             headless=True,
-            args=[
-                '--disable-blink-features=AutomationControlled',  # Hide automation
-                '--disable-dev-shm-usage',
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-web-security',
-                '--disable-features=IsolateOrigins,site-per-process',
-                '--disable-site-isolation-trials'
-            ]
+            args=['--no-sandbox', '--disable-dev-shm-usage']
         )
 
         try:
-            # Anti-detection: Make Playwright look like a real browser
+            # Undetected Playwright patches fingerprints automatically
+            # Note: undetected-playwright automatically handles user_agent and other stealth settings
             context = await browser.new_context(
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
                 viewport={"width": 1920, "height": 1080},
                 locale="en-US",
-                timezone_id="America/New_York",
-                permissions=["geolocation", "notifications"],
-                storage_state=storage_state,
-                # Additional anti-detection
-                extra_http_headers={
-                    "Accept-Language": "en-US,en;q=0.9",
-                    "Accept-Encoding": "gzip, deflate, br",
-                    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
-                    "Sec-Fetch-Site": "none",
-                    "Sec-Fetch-Mode": "navigate",
-                    "Sec-Fetch-User": "?1",
-                    "Sec-Fetch-Dest": "document",
-                    "Upgrade-Insecure-Requests": "1"
-                }
+                storage_state=storage_state
             )
             context.set_default_timeout(45000) # 45 seconds
             context.set_default_navigation_timeout(90000) # 90 seconds
