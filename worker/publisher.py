@@ -128,7 +128,7 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
     success = False
     tweet_id = None
     is_video = False
-    VERSION = "v1.3.9-fixed-selectors"
+    VERSION = "v1.4.0-direct-input"
 
     def log(msg):
         logger.info(f"[Worker] [{VERSION}] {msg}")
@@ -276,37 +276,31 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
                             else:
                                 log(f"✗ ERROR: File NOT found: {vp}")
                         
+                        # DIAGNOSTIC: Take screenshot before upload to see available buttons
+                        try:
+                            diag_before = os.path.join(settings.DATA_DIR, "screenshots", f"before_upload_{int(asyncio.get_event_loop().time())}.png")
+                            os.makedirs(os.path.dirname(diag_before), exist_ok=True)
+                            await page.screenshot(path=diag_before, full_page=True)
+                            log(f"📸 Pre-upload screenshot: {diag_before}")
+                        except: pass
+                        
                         # CRITICAL: Use file chooser method (simulates real user interaction)
                         # Direct input was failing silently - file path was set but video wasn't uploaded
                         upload_success = False
                         try:
-                            log("Triggering file chooser for media upload...")
-                            async with page.expect_file_chooser(timeout=10000) as fc_info:
-                                # Click the media button - try multiple possible selectors
-                                try:
-                                    # Primary: Media button in composer toolbar
-                                    await page.click('[data-testid="toolBar"] [aria-label*="Media"], [data-testid="toolBar"] [aria-label*="media"]', timeout=5000)
-                                except:
-                                    # Fallback: Generic file input trigger
-                                    await page.click('[data-testid="attachments"] button, [role="button"][aria-label*="Add"]', timeout=5000)
-                            file_chooser = await fc_info.value
-                            await file_chooser.set_files(valid_paths)
-                            log(f"Media files uploaded via file chooser: {len(valid_paths)} file(s)")
-                            upload_success = True
+                            log("Attempting direct file input upload...")
+                            # Find the hidden file input element
+                            file_input = page.locator('input[type="file"]').first
+                            if await file_input.count() > 0:
+                                # Make it visible temporarily (some sites hide it)
+                                await page.evaluate('document.querySelector(\'input[type="file"]\').style.display = "block"')
+                                await file_input.set_input_files(valid_paths)
+                                log(f"✅ Media files set via file input: {len(valid_paths)} file(s)")
+                                upload_success = True
+                            else:
+                                log("❌ No file input found in page")
                         except Exception as e:
-                            log(f"File chooser method failed: {e}")
-                            # Fallback: Try direct input method
-                            try:
-                                log("Attempting fallback: direct input method...")
-                                file_input = page.locator('input[type="file"]').first
-                                if await file_input.count() > 0:
-                                    await file_input.set_input_files(valid_paths)
-                                    log("Media paths set via direct input (fallback).")
-                                    upload_success = True
-                                else:
-                                    log("ERROR: No file input found for fallback method.")
-                            except Exception as e2:
-                                log(f"Fallback method also failed: {e2}")
+                            log(f"Direct input method failed: {e}")
                         
                         # Wait for media preview to be visible (CRITICAL)
                         # IMPORTANT: Don't just check for containers, verify actual media elements exist
