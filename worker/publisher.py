@@ -10,6 +10,7 @@ import random
 from loguru import logger
 from datetime import datetime
 from .config import XSelectors
+from backend.config import settings
 
 # CONFIG
 WORKER_DIR = os.path.dirname(__file__)
@@ -105,10 +106,46 @@ async def _get_storage_state(username: str, log_func):
         except Exception as e:
             log_func(f"Failed to load cookies from environment: {e}")
             
-    # ... (lines 89-197 omitted) ...
 
+async def publish_post_task(content, media_paths=None, reply_to_id=None, username=None, dry_run=False):
+    """
+    Publishes a post (tweet) or reply using Playwright.
+    """
+    tweet_id = None
+    success = False
+    screenshot_file = None
+    log_messages = []
+    temp_cookies_path = None
+
+    def log(msg):
+        logger.info(f"[Worker] {msg}")
+        log_messages.append(msg)
+
+    log(f"Starting publish task. User: {username}, ReplyTo: {reply_to_id}")
+
+    # Resolve cookies
+    storage_state, temp_cookies_path = await _get_storage_state(username, log)
+    
+    if not storage_state:
+        return {"success": False, "log": "No cookies found. Please input them.", "screenshot_path": None, "tweet_id": None}
+
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        
+        try:
+            context = await browser.new_context(
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                storage_state=storage_state,
+                viewport={"width": 1280, "height": 720},
+                device_scale_factor=1,
+            )
+            page = await context.new_page()
+            
+            # Basic anti-detect
+            await page.add_init_script("Object.defineProperty(navigator, 'webdriver', {get: () => undefined})")
+        
         except Exception as e:
-            log(f"CRITICAL: Failed to initialize context with session: {e}") # Added Logger
+            log(f"CRITICAL: Failed to initialize context with session: {e}") 
             if 'browser' in locals():
                 await browser.close()
             # Clean up temp file if it was created
