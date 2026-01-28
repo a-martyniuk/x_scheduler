@@ -343,6 +343,10 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                             max_wait = 60  # Maximum 60 seconds
                             start_time = asyncio.get_event_loop().time()
                             
+                            # Give X some time to START processing/showing the indicator
+                            log("Waiting 5s for processing UI to appear...")
+                            await asyncio.sleep(5)
+                            
                             while not video_ready and (asyncio.get_event_loop().time() - start_time) < max_wait:
                                 try:
                                     # Check if video is still processing (look for processing indicators)
