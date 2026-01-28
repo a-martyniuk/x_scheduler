@@ -66,17 +66,36 @@ async def _get_storage_state(username: str, log_func):
             try:
                 cookies_data = json.loads(cookies_json_str)
                 if isinstance(cookies_data, list):
+                    # Clean cookies for Playwright
+                    cleaned_cookies = []
+                    for c in cookies_data:
+                        new_c = c.copy()
+                        # Remove incompatible fields
+                        for k in ['hostOnly', 'session', 'storeId', 'id']:
+                            new_c.pop(k, None)
+                        # Rename expirationDate -> expires
+                        if 'expirationDate' in new_c:
+                            new_c['expires'] = new_c.pop('expirationDate')
+                        # Fix sameSite
+                        if 'sameSite' in new_c:
+                            ss = new_c['sameSite']
+                            if ss == 'no_restriction':
+                                new_c['sameSite'] = 'None'
+                            elif ss == 'unspecified':
+                                new_c.pop('sameSite', None)
+                        cleaned_cookies.append(new_c)
+
                     # Wrap list in Playwright storage_state format
                     final_structure = {
-                        "cookies": cookies_data,
+                        "cookies": cleaned_cookies,
                         "origins": []
                     }
                     content_to_write = json.dumps(final_structure)
                 else:
                     # Assume it's already in correct format
                     content_to_write = cookies_json_str
-            except:
-                # Fallback if parsing fails (shouldn't happen with valid JSON)
+            except Exception as e:
+                log_func(f"Using raw cookies due to parse error: {e}")
                 content_to_write = cookies_json_str
 
             with os.fdopen(temp_fd, 'w', encoding='utf-8') as f:
@@ -85,117 +104,11 @@ async def _get_storage_state(username: str, log_func):
             return temp_cookies_path, temp_cookies_path
         except Exception as e:
             log_func(f"Failed to load cookies from environment: {e}")
-    
-    log_func(f"No cookies found for {username or 'default'}")
-    return None, None
-
-async def verify_session(page, log_func) -> bool:
-    """
-    Checks if the current session is valid (logged in) or if we hit a login wall.
-    Returns True if valid session, False if logged out/login wall.
-    """
-    try:
-        log_func(f"Verifying session on {page.url}...")
-        try:
-            # Home or Account switcher means logged in
-            await page.wait_for_selector(f'{XSelectors.HOME_LINK}, {XSelectors.ACCOUNT_SWITCHER}', timeout=20000)
-            log_func("Session verification: ACTIVE (Found account indicators)")
-            return True
-        except Exception as inner_e:
-            title = await page.title()
-            log_func(f"Missing indicators (Home/Account): {inner_e}. Page Title: '{title}'")
-            pass
-
-        # Take a look at the page
-        current_url = page.url
-        log_func(f"Current page URL: {current_url}")
-
-        # Check for logged-out indicators (Sign in text, login buttons)
-        if await page.locator(XSelectors.LOGGED_OUT_LOGIN).count() > 0 or \
-           await page.locator(XSelectors.LOGGED_OUT_SIGN_UP).count() > 0:
-            log_func("Session verification: FAILED (Found login buttons)")
-            return False
-
-        # Fallback text check
-        body_text = await page.inner_text("body")
-        if "Sign in to X" in body_text or "Log in to X" in body_text:
-            log_func("Session verification: FAILED (Found 'Sign in' text)")
-            return False
-
-        # Check for error pages
-        if "Something went wrong" in body_text:
-            log_func("Session verification: ERROR (Found 'Something went wrong' text)")
             
-        # Ambiguous state
-        log_func("Session verification: AMBIGUOUS. Taking screenshot for diagnosis.")
-        diag_path = os.path.join(SCREENSHOTS_DIR, f"auth_diag_{int(time.time())}.png")
-        await page.screenshot(path=diag_path)
-        log_func(f"Diagnostic screenshot: {diag_path}")
-        
-        return False
-        
-    except Exception as e:
-        log_func(f"Session verification CRITICAL error: {e}")
-        return False
-
-async def publish_post_task(content: str, media_paths: str = None, reply_to_id: str = None, username: str = None, dry_run: bool = False):
-    """
-    Publishes a post to X using Playwright.
-    Supports threading via reply_to_id and multiple media files.
-    Returns a dict with success (bool), log (str), screenshot_path (str), tweet_id (str).
-    """
-    log_messages = []
-    screenshot_file = None
-    success = False
-    tweet_id = None
-    is_video = False
-    VERSION = "v1.5.1-patchright"
-
-    def log(msg):
-        logger.info(f"[Worker] [{VERSION}] {msg}")
-        log_messages.append(f"[{VERSION}] {msg}")
-    
-    storage_state, temp_cookies_path = await _get_storage_state(username, log)
-    if not storage_state:
-        return {"success": False, "log": f"No credentials found for {username or 'default'}", "screenshot_path": None, "tweet_id": None}
-
-    async with async_playwright() as p:
-        # Launch browser with undetected-playwright (stealth handled automatically)
-        browser = await p.chromium.launch(
-            headless=True,
-            args=['--no-sandbox', '--disable-dev-shm-usage']
-        )
-
-        try:
-            # Undetected Playwright patches fingerprints automatically
-            # Note: undetected-playwright automatically handles user_agent and other stealth settings
-            context = await browser.new_context(
-                viewport={"width": 1920, "height": 1080},
-                locale="en-US",
-                storage_state=storage_state,
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" # Force Windows UA to match cookies
-            )
-            context.set_default_timeout(45000) # 45 seconds
-            context.set_default_navigation_timeout(90000) # 90 seconds
-
-            if storage_state:
-                log("Session state loaded successfully.")
-            else:
-                log("No session state found. Proceeding as guest/fresh.")
-
-            # Create page BEFORE verifying session
-            page = await context.new_page()
-
-            # Navigate to a base page to check cookies/session
-            log("Navigating to verify session...")
-            await page.goto("https://x.com/", timeout=45000)
-            await human_delay(2, 4)
-
-            # --- VERIFY SESSION ---
-            if not await verify_session(page, log):
-                return {"success": False, "log": "Authentication failed: Session invalid or expired. Please update cookies.", "screenshot_path": None, "tweet_id": None}
+    # ... (lines 89-197 omitted) ...
 
         except Exception as e:
+            log(f"CRITICAL: Failed to initialize context with session: {e}") # Added Logger
             if 'browser' in locals():
                 await browser.close()
             # Clean up temp file if it was created
