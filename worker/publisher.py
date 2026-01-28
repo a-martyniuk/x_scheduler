@@ -358,24 +358,44 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                             
                             while not video_ready and (asyncio.get_event_loop().time() - start_time) < max_wait:
                                 try:
-                                    # Check if video is still processing (look for processing indicators)
+                                    # Scope check to the composer area to avoid false positives from other parts of the page
+                                    # Try to find the composer (Home or Modal)
+                                    composer_area = page.locator('div[data-testid="tweetComposer"]').first
+                                    if not await composer_area.is_visible():
+                                         # Fallback if specific testid isn't found (e.g. slight layout change)
+                                         composer_area = page.locator('div[role="dialog"]' if reply_to_id else 'div[data-testid="tweetTextarea_0_label"]').locator('xpath=..')
+
                                     # Indicators: Text "Processing", "Encoding", "Uploading" OR role="progressbar"
                                     # Multilingual: "Procesando", "Enviando", "Codificando"
-                                    processing_text = await page.locator('text=/processing|encoding|uploading|procesando|enviando|codificando/i').count()
-                                    progress_bar = await page.locator('[role="progressbar"]').count()
+                                    # We search only WITHIN the composer area
+                                    processing_text_locator = composer_area.locator('text=/processing|encoding|uploading|procesando|enviando|codificando/i')
+                                    progress_bar_locator = composer_area.locator('[role="progressbar"]')
                                     
-                                    if processing_text == 0 and progress_bar == 0:
+                                    processing_count = await processing_text_locator.count()
+                                    progress_bar_count = await progress_bar_locator.count()
+                                    
+                                    if processing_count == 0 and progress_bar_count == 0:
                                         # No processing indicators found, video should be ready
                                         elapsed = int(asyncio.get_event_loop().time() - start_time)
                                         log(f"✅ Video processing complete after {elapsed}s")
                                         video_ready = True
                                     else:
-                                        # Still processing, wait a bit more
-                                        await asyncio.sleep(2)
+                                        # Still processing
                                         if int(asyncio.get_event_loop().time() - start_time) % 10 == 0:
-                                            log("Still processing video...")
-                                except:
-                                    # If we can't check, assume it's ready after minimum wait
+                                            # Debug log to see WHAT is being found
+                                            try:
+                                                if processing_count > 0:
+                                                    txt = await processing_text_locator.first.inner_text()
+                                                    log(f"Still processing video... Found text: '{txt}'")
+                                                elif progress_bar_count > 0:
+                                                    log("Still processing video... Found progress bar.")
+                                            except:
+                                                log("Still processing video... (Indicator found but couldn't read text)")
+                                        
+                                        await asyncio.sleep(2)
+                                except Exception as e:
+                                    # If we can't check, assume it's ready after minimum wait or log error
+                                    log(f"Error checking video status: {e}. Retrying...")
                                     await asyncio.sleep(2)
                             
                             if not video_ready:
