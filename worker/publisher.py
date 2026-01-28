@@ -130,7 +130,7 @@ async def publish_post_task(content: str, media_paths: str = None, reply_to_id: 
     success = False
     tweet_id = None
     is_video = False
-    VERSION = "v1.5.0-undetected"
+    VERSION = "v1.5.1-patchright"
 
     def log(msg):
         logger.info(f"[Worker] [{VERSION}] {msg}")
