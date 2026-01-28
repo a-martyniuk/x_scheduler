@@ -81,6 +81,61 @@ async def startup_event():
 
 
 
+from fastapi.responses import HTMLResponse
+
 @app.get("/")
 def read_root():
     return {"message": "X Scheduler API is running"}
+
+@app.get("/debug/screenshots", response_class=HTMLResponse)
+async def list_screenshots():
+    files = []
+    if os.path.exists(SCREENSHOTS_PATH):
+        # List all png and html files
+        for f in os.listdir(SCREENSHOTS_PATH):
+            if f.lower().endswith(('.png', '.html')):
+                fp = os.path.join(SCREENSHOTS_PATH, f)
+                files.append({
+                    "name": f,
+                    "time": os.path.getmtime(fp),
+                    "type": "image" if f.endswith('.png') else "code"
+                })
+    
+    # Sort by time, newest first
+    files.sort(key=lambda x: x['time'], reverse=True)
+    
+    html = """
+    <html>
+    <head>
+        <title>Debug Screenshots</title>
+        <style>
+            body { font-family: sans-serif; padding: 20px; background: #111; color: #eee; }
+            .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
+            .card { background: #222; padding: 10px; border-radius: 8px; border: 1px solid #333; }
+            .card img { width: 100%; height: auto; border-radius: 4px; display: block; margin-bottom: 10px; }
+            .card a { color: #4af; text-decoration: none; word-break: break-all; font-size: 12px; }
+            .card date { display: block; font-size: 10px; color: #888; margin-top: 5px; }
+            h1 { color: #f0f0f0; }
+        </style>
+    </head>
+    <body>
+        <h1>Debug Gallery</h1>
+        <div class="grid">
+    """
+    
+    for f in files:
+        date_str = datetime.fromtimestamp(f['time']).strftime('%Y-%m-%d %H:%M:%S')
+        url = f"/screenshots/{f['name']}"
+        thumb = url if f['type'] == 'image' else ''
+        
+        card = f"""
+        <div class="card">
+            {f'<a href="{url}" target="_blank"><img src="{thumb}" loading="lazy"></a>' if thumb else ''}
+            <a href="{url}" target="_blank">{f['name']}</a>
+            <date>{date_str}</date>
+        </div>
+        """
+        html += card
+        
+    html += "</div></body></html>"
+    return html

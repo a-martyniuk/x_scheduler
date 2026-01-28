@@ -514,8 +514,19 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                     # This prevents cases where upload failed/cancelled but the button became enabled for text only.
                     if is_video:
                         log("Performing final video presence check...")
-                        # Look for video player or video tag
-                        video_present = await page.locator('div[data-testid="tweetComposer"] video, div[data-testid="videoPlayer"]').count() > 0
+                        # Look for video player or video tag strictly within ATTACHMENTS container
+                        # This prevents false positives from other videos on the page
+                        attachments_area = page.locator('[data-testid="attachments"]')
+                        video_present = await attachments_area.locator('video').count() > 0
+                        
+                        # Debug: Log what IS inside the attachments area
+                        try:
+                            if await attachments_area.count() > 0:
+                                inner = await attachments_area.first.inner_html()
+                                log(f"DEBUG: Attachments area content: {inner[:300]}...") # Log first 300 chars
+                            else:
+                                log("DEBUG: Attachments area [data-testid='attachments'] NOT FOUND.")
+                        except: pass
                         
                         if not video_present:
                             log("❌ CRITICAL: Video element MISSING from composer before tweet click. Aborting.")
