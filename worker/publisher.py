@@ -374,8 +374,18 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                                     processing_count = await processing_text_locator.count()
                                     progress_bar_count = await progress_bar_locator.count()
                                     
+                                    # Check for FAILURES (Retry button, Error text) taking precedence
+                                    # Buttons: Retry, Reintentar
+                                    # Text: Error, Failed, Falló
+                                    error_btns = composer_area.locator('div[role="button"][aria-label*="Retry"], div[role="button"][aria-label*="Reintentar"], div[role="button"][aria-label*="Intentar de nuevo"]')
+                                    error_txt = composer_area.locator('text=/error|fail|falló|reintentar|retry/i')
+                                    
+                                    if await error_btns.count() > 0 or await error_txt.count() > 0:
+                                        log("❌ CRITICAL: Upload Error/Retry indicator detected in composer.")
+                                        return {"success": False, "error": "Media upload failed (Retry/Error detected)"}
+
                                     if processing_count == 0 and progress_bar_count == 0:
-                                        # No processing indicators found, video should be ready
+                                        # No processing indicators AND no errors found -> Ready
                                         elapsed = int(asyncio.get_event_loop().time() - start_time)
                                         log(f"✅ Video processing complete after {elapsed}s")
                                         video_ready = True
