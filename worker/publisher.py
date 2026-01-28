@@ -82,11 +82,14 @@ async def _get_storage_state(username: str, log_func):
                             ss = str(new_c['sameSite']).lower().replace('_', '').replace('-', '')
                             if ss in ['norestriction', 'unspecified']:
                                 new_c['sameSite'] = 'None'
-                            elif ss not in ['strict', 'lax', 'none']:
-                                # If valid value (Strict/Lax/None), keep properly capitalized
-                                if ss == 'strict': new_c['sameSite'] = 'Strict'
-                                elif ss == 'lax': new_c['sameSite'] = 'Lax'
-                                else: new_c['sameSite'] = 'None'
+                            elif ss == 'strict':
+                                new_c['sameSite'] = 'Strict'
+                            elif ss == 'lax':
+                                new_c['sameSite'] = 'Lax'
+                            elif ss == 'none':
+                                new_c['sameSite'] = 'None'
+                            else:
+                                new_c['sameSite'] = 'None'
                         cleaned_cookies.append(new_c)
 
                     # Wrap list in Playwright storage_state format
