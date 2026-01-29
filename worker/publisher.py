@@ -390,9 +390,23 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                                 fname = os.path.basename(target_file)
                                 
                                 await page.evaluate("""async ({data, name, mime}) => {
-                                    // 1. Reconstruct File
-                                    const res = await fetch(`data:${mime};base64,${data}`);
-                                    const blob = await res.blob();
+                                    // 1. Reconstruct File (Manual Base64 to Blob conversion to bypass CSP fetch block)
+                                    const b64toBlob = (b64Data, contentType='', sliceSize=512) => {
+                                      const byteCharacters = atob(b64Data);
+                                      const byteArrays = [];
+                                      for (let offset = 0; offset < byteCharacters.length; offset += sliceSize) {
+                                        const slice = byteCharacters.slice(offset, offset + sliceSize);
+                                        const byteNumbers = new Array(slice.length);
+                                        for (let i = 0; i < slice.length; i++) {
+                                          byteNumbers[i] = slice.charCodeAt(i);
+                                        }
+                                        const byteArray = new Uint8Array(byteNumbers);
+                                        byteArrays.push(byteArray);
+                                      }
+                                      return new Blob(byteArrays, {type: contentType});
+                                    }
+
+                                    const blob = b64toBlob(data, mime);
                                     const file = new File([blob], name, { type: mime });
                                     
                                     // 2. Helper to dispatch events
@@ -403,7 +417,10 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                                     }
 
                                     // 3. Find Drop Zone (Editor)
-                                    const editor = document.querySelector('[data-testid="tweetTextarea_0"]') || document.querySelector('div[role="textbox"]');
+                                    const editor = document.querySelector('[data-testid="tweetTextarea_0"]') || 
+                                                 document.querySelector('div[role="textbox"]') ||
+                                                 document.querySelector('[data-testid="tweetComposer"]');
+                                                 
                                     if (!editor) throw new Error("Editor not found for drop");
 
                                     // 4. Simulate Sequence
