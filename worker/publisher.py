@@ -390,7 +390,7 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                                 fname = os.path.basename(target_file)
                                 
                                 await page.evaluate("""async ({data, name, mime}) => {
-                                    // 1. Reconstruct File (Manual Base64 to Blob conversion to bypass CSP fetch block)
+                                    // 1. Reconstruct File (Manual Base64 to Blob conversion)
                                     const b64toBlob = (b64Data, contentType='', sliceSize=512) => {
                                       const byteCharacters = atob(b64Data);
                                       const byteArrays = [];
@@ -409,31 +409,47 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                                     const blob = b64toBlob(data, mime);
                                     const file = new File([blob], name, { type: mime });
                                     
-                                    // 2. Helper to dispatch events
-                                    const dispatch = (elem, type, dt) => {
+                                    // 2. Setup DataTransfer
+                                    const dt = new DataTransfer();
+                                    dt.items.add(file);
+                                    dt.dropEffect = 'copy';
+                                    dt.effectAllowed = 'all';
+
+                                    // 3. Identification of Targets
+                                    const editor = document.querySelector('[data-testid="tweetTextarea_0"]') || 
+                                                 document.querySelector('div[role="textbox"]');
+                                    const composer = document.querySelector('[data-testid="tweetComposer"]') || document.body;
+                                                 
+                                    const target = editor || composer;
+
+                                    // 4. Simulation: Drag & Drop
+                                    const dispatchDrag = (elem, type, dt) => {
                                         elem.dispatchEvent(new DragEvent(type, {
                                             bubbles: true, cancelable: true, dataTransfer: dt
                                         }));
                                     }
 
-                                    // 3. Find Drop Zone (Editor)
-                                    const editor = document.querySelector('[data-testid="tweetTextarea_0"]') || 
-                                                 document.querySelector('div[role="textbox"]') ||
-                                                 document.querySelector('[data-testid="tweetComposer"]');
-                                                 
-                                    if (!editor) throw new Error("Editor not found for drop");
+                                    dispatchDrag(target, 'dragenter', dt);
+                                    dispatchDrag(target, 'dragover', dt);
+                                    dispatchDrag(target, 'drop', dt);
 
-                                    // 4. Simulate Sequence
-                                    const dt = new DataTransfer();
-                                    dt.items.add(file);
+                                    // 5. Simulation: Paste (Fallback within fallback)
+                                    // X often responds better to paste events for media injection
+                                    const pasteEvent = new ClipboardEvent('paste', {
+                                        bubbles: true, cancelable: true,
+                                        clipboardData: dt
+                                    });
+                                    target.dispatchEvent(pasteEvent);
                                     
-                                    dispatch(editor, 'dragenter', dt);
-                                    dispatch(editor, 'dragover', dt);
-                                    dispatch(editor, 'drop', dt);
+                                    // Also try focusing the editor before pasting if it exists
+                                    if (editor) {
+                                        editor.focus();
+                                        editor.dispatchEvent(pasteEvent);
+                                    }
                                 }""", {'data': encoded_file, 'name': fname, 'mime': mime})
                                 
-                                log("✅ Drag & Drop simulation executed.")
-                                await asyncio.sleep(2) # Allow React to process the drop
+                                log("✅ Enhanced Nuclear Fallback (Drag+Paste) simulation executed.")
+                                await asyncio.sleep(4) # Increased wait for React processing
                                 
                             except Exception as fb_e:
                                 log(f"❌ Fallback trigger failed: {fb_e}")
