@@ -172,317 +172,192 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
 
         try:
             # --- NAVIGATION / SETUP ---
-            if reply_to_id:
-                log(f"Thread Mode: Replying to tweet {reply_to_id}...")
-                await page.goto(f"https://x.com/i/status/{reply_to_id}", timeout=60000)
-                await human_delay(3, 5)
+            # --- NAVIGATION & UPLOAD LOOP ---
+            is_new_post = not reply_to_id
+            post_initialized = False
+            valid_paths = []
+            is_video = False
+            
+            for attempt in range(2):
+                log(f"🚀 Post Initialization Attempt {attempt+1}/2 (ReplyTo={reply_to_id})")
                 
-                # Find the main tweet and click reply
-                try:
-                    reply_btn = page.locator(f'{XSelectors.TWEET_ARTICLE}').first.locator(XSelectors.BTN_REPLY_MODAL)
-                    await reply_btn.click()
-                    log("Clicked Reply button on parent tweet.")
-                    await page.wait_for_selector(XSelectors.COMPOSE_BOX_HOME, state="visible", timeout=10000)
-                    log("Reply modal open.")
-                except Exception as e:
-                     log(f"Failed to open reply modal: {e}. Trying fallback.")
-            else:
-                log("New Post Mode: Navigating to home...")
-                await page.goto("https://x.com/home", timeout=60000)
-                await human_delay(2, 5)
-                try:
-                    await page.wait_for_selector(XSelectors.COMPOSE_BOX_HOME, state="visible", timeout=10000)
-                    log("Home Compose box found.")
-                    await page.locator(XSelectors.COMPOSE_BOX_HOME).click()
-                except:
-                    log("Converting to Global Compose modal logic...")
-                    await page.keyboard.press("n") # Shortcut for new tweet
+                # 1. Navigation
+                if not is_new_post:
+                    # Thread Mode
+                    log(f"Thread Mode: Replying to tweet {reply_to_id}...")
+                    await page.goto(f"https://x.com/i/status/{reply_to_id}", timeout=60000, wait_until="networkidle")
+                    await human_delay(3, 5)
+                    try:
+                        reply_btn = page.locator(f'{XSelectors.TWEET_ARTICLE}').first.locator(XSelectors.BTN_REPLY_MODAL)
+                        await reply_btn.click()
+                        await page.wait_for_selector(XSelectors.COMPOSE_BOX_HOME, state="visible", timeout=12000)
+                        log("Reply modal open.")
+                    except Exception as e:
+                         log(f"Failed to open reply modal: {e}. Retrying if possible.")
+                         if attempt == 0: continue
+                else:
+                    # New Post Mode (Stable dedicated URL)
+                    log("Navigating to dedicated Compose URL...")
+                    await page.goto("https://x.com/compose/post", timeout=60000, wait_until="networkidle")
+                    await human_delay(3, 6)
+                    try:
+                        await page.wait_for_selector(XSelectors.COMPOSE_BOX_HOME, state="visible", timeout=15000)
+                        log("Compose page ready.")
+                    except:
+                        log("Compose box not found on page. Trying shortcut 'n'...")
+                        await page.keyboard.press("n")
+                        await human_delay(2, 4)
+
+                # 2. Content Entry
+                textarea = page.locator(XSelectors.COMPOSE_BOX_HOME)
+                if await textarea.is_visible():
+                    await textarea.click()
+                    await human_delay(0.5, 1)
+                    await page.keyboard.type(content, delay=random.randint(30, 80)) 
+                    log(f"Typed content ({len(content)} chars)")
                     await human_delay(1, 2)
+                else:
+                    log("⚠️ Textarea NOT visible. Retrying...")
+                    if attempt == 0: continue
+                    else: break
 
-            # --- CONTENT ENTRY ---
-            # Wait for text area (works for both Home and Reply Modal)
-            textarea = page.locator(XSelectors.COMPOSE_BOX_HOME)
-            if await textarea.is_visible():
-                await textarea.click()
-                await human_delay(0.5, 1)
-                
-                # Type content
-                await page.keyboard.type(content, delay=random.randint(30, 80)) 
-                log(f"Typed: {content[:20]}...")
-                await human_delay(1, 3)
-
-                # Upload media (multiple support)
+                # 3. Media Upload
+                media_confirmed = True # Default if no media
                 if media_paths:
+                    media_confirmed = False
                     log(f"Media paths received (raw): {repr(media_paths)}")
-                    # Attempt to parse as JSON first (common for imported posts)
                     try:
                         path_list = json.loads(media_paths)
                         if isinstance(path_list, str):
                             path_list = [p.strip() for p in path_list.split(',') if p.strip()]
                     except:
-                        # Fallback to comma-separated
                         path_list = [p.strip() for p in str(media_paths).split(',') if p.strip()]
                     
-                    # Log normalized paths
-                    log(f"Parsed media paths: {path_list}")
-                    
-                    # Check if any path is actually a URL (imported)
-                    # For now we only support local paths for UPLOAD
                     local_paths = [p for p in path_list if not p.startswith('http')]
-                    remote_paths = [p for p in path_list if p.startswith('http')]
-                    
-                    if remote_paths:
-                        log(f"Warning: Remote media URLs not directly supported for upload yet: {remote_paths}")
-
                     if local_paths:
                         normalized_paths = []
                         for p in local_paths:
-                            if os.path.exists(p):
-                                normalized_paths.append(p)
+                            if os.path.exists(p): normalized_paths.append(p)
                             else:
-                                # Fallback: check if the filename exists in our local UPLOAD_DIR
                                 filename = os.path.basename(p.replace('\\', '/'))
-                                # Try to find where UPLOAD_DIR would be
                                 from backend.routes.upload import UPLOAD_DIR as BACKEND_UPLOAD_DIR
                                 alt_path = os.path.join(BACKEND_UPLOAD_DIR, filename)
-                                if os.path.exists(alt_path):
-                                    log(f"Found media via fallback: {alt_path}")
-                                    normalized_paths.append(alt_path)
-                                else:
-                                    log(f"Warning: Media not found at {p} or {alt_path}")
-                        
+                                if os.path.exists(alt_path): normalized_paths.append(alt_path)
                         valid_paths = normalized_paths
                     
                     if valid_paths:
                         is_video = any(p.lower().endswith(('.mp4', '.mov', '.webm', '.ogg', '.m4v')) for p in valid_paths)
-                        log(f"Uploading {len(valid_paths)} media files (isVideo={is_video}): {valid_paths}")
+                        log(f"Uploading {len(valid_paths)} files (isVideo={is_video})")
                         
-                        # DIAGNOSTIC: Verify files before upload
-                        for vp in valid_paths:
-                            if os.path.exists(vp):
-                                file_size = os.path.getsize(vp) / (1024 * 1024)  # MB
-                                log(f"✓ File exists: {vp} ({file_size:.2f} MB)")
-                            else:
-                                log(f"✗ ERROR: File NOT found: {vp}")
-                        
-                        # DIAGNOSTIC: Take screenshot AND save HTML before upload
+                        # Pre-upload diagnostics (Fix: Removed full_page=True to avoid OOM)
                         try:
                             diag_before = os.path.join(settings.DATA_DIR, "screenshots", f"before_upload_{int(asyncio.get_event_loop().time())}.png")
-                            os.makedirs(os.path.dirname(diag_before), exist_ok=True)
-                            await page.screenshot(path=diag_before, full_page=True)
-                            log(f"📸 Pre-upload screenshot: {diag_before}")
-                            
-                            # Also save HTML to see available elements
-                            html_dump = os.path.join(settings.DATA_DIR, "screenshots", f"composer_html_{int(asyncio.get_event_loop().time())}.html")
-                            html_content = await page.content()
-                            with open(html_dump, 'w', encoding='utf-8') as f:
-                                f.write(html_content)
-                            log(f"📄 Composer HTML saved: {html_dump}")
-                        except Exception as e:
-                            log(f"Diagnostic capture failed: {e}")
+                            await page.screenshot(path=diag_before)
+                        except: pass
                         
-                        # CRITICAL: UI-driven upload (Human-like)
-                        upload_success = False
+                        # Upload sequence
                         try:
-                            log("Attempting UI-driven upload via 'Add Media' button...")
-                            
-                            # Define selectors for the media button (Multi-language)
+                            # Selectors including Spanish
                             media_selectors = [
-                                '[aria-label="Add photos or video"]', # English
-                                '[aria-label="Agregar fotos o videos"]', # Spanish (Common)
-                                '[aria-label="Añadir fotos o vídeo"]',   # Spanish (X specific)
+                                '[aria-label="Add photos or video"]', 
+                                '[aria-label="Agregar fotos o videos"]', 
+                                '[aria-label="Añadir fotos o vídeo"]',
                                 'div[role="button"][aria-label*="photos"]',
-                                'div[role="button"][aria-label*="fotos"]', # Spanish partial
-                                'div[role="button"][aria-label*="media"]'
+                                'div[role="button"][aria-label*="fotos"]'
                             ]
                             
-                            file_chooser = None
-                            
-                            # Try to find and click the button
                             async with page.expect_file_chooser(timeout=15000) as fc_info:
                                 button_found = False
-                                # 1. Try UI Click
                                 for selector in media_selectors:
                                     try:
                                         btn = page.locator(selector).first
                                         if await btn.is_visible():
-                                            log(f"Found media button with selector: {selector}")
-                                            await btn.hover()
-                                            await human_delay(0.3, 0.7)
                                             await btn.click()
                                             button_found = True
                                             break
                                     except: continue
-                                
-                                # 2. Fallback: JavaScript Click on Hidden Input (Most Reliable)
                                 if not button_found:
-                                    log("⚠️ UI Button not found. Triggering hidden input via JS...")
-                                    # This bypasses visibility checks entirely
                                     await page.evaluate("() => { const el = document.querySelector('input[type=\"file\"]'); if (el) el.click(); }")
 
                             file_chooser = await fc_info.value
-                            await human_delay(0.5, 1.0)
                             await file_chooser.set_files(valid_paths)
                             
-                            # CRITICAL: Robust Event Dispatching Strategy
-                            await human_delay(0.5, 1.0)
-                            log("Dispatching robust events to hidden input...")
-                            
+                            # Trigger React events
+                            await human_delay(1, 2)
                             await page.evaluate("""() => {
                                 const input = document.querySelector('input[type="file"]');
                                 if (input) {
-                                    // React 16+ hack to trigger onChange
                                     const tracker = input._valueTracker;
-                                    if (tracker) {
-                                        tracker.setValue('');
-                                    }
-                                    
-                                    // Dispatch events
+                                    if (tracker) tracker.setValue('');
                                     input.dispatchEvent(new Event('input', { bubbles: true }));
                                     input.dispatchEvent(new Event('change', { bubbles: true }));
                                 }
                             }""")
                             
-                            log(f"✅ Medias selected via FileChooser: {valid_paths}")
-                            upload_success = True
-
-                        except Exception as e:
-                            log(f"❌ Upload failed: {e}")
-                            
-                        # Diagnostic: Screenshot after upload attempt
-                        try:
-                            up_shot = os.path.join(settings.DATA_DIR, "screenshots", f"upload_attempt_{int(asyncio.get_event_loop().time())}.png")
-                            os.makedirs(os.path.dirname(up_shot), exist_ok=True)
-                            await page.screenshot(path=up_shot)
-                            log(f"Upload attempt screenshot: {up_shot}")
-                        except: pass
-                        
-                        # Wait for media preview to be visible (CRITICAL)
-                        # IMPORTANT: Don't just check for containers, verify actual media elements exist
-                        # Wait for media preview to be visible (CRITICAL)
-                        # IMPORTANT: Don't just check for containers, verify actual media elements exist
-                        log("Waiting for media preview (with FALLBACK strategy)...")
-                        media_confirmed = False
-                        
-                        # Phase 1: Rapid Check
-                        try:
-                            if is_video:
-                                await page.wait_for_selector('[data-testid="attachments"] video', state="attached", timeout=6000)
-                            else:
-                                await page.wait_for_selector('[data-testid="attachments"] img', state="attached", timeout=6000)
-                            media_confirmed = True
-                            log("✅ Media detected immediately.")
-                        except:
-                            log("⚠️ Media NOT detected after initial wait. Applying FALLBACK: Re-selecting input...")
+                        except Exception as up_e:
+                            log(f"Upload interaction failed: {up_e}. Trying nuclear fallback...")
+                            # 4. Nuclear Fallback (Drag + Paste)
                             try:
-                                # FALLBACK: DataTransfer Simulation (Drag & Drop)
-                                # This bypasses the input element entirely and is robust against React state issues.
-                                log("Attempting NUCLEAR FALLBACK: Simulating Drag & Drop event...")
-                                
-                                # Local import for fallback logic
                                 import base64
-                                
-                                target_file = valid_paths[0]
-                                with open(target_file, "rb") as f:
+                                with open(valid_paths[0], "rb") as f:
                                     encoded_file = base64.b64encode(f.read()).decode('utf-8')
-                                    
                                 mime = "video/mp4" if is_video else "image/png"
-                                fname = os.path.basename(target_file)
+                                fname = os.path.basename(valid_paths[0])
                                 
                                 await page.evaluate("""async ({data, name, mime}) => {
-                                    // 1. Reconstruct File (Manual Base64 to Blob conversion)
-                                    const b64toBlob = (b64Data, contentType='', sliceSize=512) => {
+                                    const b64toBlob = (b64Data, contentType='') => {
                                       const byteCharacters = atob(b64Data);
                                       const byteArrays = [];
-                                      for (let offset = 0; offset < byteCharacters.length; offset += sliceSize) {
-                                        const slice = byteCharacters.slice(offset, offset + sliceSize);
+                                      for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+                                        const slice = byteCharacters.slice(offset, offset + 512);
                                         const byteNumbers = new Array(slice.length);
-                                        for (let i = 0; i < slice.length; i++) {
-                                          byteNumbers[i] = slice.charCodeAt(i);
-                                        }
-                                        const byteArray = new Uint8Array(byteNumbers);
-                                        byteArrays.push(byteArray);
+                                        for (let i = 0; i < slice.length; i++) byteNumbers[i] = slice.charCodeAt(i);
+                                        byteArrays.push(new Uint8Array(byteNumbers));
                                       }
                                       return new Blob(byteArrays, {type: contentType});
                                     }
-
-                                    const blob = b64toBlob(data, mime);
-                                    const file = new File([blob], name, { type: mime });
-                                    
-                                    // 2. Setup DataTransfer
+                                    const file = new File([b64toBlob(data, mime)], name, { type: mime });
                                     const dt = new DataTransfer();
                                     dt.items.add(file);
                                     dt.dropEffect = 'copy';
                                     dt.effectAllowed = 'all';
-
-                                    // 3. Identification of Targets
-                                    const editor = document.querySelector('[data-testid="tweetTextarea_0"]') || 
-                                                 document.querySelector('div[role="textbox"]');
-                                    const composer = document.querySelector('[data-testid="tweetComposer"]') || document.body;
-                                                 
-                                    const target = editor || composer;
-
-                                    // 4. Simulation: Drag & Drop
-                                    const dispatchDrag = (elem, type, dt) => {
-                                        elem.dispatchEvent(new DragEvent(type, {
-                                            bubbles: true, cancelable: true, dataTransfer: dt
-                                        }));
-                                    }
-
-                                    dispatchDrag(target, 'dragenter', dt);
-                                    dispatchDrag(target, 'dragover', dt);
-                                    dispatchDrag(target, 'drop', dt);
-
-                                    // 5. Simulation: Paste (Fallback within fallback)
-                                    // X often responds better to paste events for media injection
-                                    const pasteEvent = new ClipboardEvent('paste', {
-                                        bubbles: true, cancelable: true,
-                                        clipboardData: dt
-                                    });
-                                    target.dispatchEvent(pasteEvent);
-                                    
-                                    // Also try focusing the editor before pasting if it exists
-                                    if (editor) {
-                                        editor.focus();
-                                        editor.dispatchEvent(pasteEvent);
-                                    }
+                                    const target = document.querySelector('[data-testid="tweetTextarea_0"]') || document.body;
+                                    target.dispatchEvent(new DragEvent('drop', { bubbles: true, dataTransfer: dt }));
+                                    target.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, clipboardData: dt }));
                                 }""", {'data': encoded_file, 'name': fname, 'mime': mime})
-                                
-                                log("✅ Enhanced Nuclear Fallback (Drag+Paste) simulation executed.")
-                                await asyncio.sleep(4) # Increased wait for React processing
-                                
                             except Exception as fb_e:
-                                log(f"❌ Fallback trigger failed: {fb_e}")
+                                log(f"Nuclear fallback failed: {fb_e}")
 
-                        # Phase 2: Final Wait
-                        if not media_confirmed:
+                        # 5. Media Confirmation
+                        try:
+                            if is_video:
+                                await page.wait_for_selector('[data-testid="attachments"] video', state="attached", timeout=30000)
+                            else:
+                                await page.wait_for_selector('[data-testid="attachments"] img', state="attached", timeout=20000)
+                            media_confirmed = True
+                            log("✅ Media confirmed in composer.")
+                        except:
+                            log("⚠️ Media NOT detected after wait.")
                             try:
-                                if is_video:
-                                    # Longer wait for final confirmation
-                                    await page.wait_for_selector('[data-testid="attachments"] video', state="visible", timeout=25000)
-                                    log("✅ Video element confirmed in attachments (after wait).")
-                                    media_confirmed = True
-                                else:
-                                    # For images, look for actual <img> elements
-                                    await page.wait_for_selector('div[data-testid="tweetComposer"] img[alt*="Image"]', state="visible", timeout=30000)
-                                    log("✅ Image element confirmed in composer.")
-                                    media_confirmed = True
-                            except:
-                                log("❌ CRITICAL ERROR: Media element NOT DETECTED after upload attempt.")
-                            # Take diagnostic screenshot
-                            try:
-                                diag_shot = os.path.join(settings.DATA_DIR, "screenshots", f"upload_failed_{int(asyncio.get_event_loop().time())}.png")
-                                os.makedirs(os.path.dirname(diag_shot), exist_ok=True)
-                                await page.screenshot(path=diag_shot)
-                                log(f"Diagnostic screenshot saved: {diag_shot}")
+                                diag_path = os.path.join(settings.DATA_DIR, "screenshots", f"retry_fail_{attempt}_{int(asyncio.get_event_loop().time())}.png")
+                                await page.screenshot(path=diag_path)
                             except: pass
                             
-                            # ABORT: Video was expected but not uploaded
-                            if is_video:
-                                log("❌ ABORTING: Video upload failed - cannot publish post without video")
-                                success = False
-                                # Return error - backend will handle status update
-                                return {"success": False, "error": "Video upload failed - media element not detected"}
+                            if attempt == 0:
+                                log("🔄 REFRESHING PAGE FOR RETRY...")
+                                await page.reload(wait_until="networkidle")
+                                await human_delay(2, 4)
+                                continue
+
+                if media_confirmed:
+                    post_initialized = True
+                    break
+            
+            if not post_initialized:
+                log("❌ ABORTING: Post initialization failed (Media or Editor issue).")
+                return {"success": False, "error": "Post initialization failed after retries"}
+
+            # --- MONITORING & SENDING (CONTINUE) ---
                         
                         
                         if is_video:
