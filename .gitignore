@@ -34,3 +34,13 @@ Thumbs.db
 # Environments
 .env
 .env.local
+
+# Temp Cookies and Debug Docs
+fresh_cookies.json
+minified_cookies.txt
+RAILWAY_*.md
+DEBUG_*.md
+*.db
+temp_*.db
+data_copy.db
+x_scheduler_copy.db

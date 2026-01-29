@@ -110,16 +110,34 @@ async def list_screenshots():
         <title>Debug Screenshots</title>
         <style>
             body { font-family: sans-serif; padding: 20px; background: #111; color: #eee; }
+            .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
             .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; }
             .card { background: #222; padding: 10px; border-radius: 8px; border: 1px solid #333; }
             .card img { width: 100%; height: auto; border-radius: 4px; display: block; margin-bottom: 10px; }
             .card a { color: #4af; text-decoration: none; word-break: break-all; font-size: 12px; }
             .card date { display: block; font-size: 10px; color: #888; margin-top: 5px; }
-            h1 { color: #f0f0f0; }
+            .btn-clear { background: #d33; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+            h1 { color: #f0f0f0; margin: 0; }
         </style>
+        <script>
+            async function clearScreenshots() {
+                if (!confirm('Clear all diagnostic screenshots?')) return;
+                try {
+                    const res = await fetch('/debug/screenshots/clear', { method: 'POST' });
+                    const result = await res.json();
+                    if (result.success) {
+                        alert('Gallery cleared!');
+                        location.reload();
+                    }
+                } catch (e) { alert('Failed to clear: ' + e); }
+            }
+        </script>
     </head>
     <body>
-        <h1>Debug Gallery</h1>
+        <div class="header">
+            <h1>Debug Gallery</h1>
+            <button class="btn-clear" onclick="clearScreenshots()">Clear All</button>
+        </div>
         <div class="grid">
     """
     
@@ -139,3 +157,21 @@ async def list_screenshots():
         
     html += "</div></body></html>"
     return html
+
+@app.post("/debug/screenshots/clear")
+async def clear_all_screenshots():
+    if not os.path.exists(SCREENSHOTS_PATH):
+        return {"success": False, "error": "Path not found"}
+    
+    count = 0
+    for f in os.listdir(SCREENSHOTS_PATH):
+        if f.lower().endswith(('.png', '.html')):
+            try:
+                os.remove(os.path.join(SCREENSHOTS_PATH, f))
+                count += 1
+            except Exception as e:
+                logger.error(f"Failed to delete {f}: {e}")
+    
+    logger.info(f"Screenshot gallery cleared. {count} files removed.")
+    return {"success": True, "cleared": count}
+
