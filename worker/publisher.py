@@ -358,217 +358,197 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                 return {"success": False, "error": "Post initialization failed after retries"}
 
             # --- MONITORING & SENDING (CONTINUE) ---
-                        
-                        
-                        if is_video:
-                            log("Video detected. Monitoring video processing status...")
-                            
-                            # Define tweet button early for monitoring (it's disabled during upload)
-                            if reply_to_id:
-                                tweet_button = page.locator(XSelectors.BTN_REPLY_MODAL)
-                            else:
-                                tweet_button = page.locator(XSelectors.BTN_TWEET_INLINE)
-                                if not await tweet_button.is_visible():
-                                     tweet_button = page.locator(XSelectors.BTN_TWEET_MODAL)
-
-                            # CRITICAL: Wait until X.com finishes processing the video
-                            # Instead of fixed wait, actively monitor for completion indicators
-                            video_ready = False
-                            max_wait = 180  # Increased to 3 minutes for slow processing
-                            start_time = asyncio.get_event_loop().time()
-                            
-                            # Give X some time to START processing/showing the indicator
-                            log("Waiting 5s for processing UI to appear...")
-                            await asyncio.sleep(5)
-                            
-                            while not video_ready and (asyncio.get_event_loop().time() - start_time) < max_wait:
-                                try:
-                                    # BURST SCREENSHOT (Debug Timeline)
-                                    # Capture every iteration (~2s) to debug fast failures
-                                    now_s = int(asyncio.get_event_loop().time() - start_time)
-                                    try:
-                                        debug_shot = os.path.join(settings.DATA_DIR, "screenshots", f"debug_process_{now_s}s_{int(asyncio.get_event_loop().time())}.png")
-                                        await page.screenshot(path=debug_shot)
-                                    except: pass
-
-                                    # Scope check to the composer area to avoid false positives from other parts of the page
-                                    # Try to find the composer (Home or Modal)
-                                    composer_area = page.locator('div[data-testid="tweetComposer"]').first
-                                    if not await composer_area.is_visible():
-                                         # Fallback if specific testid isn't found (e.g. slight layout change)
-                                         composer_area = page.locator('div[role="dialog"]' if reply_to_id else 'div[data-testid="tweetTextarea_0_label"]').locator('xpath=..')
-
-                                    # Indicators: Text "Processing", "Encoding", "Uploading" OR role="progressbar"
-                                    # Multilingual: "Procesando", "Enviando", "Codificando", "Subiendo", "Cargando"
-                                    # We search only WITHIN the composer area
-                                    processing_text_locator = composer_area.locator('text=/processing|encoding|uploading|procesando|enviando|codificando|subiendo|cargando/i')
-                                    progress_bar_locator = composer_area.locator('[role="progressbar"]')
-                                    
-                                    processing_count = await processing_text_locator.count()
-                                    progress_bar_count = await progress_bar_locator.count()
-                                    
-                                    # Check for FAILURES (Retry button, Error text) taking precedence
-                                    # Buttons: Retry, Reintentar
-                                    # Text: Error, Failed, Falló
-                                    error_btns = composer_area.locator('div[role="button"][aria-label*="Retry"], div[role="button"][aria-label*="Reintentar"], div[role="button"][aria-label*="Intentar de nuevo"]')
-                                    error_txt = composer_area.locator('text=/error|fail|falló|reintentar|retry/i')
-                                    
-                                    if await error_btns.count() > 0 or await error_txt.count() > 0:
-                                        log("❌ CRITICAL: Upload Error/Retry indicator detected in composer.")
-                                        return {"success": False, "error": "Media upload failed (Retry/Error detected)"}
-
-                                    # PRIMARY CHECK: Is the button disabled? (X disables it during upload/processing)
-                                    is_btn_disabled = await tweet_button.is_disabled()
-
-                                    if processing_count == 0 and progress_bar_count == 0 and not is_btn_disabled:
-                                        # No processing indicators AND no errors AND button is ENABLED -> Ready
-                                        elapsed = int(asyncio.get_event_loop().time() - start_time)
-                                        log(f"✅ Video processing complete after {elapsed}s")
-                                        
-                                        # DEBUG: If it finished too fast (<10s total), dump HTML to be sure we didn't miss something
-                                        if elapsed < 10:
-                                            try:
-                                                html_debug = os.path.join(settings.DATA_DIR, "screenshots", f"debug_fast_finish_{int(asyncio.get_event_loop().time())}.html")
-                                                html_content = await composer_area.inner_html()
-                                                with open(html_debug, 'w', encoding='utf-8') as f:
-                                                    f.write(html_content)
-                                                log(f"⚠️ Fast finish detected. Dumped composer HTML to {html_debug}")
-                                            except: pass
-                                            
-                                        video_ready = True
-                                    else:
-                                        # Still processing
-                                        if int(asyncio.get_event_loop().time() - start_time) % 10 == 0:
-                                            # Debug log to see WHAT is being found
-                                            try:
-                                                if is_btn_disabled:
-                                                     log("Still processing video... Tweet button is DISABLED.")
-                                                elif processing_count > 0:
-                                                    txt = await processing_text_locator.first.inner_text()
-                                                    log(f"Still processing video... Found text: '{txt}'")
-                                                elif progress_bar_count > 0:
-                                                    log("Still processing video... Found progress bar.")
-                                            except:
-                                                log("Still processing video... (Indicator found but couldn't read text)")
-                                        
-                                        await asyncio.sleep(1)
-                                except Exception as e:
-                                    # If we can't check, assume it's ready after minimum wait or log error
-                                    log(f"Error checking video status: {e}. Retrying...")
-                                    await asyncio.sleep(1)
-                            
-                            if not video_ready:
-                                log(f"❌ CRITICAL: Video processing TIMEOUT after {max_wait}s. Aborting.")
-                                # Abort logic
-                                return {"success": False, "error": f"Video processing timed out after {max_wait}s"}
-                        else:
-                            await human_delay(3, 6)
-                    else:
-                        if local_paths:
-                            # Diagnostic: check parent directory
-                            try:
-                                upload_dir = os.path.dirname(local_paths[0])
-                                log(f"CRITICAL Warning: Local media NOT FOUND. Checking parent dir {upload_dir}...")
-                                if os.path.exists(upload_dir):
-                                    log(f"Parent dir exists. Contents: {os.listdir(upload_dir)[:10]}")
-                                else:
-                                    log(f"Parent dir DOES NOT EXIST: {upload_dir}")
-                            except: pass
-                            log(f"CRITICAL Warning: Local media paths provided but files NOT FOUND on disk: {local_paths}")
-                        elif not remote_paths:
-                            log("No valid media paths found to upload.")
-
+            if is_video:
+                log("Video detected. Monitoring video processing status...")
                 
-                # --- FINAL STATE DIAGNOSTIC ---
-                try:
-                    state_shot = os.path.join(settings.DATA_DIR, "screenshots", f"compose_state_{int(asyncio.get_event_loop().time())}.png")
-                    os.makedirs(os.path.dirname(state_shot), exist_ok=True)
-                    await page.screenshot(path=state_shot)
-                    log(f"Composer state screenshot saved: {state_shot}")
-                except: pass
+                # Define tweet button early for monitoring (it's disabled during upload)
+                if reply_to_id:
+                    tweet_button = page.locator(XSelectors.BTN_REPLY_MODAL)
+                else:
+                    tweet_button = page.locator(XSelectors.BTN_TWEET_INLINE)
+                    if not await tweet_button.is_visible():
+                         tweet_button = page.locator(XSelectors.BTN_TWEET_MODAL)
 
-                # --- SEND ---
-
-                if not dry_run:
-                    # Tweet button already defined above if is_video, but ensure it's set for text-only too
-                    if 'tweet_button' not in locals():
-                        if reply_to_id:
-                            tweet_button = page.locator(XSelectors.BTN_REPLY_MODAL)
-                        else:
-                            tweet_button = page.locator(XSelectors.BTN_TWEET_INLINE)
-                            if not await tweet_button.is_visible():
-                                 tweet_button = page.locator(XSelectors.BTN_TWEET_MODAL)
-                    
-                    # Wait for button to be enabled (upload processing)
-                    log("Waiting for Tweet button to be enabled...")
+                # CRITICAL: Wait until X.com finishes processing the video
+                # Instead of fixed wait, actively monitor for completion indicators
+                video_ready = False
+                max_wait = 180  # Increased to 3 minutes for slow processing
+                start_time = asyncio.get_event_loop().time()
+                
+                # Give X some time to START processing/showing the indicator
+                log("Waiting 5s for processing UI to appear...")
+                await asyncio.sleep(5)
+                
+                while not video_ready and (asyncio.get_event_loop().time() - start_time) < max_wait:
                     try:
-                        await tweet_button.wait_for(state="attached", timeout=60000)
-                        # Wait specifically for enabled state
-                        # Increase wait time for videos (can take minutes for large ones)
-                        max_wait = 180 if is_video else 45 
-                        for i in range(max_wait): 
-                            if await tweet_button.is_enabled():
-                                log(f"Tweet button enabled after {i}s.")
-                                break
+                        # BURST SCREENSHOT (Debug Timeline)
+                        # Capture every iteration (~2s) to debug fast failures
+                        now_s = int(asyncio.get_event_loop().time() - start_time)
+                        try:
+                            debug_shot = os.path.join(settings.DATA_DIR, "screenshots", f"debug_process_{now_s}s_{int(asyncio.get_event_loop().time())}.png")
+                            await page.screenshot(path=debug_shot)
+                        except: pass
+
+                        # Scope check to the composer area to avoid false positives from other parts of the page
+                        # Try to find the composer (Home or Modal)
+                        composer_area = page.locator('div[data-testid="tweetComposer"]').first
+                        if not await composer_area.is_visible():
+                             # Fallback if specific testid isn't found (e.g. slight layout change)
+                             composer_area = page.locator('div[role="dialog"]' if reply_to_id else 'div[data-testid="tweetTextarea_0_label"]').locator('xpath=..')
+
+                        # Indicators: Text "Processing", "Encoding", "Uploading" OR role="progressbar"
+                        # Multilingual: "Procesando", "Enviando", "Codificando", "Subiendo", "Cargando"
+                        # We search only WITHIN the composer area
+                        processing_text_locator = composer_area.locator('text=/processing|encoding|uploading|procesando|enviando|codificando|subiendo|cargando/i')
+                        progress_bar_locator = composer_area.locator('[role="progressbar"]')
+                        
+                        processing_count = await processing_text_locator.count()
+                        progress_bar_count = await progress_bar_locator.count()
+                        
+                        # Check for FAILURES (Retry button, Error text) taking precedence
+                        # Buttons: Retry, Reintentar
+                        # Text: Error, Failed, Falló
+                        error_btns = composer_area.locator('div[role="button"][aria-label*="Retry"], div[role="button"][aria-label*="Reintentar"], div[role="button"][aria-label*="Intentar de nuevo"]')
+                        error_txt = composer_area.locator('text=/error|fail|falló|reintentar|retry/i')
+                        
+                        if await error_btns.count() > 0 or await error_txt.count() > 0:
+                            log("❌ CRITICAL: Upload Error/Retry indicator detected in composer.")
+                            return {"success": False, "error": "Media upload failed (Retry/Error detected)"}
+
+                        # PRIMARY CHECK: Is the button disabled? (X disables it during upload/processing)
+                        is_btn_disabled = await tweet_button.is_disabled()
+
+                        if processing_count == 0 and progress_bar_count == 0 and not is_btn_disabled:
+                            # No processing indicators AND no errors AND button is ENABLED -> Ready
+                            elapsed = int(asyncio.get_event_loop().time() - start_time)
+                            log(f"✅ Video processing complete after {elapsed}s")
                             
-                            # CHECK FOR ERROR TOASTS
-                            error_selector = '[data-testid="toast"], div[role="alert"]'
-                            if await page.locator(error_selector).count() > 0:
-                                error_text = await page.locator(error_selector).first.inner_text()
-                                log(f"CRITICAL: X shows error message: {error_text}")
-                                # We don't necessarily abort, but we log it
+                            # DEBUG: If it finished too fast (<10s total), dump HTML to be sure we didn't miss something
+                            if elapsed < 10:
+                                try:
+                                    html_debug = os.path.join(settings.DATA_DIR, "screenshots", f"debug_fast_finish_{int(asyncio.get_event_loop().time())}.html")
+                                    html_content = await composer_area.inner_html()
+                                    with open(html_debug, 'w', encoding='utf-8') as f:
+                                        f.write(html_content)
+                                    log(f"⚠️ Fast finish detected. Dumped composer HTML to {html_debug}")
+                                except: pass
+                                
+                            video_ready = True
+                        else:
+                            # Still processing
+                            if int(asyncio.get_event_loop().time() - start_time) % 10 == 0:
+                                # Debug log to see WHAT is being found
+                                try:
+                                    if is_btn_disabled:
+                                         log("Still processing video... Tweet button is DISABLED.")
+                                    elif processing_count > 0:
+                                        txt = await processing_text_locator.first.inner_text()
+                                        log(f"Still processing video... Found text: '{txt}'")
+                                    elif progress_bar_count > 0:
+                                        log("Still processing video... Found progress bar.")
+                                except:
+                                    log("Still processing video... (Indicator found but couldn't read text)")
                             
-                            if i % 10 == 0 and i > 0:
-                                log(f"Still waiting for button... ({i}s)")
                             await asyncio.sleep(1)
                     except Exception as e:
-                        log(f"Error waiting for button: {e}")
-                        pass
-
-                    # --- FINAL SANITY CHECK BEFORE CLICKING ---
-                    # If we expected a video, verify it is present immediately before posting.
-                    # This prevents cases where upload failed/cancelled but the button became enabled for text only.
-                    if is_video:
-                        log("Performing final video presence check...")
-                        # Look for video player or video tag strictly within ATTACHMENTS container
-                        # This prevents false positives from other videos on the page
-                        attachments_area = page.locator('[data-testid="attachments"]')
-                        video_present = await attachments_area.locator('video').count() > 0
-                        
-                        # Debug: Log what IS inside the attachments area
-                        try:
-                            if await attachments_area.count() > 0:
-                                inner = await attachments_area.first.inner_html()
-                                log(f"DEBUG: Attachments area content: {inner[:300]}...") # Log first 300 chars
-                            else:
-                                log("DEBUG: Attachments area [data-testid='attachments'] NOT FOUND.")
-                        except: pass
-                        
-                        if not video_present:
-                            log("❌ CRITICAL: Video element MISSING from composer before tweet click. Aborting.")
-                            return {"success": False, "error": "Video failed to attach - missing from composer before send"}
-                        else:
-                            log("✅ Final video presence check passed.")
-                    
-                    # --- EXECUTE SEND ---
-                    log("Clicking Tweet button (Humanized)...")
-                    try:
-                        await tweet_button.hover()
-                        await human_delay(0.2, 0.7)
-                        await tweet_button.click()
-                    except Exception as e:
-                        log(f"Hover/Click failed: {e}. Trying force click.")
-                        await tweet_button.click(force=True)
-                    
-                    log("Tweet button clicked. Waiting for result...")
-                    await human_delay(5, 8) # Wait for network
-                    success = True
-                else:
-                    log("DRY RUN: Skipping send.")
-                    success = True
-
+                        # If we can't check, assume it's ready after minimum wait or log error
+                        log(f"Error checking video status: {e}. Retrying...")
+                        await asyncio.sleep(1)
+                
+                if not video_ready:
+                    log(f"❌ CRITICAL: Video processing TIMEOUT after {max_wait}s. Aborting.")
+                    # Abort logic
+                    return {"success": False, "error": f"Video processing timed out after {max_wait}s"}
             else:
-                log("Critial: Could not find text area.")
+                await human_delay(3, 6)
+            
+            # --- FINAL STATE DIAGNOSTIC ---
+            try:
+                state_shot = os.path.join(settings.DATA_DIR, "screenshots", f"compose_state_{int(asyncio.get_event_loop().time())}.png")
+                os.makedirs(os.path.dirname(state_shot), exist_ok=True)
+                await page.screenshot(path=state_shot)
+                log(f"Composer state screenshot saved: {state_shot}")
+            except: pass
+
+            # --- SEND ---
+
+            if not dry_run:
+                # Tweet button already defined above if is_video, but ensure it's set for text-only too
+                if 'tweet_button' not in locals():
+                    if reply_to_id:
+                        tweet_button = page.locator(XSelectors.BTN_REPLY_MODAL)
+                    else:
+                        tweet_button = page.locator(XSelectors.BTN_TWEET_INLINE)
+                        if not await tweet_button.is_visible():
+                             tweet_button = page.locator(XSelectors.BTN_TWEET_MODAL)
+                
+                # Wait for button to be enabled (upload processing)
+                log("Waiting for Tweet button to be enabled...")
+                try:
+                    await tweet_button.wait_for(state="attached", timeout=60000)
+                    # Wait specifically for enabled state
+                    # Increase wait time for videos (can take minutes for large ones)
+                    max_wait = 180 if is_video else 45 
+                    for i in range(max_wait): 
+                        if await tweet_button.is_enabled():
+                            log(f"Tweet button enabled after {i}s.")
+                            break
+                        
+                        # CHECK FOR ERROR TOASTS
+                        error_selector = '[data-testid="toast"], div[role="alert"]'
+                        if await page.locator(error_selector).count() > 0:
+                            error_text = await page.locator(error_selector).first.inner_text()
+                            log(f"CRITICAL: X shows error message: {error_text}")
+                            # We don't necessarily abort, but we log it
+                        
+                        if i % 10 == 0 and i > 0:
+                            log(f"Still waiting for button... ({i}s)")
+                        await asyncio.sleep(1)
+                except Exception as e:
+                    log(f"Error waiting for button: {e}")
+                    pass
+
+                # --- FINAL SANITY CHECK BEFORE CLICKING ---
+                # If we expected a video, verify it is present immediately before posting.
+                # This prevents cases where upload failed/cancelled but the button became enabled for text only.
+                if is_video:
+                    log("Performing final video presence check...")
+                    # Look for video player or video tag strictly within ATTACHMENTS container
+                    # This prevents false positives from other videos on the page
+                    attachments_area = page.locator('[data-testid="attachments"]')
+                    video_present = await attachments_area.locator('video').count() > 0
+                    
+                    # Debug: Log what IS inside the attachments area
+                    try:
+                        if await attachments_area.count() > 0:
+                            inner = await attachments_area.first.inner_html()
+                            log(f"DEBUG: Attachments area content: {inner[:300]}...") # Log first 300 chars
+                        else:
+                            log("DEBUG: Attachments area [data-testid='attachments'] NOT FOUND.")
+                    except: pass
+                    
+                    if not video_present:
+                        log("❌ CRITICAL: Video element MISSING from composer before tweet click. Aborting.")
+                        return {"success": False, "error": "Video failed to attach - missing from composer before send"}
+                    else:
+                        log("✅ Final video presence check passed.")
+                
+                # --- EXECUTE SEND ---
+                log("Clicking Tweet button (Humanized)...")
+                try:
+                    await tweet_button.hover()
+                    await human_delay(0.2, 0.7)
+                    await tweet_button.click()
+                except Exception as e:
+                    log(f"Hover/Click failed: {e}. Trying force click.")
+                    await tweet_button.click(force=True)
+                
+                log("Tweet button clicked. Waiting for result...")
+                await human_delay(5, 8) # Wait for network
+                success = True
+            else:
+                log("DRY RUN: Skipping send.")
+                success = True
 
             # --- ID EXTRACTION (Post-Send) ---
             if success and not dry_run:
