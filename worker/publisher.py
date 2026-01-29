@@ -209,7 +209,7 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                         await human_delay(2, 4)
 
                 # 2. Content Entry
-                textarea = page.locator(XSelectors.COMPOSE_BOX_HOME)
+                textarea = page.locator(XSelectors.COMPOSE_BOX_HOME).first
                 if await textarea.is_visible():
                     await textarea.click()
                     await human_delay(0.5, 1)
@@ -363,11 +363,11 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                 
                 # Define tweet button early for monitoring (it's disabled during upload)
                 if reply_to_id:
-                    tweet_button = page.locator(XSelectors.BTN_REPLY_MODAL)
+                    tweet_button = page.locator(XSelectors.BTN_REPLY_MODAL).first
                 else:
-                    tweet_button = page.locator(XSelectors.BTN_TWEET_INLINE)
+                    tweet_button = page.locator(XSelectors.BTN_TWEET_INLINE).first
                     if not await tweet_button.is_visible():
-                         tweet_button = page.locator(XSelectors.BTN_TWEET_MODAL)
+                         tweet_button = page.locator(XSelectors.BTN_TWEET_MODAL).first
 
                 # CRITICAL: Wait until X.com finishes processing the video
                 # Instead of fixed wait, actively monitor for completion indicators
@@ -476,11 +476,11 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                 # Tweet button already defined above if is_video, but ensure it's set for text-only too
                 if 'tweet_button' not in locals():
                     if reply_to_id:
-                        tweet_button = page.locator(XSelectors.BTN_REPLY_MODAL)
+                        tweet_button = page.locator(XSelectors.BTN_REPLY_MODAL).first
                     else:
-                        tweet_button = page.locator(XSelectors.BTN_TWEET_INLINE)
+                        tweet_button = page.locator(XSelectors.BTN_TWEET_INLINE).first
                         if not await tweet_button.is_visible():
-                             tweet_button = page.locator(XSelectors.BTN_TWEET_MODAL)
+                             tweet_button = page.locator(XSelectors.BTN_TWEET_MODAL).first
                 
                 # Wait for button to be enabled (upload processing)
                 log("Waiting for Tweet button to be enabled...")
