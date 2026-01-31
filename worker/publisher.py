@@ -385,7 +385,6 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                             media_confirmed = True
                         except Exception as conf_e:
                             log(f"⚠️ Media NOT detected: {conf_e}")
-                            except: pass
                             
                             if attempt == 0:
                                 log("🔄 REFRESHING PAGE FOR RETRY...")
