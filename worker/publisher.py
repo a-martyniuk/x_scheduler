@@ -201,8 +201,9 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                 if not is_new_post:
                     # Thread Mode
                     log(f"Thread Mode: Replying to tweet {reply_to_id}...")
-                    await page.goto(f"https://x.com/i/status/{reply_to_id}", timeout=60000, wait_until="networkidle")
-                    await human_delay(3, 5)
+                    await page.goto(f"https://x.com/i/status/{reply_to_id}", timeout=60000, wait_until="load")
+                    await page.wait_for_load_state("networkidle")
+                    await human_delay(4, 7)
                     try:
                         reply_btn = page.locator(f'{XSelectors.TWEET_ARTICLE}').first.locator(XSelectors.BTN_REPLY_MODAL)
                         await reply_btn.click()
@@ -214,8 +215,9 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                 else:
                     # New Post Mode (Stable dedicated URL)
                     log("Navigating to dedicated Compose URL...")
-                    await page.goto("https://x.com/compose/post", timeout=60000, wait_until="networkidle")
-                    await human_delay(3, 6)
+                    await page.goto("https://x.com/compose/post", timeout=60000, wait_until="load")
+                    await page.wait_for_load_state("networkidle")
+                    await human_delay(4, 7)
                     try:
                         await page.wait_for_selector(XSelectors.COMPOSE_BOX_HOME, state="visible", timeout=15000)
                         log("Compose page ready.")
