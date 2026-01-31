@@ -118,11 +118,14 @@ async def update_analytics():
                 post.reposts_count = stats.get("reposts", 0)
                 post.bookmarks_count = stats.get("bookmarks", 0)
                 post.replies_count = stats.get("replies", 0)
+                post.url_link_clicks = stats.get("url_link_clicks", 0)
+                post.user_profile_clicks = stats.get("user_profile_clicks", 0)
+                post.detail_expands = stats.get("detail_expands", 0)
                 
                 post.updated_at = datetime.now(timezone.utc).replace(tzinfo=None)
-                post.logs = (post.logs or "") + f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M')}] Scraper Success: Views={stats.get('views')}, Likes={stats.get('likes')}"
+                post.logs = (post.logs or "") + f"\n[{datetime.now().strftime('%Y-%m-%d %H:%M')}] Scraper Success: Views={stats.get('views')}, Likes={stats.get('likes')}, Clicks={stats.get('url_link_clicks')}"
                 
-                # Crear Snapshot histórico
+                # Crear Snapshot histórico completo
                 snapshot = PostMetricSnapshot(
                     post_id=post.id,
                     views=post.views_count,
@@ -130,6 +133,9 @@ async def update_analytics():
                     reposts=post.reposts_count,
                     bookmarks=post.bookmarks_count,
                     replies=post.replies_count,
+                    url_link_clicks=post.url_link_clicks,
+                    user_profile_clicks=post.user_profile_clicks,
+                    detail_expands=post.detail_expands,
                     timestamp=datetime.now(timezone.utc).replace(tzinfo=None)
                 )
                 db.add(snapshot)

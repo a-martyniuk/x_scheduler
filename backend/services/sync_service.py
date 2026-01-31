@@ -175,7 +175,10 @@ async def sync_account_history(username: str, db: Session):
                     latest_snap.likes != post_data["likes"] or 
                     latest_snap.reposts != post_data["reposts"] or
                     latest_snap.bookmarks != post_data.get("bookmarks", 0) or
-                    latest_snap.replies != post_data.get("replies", 0)
+                    latest_snap.replies != post_data.get("replies", 0) or
+                    latest_snap.url_link_clicks != post_data.get("url_link_clicks", 0) or
+                    latest_snap.user_profile_clicks != post_data.get("user_profile_clicks", 0) or
+                    latest_snap.detail_expands != post_data.get("detail_expands", 0)
                 )
 
                 if has_changes:
@@ -186,6 +189,9 @@ async def sync_account_history(username: str, db: Session):
                         reposts=post_data["reposts"],
                         bookmarks=post_data.get("bookmarks", 0),
                         replies=post_data.get("replies", 0),
+                        url_link_clicks=post_data.get("url_link_clicks", 0),
+                        user_profile_clicks=post_data.get("user_profile_clicks", 0),
+                        detail_expands=post_data.get("detail_expands", 0),
                         timestamp=datetime.now(timezone.utc).replace(tzinfo=None)
                     )
                         db.add(snapshot)
@@ -231,6 +237,9 @@ async def sync_account_history(username: str, db: Session):
                     reposts=new_post.reposts_count,
                     bookmarks=new_post.bookmarks_count,
                     replies=new_post.replies_count,
+                    url_link_clicks=new_post.url_link_clicks,
+                    user_profile_clicks=new_post.user_profile_clicks,
+                    detail_expands=new_post.detail_expands,
                     timestamp=datetime.now(timezone.utc).replace(tzinfo=None)
                 )
                 db.add(snap)

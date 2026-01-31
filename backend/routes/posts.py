@@ -51,6 +51,11 @@ async def run_immediate_publish(post_id: int):
                 views=0,
                 likes=0,
                 reposts=0,
+                bookmarks=0,
+                replies=0,
+                url_link_clicks=0,
+                user_profile_clicks=0,
+                detail_expands=0,
                 timestamp=datetime.now(timezone.utc).replace(tzinfo=None)
             )
             db.add(snapshot)
@@ -76,7 +81,12 @@ def get_stats(db: Session = Depends(get_db)):
     metrics = db.query(
         func.sum(Post.views_count).label("views"),
         func.sum(Post.likes_count).label("likes"),
-        func.sum(Post.reposts_count).label("reposts")
+        func.sum(Post.reposts_count).label("reposts"),
+        func.sum(Post.bookmarks_count).label("bookmarks"),
+        func.sum(Post.replies_count).label("replies"),
+        func.sum(Post.url_link_clicks).label("url_link_clicks"),
+        func.sum(Post.user_profile_clicks).label("user_profile_clicks"),
+        func.sum(Post.detail_expands).label("detail_expands")
     ).filter(Post.status == "sent", Post.is_repost.isnot(True)).first()
     
     return {
@@ -86,7 +96,12 @@ def get_stats(db: Session = Depends(get_db)):
         "drafts": total_drafts,
         "views": int(metrics.views or 0),
         "likes": int(metrics.likes or 0),
-        "reposts": int(metrics.reposts or 0)
+        "reposts": int(metrics.reposts or 0),
+        "bookmarks": int(metrics.bookmarks or 0),
+        "replies": int(metrics.replies or 0),
+        "url_link_clicks": int(metrics.url_link_clicks or 0),
+        "user_profile_clicks": int(metrics.user_profile_clicks or 0),
+        "detail_expands": int(metrics.detail_expands or 0)
     }
 
 # CRUD Routes

@@ -25,6 +25,9 @@ def get_growth_data(db: Session = Depends(get_db)):
         func.sum(Post.reposts_count).label('reposts'),
         func.sum(Post.bookmarks_count).label('bookmarks'),
         func.sum(Post.replies_count).label('replies'),
+        func.sum(Post.url_link_clicks).label('url_link_clicks'),
+        func.sum(Post.user_profile_clicks).label('user_profile_clicks'),
+        func.sum(Post.detail_expands).label('detail_expands'),
         func.count(Post.id).label('post_count')
     ).filter(
         Post.status == 'sent',
@@ -42,7 +45,10 @@ def get_growth_data(db: Session = Depends(get_db)):
             "reposts": s.reposts or 0,
             "bookmarks": s.bookmarks or 0,
             "replies": s.replies or 0,
-            "engagement": (s.likes or 0) + (s.reposts or 0) + (s.bookmarks or 0) + (s.replies or 0),
+            "url_link_clicks": s.url_link_clicks or 0,
+            "user_profile_clicks": s.user_profile_clicks or 0,
+            "detail_expands": s.detail_expands or 0,
+            "engagement": (s.likes or 0) + (s.reposts or 0) + (s.bookmarks or 0) + (s.replies or 0) + (s.url_link_clicks or 0),
             "posts": s.post_count
         } for s in stats
     ]
@@ -66,7 +72,8 @@ def get_performance_data(db: Session = Depends(get_db)):
         
         performance[type_key]["count"] += 1
         performance[type_key]["views"] += (post.views_count or 0)
-        performance[type_key]["engagement"] += ((post.likes_count or 0) + (post.reposts_count or 0))
+        engagement = (post.likes_count or 0) + (post.reposts_count or 0) + (post.bookmarks_count or 0) + (post.replies_count or 0) + (post.url_link_clicks or 0)
+        performance[type_key]["engagement"] += engagement
     
     # Calculate averages
     for key in performance:
@@ -96,8 +103,8 @@ def get_best_times(db: Session = Depends(get_db)):
         timestamp = post.scheduled_at or post.updated_at or post.created_at
         if timestamp:
             hour = timestamp.hour
-            # Simple engagement formula: (likes + RT) / views * 1000 (to avoid small floats)
-            engagement = (post.likes_count + post.reposts_count)
+            # Detailed engagement formula
+            engagement = (post.likes_count + post.reposts_count + post.bookmarks_count + post.replies_count + post.url_link_clicks)
             if post.views_count > 0:
                  engagement = (engagement / post.views_count) * 100
             
