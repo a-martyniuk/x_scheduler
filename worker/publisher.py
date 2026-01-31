@@ -638,14 +638,20 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                     log(f"ID Extraction failed: {e}")
 
             # Verification Screenshot
-            screenshot_file = os.path.join(SCREENSHOTS_DIR, f"result_{random.randint(1000,9999)}.png")
-            await page.screenshot(path=screenshot_file)
-            logger.debug(f"Screenshot saved: {screenshot_file}")
+            try:
+                screenshot_file = os.path.join(SCREENSHOTS_DIR, f"result_{random.randint(1000,9999)}.png")
+                await page.screenshot(path=screenshot_file, timeout=5000)
+                logger.debug(f"Screenshot saved: {screenshot_file}")
+            except Exception as ss_e:
+                log(f"Final screenshot failed (Browser likely crashed): {ss_e}")
 
         except Exception as e:
             logger.exception(f"Worker Error: {e}")
-            screenshot_file = os.path.join(SCREENSHOTS_DIR, f"error_{random.randint(1000,9999)}.png")
-            await page.screenshot(path=screenshot_file)
+            try:
+                screenshot_file = os.path.join(SCREENSHOTS_DIR, f"error_{random.randint(1000,9999)}.png")
+                await page.screenshot(path=screenshot_file, timeout=5000)
+            except Exception as ss_e:
+                 log(f"Error screenshot failed: {ss_e}")
         finally:
             await browser.close()
 
