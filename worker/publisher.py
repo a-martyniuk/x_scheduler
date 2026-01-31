@@ -141,7 +141,18 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
         return {"success": False, "log": "No cookies found. Please input them.", "screenshot_path": None, "tweet_id": None}
 
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
+        # Launch with stability flags for container environments
+        browser = await p.chromium.launch(
+            headless=True,
+            args=[
+                "--disable-dev-shm-usage", 
+                "--no-sandbox", 
+                "--disable-gpu",
+                "--disable-setuid-sandbox",
+                "--no-zygote"
+            ]
+        )
+
         
         try:
             context = await browser.new_context(
@@ -247,7 +258,21 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                     
                     if valid_paths:
                         is_video = any(p.lower().endswith(('.mp4', '.mov', '.webm', '.ogg', '.m4v')) for p in valid_paths)
-                        log(f"Uploading {len(valid_paths)} files (isVideo={is_video})")
+                        
+                        # Verify files exist and are readable
+                        actually_valid = []
+                        for p in valid_paths:
+                            if os.path.exists(p) and os.path.getsize(p) > 0:
+                                actually_valid.append(p)
+                            else:
+                                log(f"❌ File missing or empty: {p}")
+                        
+                        if not actually_valid:
+                            log("❌ No valid media files to upload. Aborting upload attempt.")
+                            valid_paths = []
+                        else:
+                            valid_paths = actually_valid
+                            log(f"Uploading {len(valid_paths)} files (isVideo={is_video})")
                         
                         # Pre-upload diagnostics (Fix: Removed full_page=True to avoid OOM)
                         try:
@@ -298,39 +323,42 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                                 }
                             }""")
                             
-                        except Exception as up_e:
-                            log(f"Upload interaction failed: {up_e}. Trying nuclear fallback...")
-                            # 4. Nuclear Fallback (Drag + Paste)
-                            try:
-                                import base64
-                                with open(valid_paths[0], "rb") as f:
-                                    encoded_file = base64.b64encode(f.read()).decode('utf-8')
-                                mime = "video/mp4" if is_video else "image/png"
-                                fname = os.path.basename(valid_paths[0])
-                                
-                                await page.evaluate("""async ({data, name, mime}) => {
-                                    const b64toBlob = (b64Data, contentType='') => {
-                                      const byteCharacters = atob(b64Data);
-                                      const byteArrays = [];
-                                      for (let offset = 0; offset < byteCharacters.length; offset += 512) {
-                                        const slice = byteCharacters.slice(offset, offset + 512);
-                                        const byteNumbers = new Array(slice.length);
-                                        for (let i = 0; i < slice.length; i++) byteNumbers[i] = slice.charCodeAt(i);
-                                        byteArrays.push(new Uint8Array(byteNumbers));
-                                      }
-                                      return new Blob(byteArrays, {type: contentType});
-                                    }
-                                    const file = new File([b64toBlob(data, mime)], name, { type: mime });
-                                    const dt = new DataTransfer();
-                                    dt.items.add(file);
-                                    dt.dropEffect = 'copy';
-                                    dt.effectAllowed = 'all';
-                                    const target = document.querySelector('[data-testid="tweetTextarea_0"]') || document.body;
-                                    target.dispatchEvent(new DragEvent('drop', { bubbles: true, dataTransfer: dt }));
-                                    target.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, clipboardData: dt }));
-                                }""", {'data': encoded_file, 'name': fname, 'mime': mime})
-                            except Exception as fb_e:
-                                log(f"Nuclear fallback failed: {fb_e}")
+                            except Exception as up_e:
+                                log(f"Upload interaction failed: {up_e}. Trying nuclear fallback...")
+                                # 4. Nuclear Fallback (Drag + Paste)
+                                if is_video and os.path.getsize(valid_paths[0]) > 10 * 1024 * 1024:
+                                    log("⚠️ Video too large for nuclear base64 fallback. Skipping fallback.")
+                                else:
+                                    try:
+                                        import base64
+                                        with open(valid_paths[0], "rb") as f:
+                                            encoded_file = base64.b64encode(f.read()).decode('utf-8')
+                                        mime = "video/mp4" if is_video else "image/png"
+                                        fname = os.path.basename(valid_paths[0])
+                                        
+                                        await page.evaluate("""async ({data, name, mime}) => {
+                                            const b64toBlob = (b64Data, contentType='') => {
+                                              const byteCharacters = atob(b64Data);
+                                              const byteArrays = [];
+                                              for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+                                                const slice = byteCharacters.slice(offset, offset + 512);
+                                                const byteNumbers = new Array(slice.length);
+                                                for (let i = 0; i < slice.length; i++) byteNumbers[i] = slice.charCodeAt(i);
+                                                byteArrays.push(new Uint8Array(byteNumbers));
+                                              }
+                                              return new Blob(byteArrays, {type: contentType});
+                                            }
+                                            const file = new File([b64toBlob(data, mime)], name, { type: mime });
+                                            const dt = new DataTransfer();
+                                            dt.items.add(file);
+                                            dt.dropEffect = 'copy';
+                                            dt.effectAllowed = 'all';
+                                            const target = document.querySelector('[data-testid="tweetTextarea_0"]') || document.body;
+                                            target.dispatchEvent(new DragEvent('drop', { bubbles: true, dataTransfer: dt }));
+                                            target.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, clipboardData: dt }));
+                                        }""", {'data': encoded_file, 'name': fname, 'mime': mime})
+                                    except Exception as fb_e:
+                                        log(f"Nuclear fallback failed: {fb_e}")
 
                         # 5. Media Confirmation
                         try:
