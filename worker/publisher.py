@@ -154,7 +154,7 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                 "--disable-component-extensions-with-background-pages",
                 "--disable-default-apps",
                 "--mute-audio",
-                "--js-flags=--max-old-space-size=320"
+                "--js-flags=--max-old-space-size=192"
             ]
         )
 
@@ -298,14 +298,16 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                             
                             # Refactored: More direct upload method to save memory
                             log("Attempting direct file upload...")
-                            input_selector = 'input[type="file"][accept*="media"], input[type="file"][accept*="video"], input[type="file"][accept*="image"]'
                             
-                            # X.com often has multiple hidden inputs, let's find the right one
-                            upload_input = page.locator('input[type="file"]').first
+                            # X.com often has multiple hidden inputs, let's find the ACTUAL one
+                            # It usually has complex attributes or is inside a specific container
+                            upload_input = page.locator('input[type="file"][data-testid="fileInput"]').first
+                            if not await upload_input.count():
+                                upload_input = page.locator('input[type="file"]').first
                             
                             try:
                                 # Direct set_files on the input is much lighter than native file chooser
-                                await upload_input.set_input_files(valid_paths)
+                                await upload_input.set_input_files(actually_valid)
                             except Exception as e:
                                 log(f"Direct upload failed ({e}). Falling back to traditional method.")
                                 async with page.expect_file_chooser(timeout=15000) as fc_info:
