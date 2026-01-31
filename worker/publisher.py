@@ -141,7 +141,7 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
         return {"success": False, "log": "No cookies found. Please input them.", "screenshot_path": None, "tweet_id": None}
 
     async with async_playwright() as p:
-        # Launch with stability flags for container environments
+        # Launch with stability and aggressive memory-saving flags
         browser = await p.chromium.launch(
             headless=True,
             args=[
@@ -149,7 +149,12 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                 "--no-sandbox", 
                 "--disable-gpu",
                 "--disable-setuid-sandbox",
-                "--no-zygote"
+                "--no-zygote",
+                "--disable-extensions",
+                "--disable-component-extensions-with-background-pages",
+                "--disable-default-apps",
+                "--mute-audio",
+                "--js-flags=--max-old-space-size=320"
             ]
         )
 
@@ -291,21 +296,33 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                                 'div[role="button"][aria-label*="multimedia"]'
                             ]
                             
-                            async with page.expect_file_chooser(timeout=15000) as fc_info:
-                                button_found = False
-                                for selector in media_selectors:
-                                    try:
-                                        btn = page.locator(selector).first
-                                        if await btn.is_visible():
-                                            await btn.click()
-                                            button_found = True
-                                            break
-                                    except: continue
-                                if not button_found:
-                                    await page.evaluate("() => { const el = document.querySelector('input[type=\"file\"]'); if (el) el.click(); }")
+                            # Refactored: More direct upload method to save memory
+                            log("Attempting direct file upload...")
+                            input_selector = 'input[type="file"][accept*="media"], input[type="file"][accept*="video"], input[type="file"][accept*="image"]'
+                            
+                            # X.com often has multiple hidden inputs, let's find the right one
+                            upload_input = page.locator('input[type="file"]').first
+                            
+                            try:
+                                # Direct set_files on the input is much lighter than native file chooser
+                                await upload_input.set_input_files(valid_paths)
+                            except Exception as e:
+                                log(f"Direct upload failed ({e}). Falling back to traditional method.")
+                                async with page.expect_file_chooser(timeout=15000) as fc_info:
+                                    button_found = False
+                                    for selector in media_selectors:
+                                        try:
+                                            btn = page.locator(selector).first
+                                            if await btn.is_visible():
+                                                await btn.click()
+                                                button_found = True
+                                                break
+                                        except: continue
+                                    if not button_found:
+                                        await page.evaluate("() => { const el = document.querySelector('input[type=\"file\"]'); if (el) el.click(); }")
 
-                            file_chooser = await fc_info.value
-                            await file_chooser.set_files(valid_paths)
+                                    file_chooser = await fc_info.value
+                                    await file_chooser.set_files(valid_paths)
                             
                             # Trigger React events
                             await human_delay(1, 2)
@@ -322,8 +339,10 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                         except Exception as up_e:
                             log(f"Upload interaction failed: {up_e}. Trying nuclear fallback...")
                             # 4. Nuclear Fallback (Drag + Paste)
-                            if is_video and os.path.getsize(valid_paths[0]) > 10 * 1024 * 1024:
-                                log("⚠️ Video too large for nuclear base64 fallback. Skipping fallback.")
+                            if is_video:
+                                log("⚠️ Nuclear fallback disabled for videos to prevent OOM. Aborting upload attempt.")
+                            elif os.path.getsize(valid_paths[0]) > 10 * 1024 * 1024:
+                                log("⚠️ Image too large for nuclear base64 fallback. Skipping.")
                             else:
                                 try:
                                     import base64
