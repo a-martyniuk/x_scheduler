@@ -319,42 +319,42 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                                 }
                             }""")
                             
-                            except Exception as up_e:
-                                log(f"Upload interaction failed: {up_e}. Trying nuclear fallback...")
-                                # 4. Nuclear Fallback (Drag + Paste)
-                                if is_video and os.path.getsize(valid_paths[0]) > 10 * 1024 * 1024:
-                                    log("⚠️ Video too large for nuclear base64 fallback. Skipping fallback.")
-                                else:
-                                    try:
-                                        import base64
-                                        with open(valid_paths[0], "rb") as f:
-                                            encoded_file = base64.b64encode(f.read()).decode('utf-8')
-                                        mime = "video/mp4" if is_video else "image/png"
-                                        fname = os.path.basename(valid_paths[0])
-                                        
-                                        await page.evaluate("""async ({data, name, mime}) => {
-                                            const b64toBlob = (b64Data, contentType='') => {
-                                              const byteCharacters = atob(b64Data);
-                                              const byteArrays = [];
-                                              for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+                        except Exception as up_e:
+                            log(f"Upload interaction failed: {up_e}. Trying nuclear fallback...")
+                            # 4. Nuclear Fallback (Drag + Paste)
+                            if is_video and os.path.getsize(valid_paths[0]) > 10 * 1024 * 1024:
+                                log("⚠️ Video too large for nuclear base64 fallback. Skipping fallback.")
+                            else:
+                                try:
+                                    import base64
+                                    with open(valid_paths[0], "rb") as f:
+                                        encoded_file = base64.b64encode(f.read()).decode('utf-8')
+                                    mime = "video/mp4" if is_video else "image/png"
+                                    fname = os.path.basename(valid_paths[0])
+                                    
+                                    await page.evaluate("""async ({data, name, mime}) => {
+                                        const b64toBlob = (b64Data, contentType='') => {
+                                            const byteCharacters = atob(b64Data);
+                                            const byteArrays = [];
+                                            for (let offset = 0; offset < byteCharacters.length; offset += 512) {
                                                 const slice = byteCharacters.slice(offset, offset + 512);
                                                 const byteNumbers = new Array(slice.length);
                                                 for (let i = 0; i < slice.length; i++) byteNumbers[i] = slice.charCodeAt(i);
                                                 byteArrays.push(new Uint8Array(byteNumbers));
-                                              }
-                                              return new Blob(byteArrays, {type: contentType});
                                             }
-                                            const file = new File([b64toBlob(data, mime)], name, { type: mime });
-                                            const dt = new DataTransfer();
-                                            dt.items.add(file);
-                                            dt.dropEffect = 'copy';
-                                            dt.effectAllowed = 'all';
-                                            const target = document.querySelector('[data-testid="tweetTextarea_0"]') || document.body;
-                                            target.dispatchEvent(new DragEvent('drop', { bubbles: true, dataTransfer: dt }));
-                                            target.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, clipboardData: dt }));
-                                        }""", {'data': encoded_file, 'name': fname, 'mime': mime})
-                                    except Exception as fb_e:
-                                        log(f"Nuclear fallback failed: {fb_e}")
+                                            return new Blob(byteArrays, {type: contentType});
+                                        }
+                                        const file = new File([b64toBlob(data, mime)], name, { type: mime });
+                                        const dt = new DataTransfer();
+                                        dt.items.add(file);
+                                        dt.dropEffect = 'copy';
+                                        dt.effectAllowed = 'all';
+                                        const target = document.querySelector('[data-testid="tweetTextarea_0"]') || document.body;
+                                        target.dispatchEvent(new DragEvent('drop', { bubbles: true, dataTransfer: dt }));
+                                        target.dispatchEvent(new ClipboardEvent('paste', { bubbles: true, clipboardData: dt }));
+                                    }""", {'data': encoded_file, 'name': fname, 'mime': mime})
+                                except Exception as fb_e:
+                                    log(f"Nuclear fallback failed: {fb_e}")
 
                         # 5. Media Confirmation
                         try:
