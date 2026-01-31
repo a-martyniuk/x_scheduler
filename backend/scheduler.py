@@ -57,7 +57,7 @@ async def check_scheduled_posts():
                 # We wrap the await in a wait_for to be 100% sure it doesn't hang the scheduler thread
                 result = await asyncio.wait_for(
                     publish_post_task(post.content, post.media_paths, reply_to_id=reply_to_id, username=post.username),
-                    timeout=120.0 # 2 minute max
+                    timeout=300.0 # 5 minute max for video processing
                 )
             except asyncio.TimeoutError:
                 logger.error(f"Task for post {post.id} TIMED OUT after 2 mins.")
