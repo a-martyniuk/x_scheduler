@@ -259,11 +259,15 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                         try:
                             # Selectors including Spanish
                             media_selectors = [
+                                '[aria-label="Media"]', 
+                                '[aria-label="Multimedia"]',
                                 '[aria-label="Add photos or video"]', 
                                 '[aria-label="Agregar fotos o videos"]', 
                                 '[aria-label="Añadir fotos o vídeo"]',
                                 'div[role="button"][aria-label*="photos"]',
-                                'div[role="button"][aria-label*="fotos"]'
+                                'div[role="button"][aria-label*="fotos"]',
+                                'div[role="button"][aria-label*="media"]',
+                                'div[role="button"][aria-label*="multimedia"]'
                             ]
                             
                             async with page.expect_file_chooser(timeout=15000) as fc_info:
@@ -330,23 +334,50 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
 
                         # 5. Media Confirmation
                         try:
+                            # 5.1 Primary check: Look for the container
+                            log("Waiting for attachments container...")
+                            await page.wait_for_selector('[data-testid="attachments"]', state="attached", timeout=20000)
+                            
+                            # 5.2 Specific content check
                             if is_video:
-                                await page.wait_for_selector('[data-testid="attachments"] video', state="attached", timeout=30000)
+                                log("Waiting for video element or processing state...")
+                                # Increased timeout for video processing/thumbnail appearance
+                                try:
+                                    await page.wait_for_selector('[data-testid="attachments"] video', state="attached", timeout=60000)
+                                    log("✅ Video tag confirmed.")
+                                except:
+                                    # Fallback: Check if processing is happening
+                                    inner = await page.locator('[data-testid="attachments"]').inner_html()
+                                    if any(x in inner.lower() for x in ["progressbar", "proces", "loading", "load", "subiend", "enviand"]):
+                                        log("✅ Media confirmed via processing indicators.")
+                                    else:
+                                        # One last attempt for the video tag with extra time
+                                        await page.wait_for_selector('[data-testid="attachments"] video', state="attached", timeout=30000)
+                                        log("✅ Video tag confirmed (after extended wait).")
                             else:
                                 await page.wait_for_selector('[data-testid="attachments"] img', state="attached", timeout=20000)
+                                log("✅ Image confirmed.")
+                            
                             media_confirmed = True
-                            log("✅ Media confirmed in composer.")
-                        except:
-                            log("⚠️ Media NOT detected after wait.")
+                        except Exception as conf_e:
+                            log(f"⚠️ Media NOT detected: {conf_e}")
                             try:
+                                # Detailed debug dump
                                 diag_path = os.path.join(settings.DATA_DIR, "screenshots", f"retry_fail_{attempt}_{int(asyncio.get_event_loop().time())}.png")
                                 await page.screenshot(path=diag_path)
+                                
+                                # Capture HTML of attachments area for analysis
+                                if await page.locator('[data-testid="attachments"]').count() > 0:
+                                    html_dump = await page.locator('[data-testid="attachments"]').inner_html()
+                                    log(f"DEBUG - Attachments HTML: {html_dump[:500]}...")
+                                else:
+                                    log("DEBUG - Attachments container NOT present in DOM.")
                             except: pass
                             
                             if attempt == 0:
                                 log("🔄 REFRESHING PAGE FOR RETRY...")
                                 await page.reload(wait_until="networkidle")
-                                await human_delay(2, 4)
+                                await human_delay(3, 5)
                                 continue
 
                 if media_confirmed:
