@@ -274,11 +274,7 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                             valid_paths = actually_valid
                             log(f"Uploading {len(valid_paths)} files (isVideo={is_video})")
                         
-                        # Pre-upload diagnostics (Fix: Removed full_page=True to avoid OOM)
-                        try:
-                            diag_before = os.path.join(settings.DATA_DIR, "screenshots", f"before_upload_{int(asyncio.get_event_loop().time())}.png")
-                            await page.screenshot(path=diag_before)
-                        except: pass
+                        # Removed pre-upload screenshot to save memory
                         
                         # Upload sequence
                         try:
@@ -363,8 +359,8 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                         # 5. Media Confirmation
                         try:
                             # 5.1 Primary check: Look for the container
-                            log("Waiting for attachments container...")
-                            await page.wait_for_selector('[data-testid="attachments"]', state="attached", timeout=20000)
+                            log("Waiting for attachments container (60s timeout)...")
+                            await page.wait_for_selector('[data-testid="attachments"]', state="attached", timeout=60000)
                             
                             # 5.2 Specific content check
                             if is_video:
@@ -389,17 +385,6 @@ async def publish_post_task(content, media_paths=None, reply_to_id=None, usernam
                             media_confirmed = True
                         except Exception as conf_e:
                             log(f"⚠️ Media NOT detected: {conf_e}")
-                            try:
-                                # Detailed debug dump
-                                diag_path = os.path.join(settings.DATA_DIR, "screenshots", f"retry_fail_{attempt}_{int(asyncio.get_event_loop().time())}.png")
-                                await page.screenshot(path=diag_path)
-                                
-                                # Capture HTML of attachments area for analysis
-                                if await page.locator('[data-testid="attachments"]').count() > 0:
-                                    html_dump = await page.locator('[data-testid="attachments"]').inner_html()
-                                    log(f"DEBUG - Attachments HTML: {html_dump[:500]}...")
-                                else:
-                                    log("DEBUG - Attachments container NOT present in DOM.")
                             except: pass
                             
                             if attempt == 0:
